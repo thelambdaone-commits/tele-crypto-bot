@@ -6,12 +6,23 @@ dotenv.config();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+function parseIdList(value) {
+  return value
+    ? value.split(',').map(id => Number(id.trim())).filter(id => !isNaN(id))
+    : [];
+}
+
+const adminChatId = parseIdList(process.env.ADMIN_CHAT_ID);
+const adminUserId = [
+  ...parseIdList(process.env.ADMIN_USER_ID || process.env.ADMIN_USER_IDS),
+  ...adminChatId.filter(id => id > 0),
+];
+
 export const config = {
   botToken: process.env.BOT_TOKEN,
   masterKey: process.env.MASTER_ENCRYPTION_KEY,
-  adminChatId: process.env.ADMIN_CHAT_ID
-    ? process.env.ADMIN_CHAT_ID.split(',').map(id => Number(id.trim())).filter(id => !isNaN(id))
-    : [],
+  adminChatId,
+  adminUserId: [...new Set(adminUserId)],
   dataPath: process.env.DATA_PATH || resolve(__dirname, '../../data'),
   rateLimit: Number.parseInt(process.env.RATE_LIMIT || '30'),
 

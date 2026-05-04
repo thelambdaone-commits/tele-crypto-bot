@@ -1,7 +1,6 @@
 /**
  * Handlers Index - Aggregates all modular handlers
  */
-import { Markup } from 'telegraf';
 import { setupStartHandler } from './start/index.js';
 import { setupWalletHandlers } from './wallet/index.js';
 import { setupKeysHandlers } from './keys/index.js';
@@ -19,7 +18,6 @@ import { SessionManager } from '../session.js';
 import { WalletService } from '../../modules/wallet/wallet.service.js';
 import { config } from '../../core/config.js';
 import { globalRateLimit, cleanupLimiters } from '../middlewares/security.middleware.js';
-import { safeAnswerCbQuery } from '../utils.js';
 
 /**
  * Setup all handlers
@@ -45,14 +43,18 @@ export async function setupHandlers(bot, storage) {
     if (chatType === 'private' && ctx.from) {
       try {
         await storage.updateUserProfile(chatId, ctx.from.first_name || 'N/A', ctx.from.username || null);
-      } catch (e) {}
+      } catch (e) {
+        console.log(`[PROFILE] Failed to update user profile ${chatId}: ${e.message}`);
+      }
     }
 
     if ((chatType === 'group' || chatType === 'supergroup') && !config.adminChatId.includes(chatId)) {
       try {
         await ctx.reply('Ce bot est destine a un usage personnel uniquement.');
         await ctx.leaveChat();
-      } catch (e) {}
+      } catch (e) {
+        console.log(`[SECURITY] Failed to leave unauthorized chat ${chatId}: ${e.message}`);
+      }
       return;
     }
 
@@ -92,7 +94,7 @@ export async function setupHandlers(bot, storage) {
 
   bot.hears('👑 Admin', async (ctx) => {
     const { isAdmin } = await import('../middlewares/auth.middleware.js');
-    if (!isAdmin(ctx.chat.id)) return ctx.reply('❌ Accès réservé aux admins.');
+    if (!isAdmin(ctx)) return ctx.reply('❌ Accès réservé aux admins.');
     const { adminExtendedKeyboard } = await import('../keyboards/index.js');
     ctx.reply('👑 *Panel Admin*', adminExtendedKeyboard());
   });

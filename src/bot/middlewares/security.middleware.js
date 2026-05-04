@@ -1,5 +1,6 @@
 import { RateLimiter } from '../../shared/security/rate-limit.js';
 import { config } from '../../core/config.js';
+import { isAdmin } from './auth.middleware.js';
 
 // Different rate limiters for different action types
 const limiters = {
@@ -16,7 +17,7 @@ export function globalRateLimit(ctx, next) {
   if (!chatId) return next();
 
   // Admin bypass
-  if (config.adminChatId.includes(chatId)) return next();
+  if (isAdmin(ctx)) return next();
 
   const check = limiters.global.isAllowed(chatId);
 
@@ -38,7 +39,7 @@ export function sensitiveRateLimit(ctx, next) {
   if (!chatId) return next();
 
   // Admin bypass
-  if (config.adminChatId.includes(chatId)) return next();
+  if (isAdmin(ctx)) return next();
 
   const check = limiters.sensitive.isAllowed(chatId);
 

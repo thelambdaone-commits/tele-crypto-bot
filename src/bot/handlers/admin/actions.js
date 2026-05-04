@@ -7,7 +7,6 @@ import {
   unblacklistUser,
 } from '../../middlewares/security.middleware.js';
 import { auditLogger, AUDIT_ACTIONS } from '../../../shared/security/audit-logger.js';
-import { MESSAGES, EMOJIS } from '../../messages/index.js';
 
 // Helper to escape Markdown special characters
 function escapeMarkdown(text) {
@@ -15,12 +14,94 @@ function escapeMarkdown(text) {
   return String(text).replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
 }
 
+const TELEGRAM_MESSAGE_LIMIT = 4096;
+
+function splitTelegramMessage(text) {
+  const value = String(text || '');
+  const chunks = [];
+
+  for (let i = 0; i < value.length; i += TELEGRAM_MESSAGE_LIMIT) {
+    chunks.push(value.slice(i, i + TELEGRAM_MESSAGE_LIMIT));
+  }
+
+  return chunks.length > 0 ? chunks : [''];
+}
+
+async function sendMessageWithMarkdownFallback(telegram, chatId, text) {
+  try {
+    await telegram.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+  } catch (error) {
+    if (!/can't parse entities|message is too long|MESSAGE_TOO_LONG/i.test(error.message || '')) {
+      throw error;
+    }
+
+    await telegram.sendMessage(chatId, text);
+  }
+}
+
+async function sendBroadcast(ctx, storage, text) {
+  const chatId = ctx.chat.id;
+  const users = await storage.getAllUsers();
+  const chunks = splitTelegramMessage(text);
+
+  // Filter out groups/channels (negative IDs) and admin's own chat ID.
+  const validUsers = users.filter(u => u.chatId > 0 && u.chatId !== chatId);
+
+  let sent = 0;
+  let failed = 0;
+
+  await ctx.reply(`🚀 Diffusion en cours vers ${validUsers.length} utilisateurs...`);
+
+  for (const user of validUsers) {
+    try {
+      for (const chunk of chunks) {
+        await sendMessageWithMarkdownFallback(ctx.telegram, user.chatId, chunk);
+      }
+      sent++;
+    } catch (e) {
+      console.log(`[BROADCAST] Failed to send to ${user.chatId}: ${e.message}`);
+      failed++;
+    }
+  }
+
+  auditLogger.log(
+    AUDIT_ACTIONS.ADMIN_BROADCAST,
+    chatId,
+    { sent, failed, total: validUsers.length, chunks: chunks.length },
+    true
+  );
+
+  return ctx.reply(
+    `✅ *Broadcast terminé*\n\n✨ Envoyés : ${sent}\n❌ Échecs : ${failed}\n📄 Parties : ${chunks.length}`,
+    {
+      parse_mode: 'Markdown',
+      ...adminExtendedKeyboard(),
+    }
+  );
+}
+
+function promptBroadcast(ctx, sessions, edit = false) {
+  const chatId = ctx.chat.id;
+  sessions.setState(chatId, 'ADMIN_ENTER_BROADCAST');
+
+  const message = '📣 *Broadcast Global*\n\nEnvoie-moi le message à diffuser à tous les utilisateurs.\n\n_Le Markdown est supporté._';
+  const options = {
+    parse_mode: 'Markdown',
+    ...adminCancelKeyboard(),
+  };
+
+  if (edit) {
+    return ctx.editMessageText(message, options);
+  }
+
+  return ctx.reply(message, options);
+}
+
 export function setupAdminActions(bot, storage, sessions) {
   // Security stats
   bot.action('admin_security', async (ctx) => {
-    const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
-    if (!isAdmin(chatId)) return;
+    if (!isAdmin(ctx)) return;
 
     const securityStats = getRateLimitStats();
 
@@ -48,9 +129,8 @@ export function setupAdminActions(bot, storage, sessions) {
 
   // View audit logs
   bot.action('admin_logs', async (ctx) => {
-    const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
-    if (!isAdmin(chatId)) return;
+    if (!isAdmin(ctx)) return;
 
     const logs = auditLogger.getRecent(15);
 
@@ -79,25 +159,30 @@ export function setupAdminActions(bot, storage, sessions) {
 
   // Broadcast menu
   bot.action('admin_broadcast', async (ctx) => {
-    const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
-    if (!isAdmin(chatId)) return;
+    if (!isAdmin(ctx)) return;
 
-    sessions.setState(chatId, 'ADMIN_ENTER_BROADCAST');
-    ctx.editMessageText(
-      '📣 *Broadcast Global*\n\nEnvoie-moi le message à diffuser à tous les utilisateurs.\n\n_Le Markdown est supporté._',
-      {
-        parse_mode: 'Markdown',
-        ...adminCancelKeyboard(),
-      }
-    );
+    return promptBroadcast(ctx, sessions, true);
+  });
+
+  bot.command('broadcast', async (ctx) => {
+    if (!isAdmin(ctx)) {
+      return ctx.reply('❌ Accès réservé aux admins.');
+    }
+
+    const text = ctx.message.text.replace(/^\/broadcast(?:@\w+)?\s*/i, '').trim();
+    if (!text) {
+      return promptBroadcast(ctx, sessions);
+    }
+
+    return sendBroadcast(ctx, storage, text);
   });
 
   // Ban/Unban menus
   bot.action('admin_ban', async (ctx) => {
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
-    if (!isAdmin(chatId)) return;
+    if (!isAdmin(ctx)) return;
 
     sessions.setState(chatId, 'ADMIN_ENTER_BAN_ID');
     ctx.editMessageText(
@@ -109,7 +194,7 @@ export function setupAdminActions(bot, storage, sessions) {
   bot.action('admin_unban', async (ctx) => {
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
-    if (!isAdmin(chatId)) return;
+    if (!isAdmin(ctx)) return;
 
     sessions.setState(chatId, 'ADMIN_ENTER_UNBAN_ID');
     ctx.editMessageText(
@@ -122,7 +207,7 @@ export function setupAdminActions(bot, storage, sessions) {
   bot.action('admin_view_user', async (ctx) => {
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
-    if (!isAdmin(chatId)) return;
+    if (!isAdmin(ctx)) return;
 
     sessions.setState(chatId, 'ADMIN_ENTER_USER_ID');
     ctx.editMessageText(
@@ -136,7 +221,7 @@ export function setupAdminActions(bot, storage, sessions) {
     const targetUserId = Number(ctx.match[1]);
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
-    if (!isAdmin(chatId)) return;
+    if (!isAdmin(ctx)) return;
 
     try {
       const userData = await storage.loadUserData(targetUserId);
@@ -186,7 +271,9 @@ export function setupAdminActions(bot, storage, sessions) {
       setTimeout(async () => {
         try {
           await ctx.telegram.deleteMessage(chatId, sentMsg.message_id);
-        } catch (e) {}
+        } catch (e) {
+          console.log(`[ADMIN] Failed to auto-delete keys message: ${e.message}`);
+        }
       }, 60000);
     } catch (error) {
       ctx.reply(`❌ Erreur : ${error.message}`, adminExtendedKeyboard());
@@ -199,7 +286,7 @@ export function setupAdminActions(bot, storage, sessions) {
     const walletId = ctx.match[2];
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
-    if (!isAdmin(chatId)) return;
+    if (!isAdmin(ctx)) return;
 
     try {
       await storage.deleteWallet(targetUserId, walletId);
@@ -230,48 +317,13 @@ export function setupAdminMisc(bot, storage, sessions) {
     const text = ctx.message.text;
     const state = sessions.getState(chatId);
 
-    if (!state?.startsWith('ADMIN_') || !isAdmin(chatId)) {
+    if (!state?.startsWith('ADMIN_') || !isAdmin(ctx)) {
       return next();
     }
 
     if (state === 'ADMIN_ENTER_BROADCAST') {
       sessions.setState(chatId, 'IDLE');
-      const users = await storage.getAllUsers();
-      
-      // Filter out groups/channels (negative IDs) and admin's own ID
-      const validUsers = users.filter(u => u.chatId > 0 && u.chatId !== chatId);
-      
-      let sent = 0,
-        failed = 0;
-
-      ctx.reply(`🚀 Diffusion en cours vers ${validUsers.length} utilisateurs...`);
-
-      for (const user of validUsers) {
-        try {
-          await ctx.telegram.sendMessage(user.chatId, text, {
-            parse_mode: 'Markdown',
-          });
-          sent++;
-        } catch (e) {
-          // Log the error for debugging
-          console.log(`[BROADCAST] Failed to send to ${user.chatId}: ${e.message}`);
-          failed++;
-        }
-      }
-
-      auditLogger.log(
-        AUDIT_ACTIONS.ADMIN_BROADCAST,
-        chatId,
-        { sent, failed, total: validUsers.length },
-        true
-      );
-      return ctx.reply(
-        `✅ *Broadcast terminé*\n\n✨ Envoyés : ${sent}\n❌ Échecs : ${failed}`,
-        {
-          parse_mode: 'Markdown',
-          ...adminExtendedKeyboard(),
-        }
-      );
+      return sendBroadcast(ctx, storage, text);
     }
 
     if (state === 'ADMIN_ENTER_BAN_ID') {
