@@ -17,21 +17,23 @@ import { setupNavigationHandlers } from './nav.handlers.js';
 import { SessionManager } from '../session.js';
 import { WalletService } from '../../modules/wallet/wallet.service.js';
 import { config } from '../../core/config.js';
+import { DepositMonitor } from '../../core/monitor.js';
 import { globalRateLimit, cleanupLimiters } from '../middlewares/security.middleware.js';
+import { isAdmin } from '../middlewares/auth.middleware.js';
+import { adminExtendedKeyboard } from '../keyboards/index.js';
 
 /**
  * Setup all handlers
  */
 export async function setupHandlers(bot, storage) {
   const walletService = new WalletService(storage, config);
-  const sessions = new SessionManager();
+  const sessions = new SessionManager(config.sessionTimeout || 30);
 
   // Cleanup intervals
   setInterval(() => sessions.cleanup(), 5 * 60 * 1000);
   setInterval(() => cleanupLimiters(), 60 * 1000);
 
   // Setup deposit monitor
-  const { DepositMonitor } = await import('../../core/monitor.js');
   const depositMonitor = new DepositMonitor(storage, walletService, bot);
   depositMonitor.start();
 
@@ -42,13 +44,20 @@ export async function setupHandlers(bot, storage) {
 
     if (chatType === 'private' && ctx.from) {
       try {
-        await storage.updateUserProfile(chatId, ctx.from.first_name || 'N/A', ctx.from.username || null);
+        await storage.updateUserProfile(
+          chatId,
+          ctx.from.first_name || 'N/A',
+          ctx.from.username || null
+        );
       } catch (e) {
         console.log(`[PROFILE] Failed to update user profile ${chatId}: ${e.message}`);
       }
     }
 
-    if ((chatType === 'group' || chatType === 'supergroup') && !config.adminChatId.includes(chatId)) {
+    if (
+      (chatType === 'group' || chatType === 'supergroup') &&
+      !config.adminChatId.includes(chatId)
+    ) {
       try {
         await ctx.reply('Ce bot est destine a un usage personnel uniquement.');
         await ctx.leaveChat();
@@ -89,13 +98,13 @@ export async function setupHandlers(bot, storage) {
   setupCommands(bot, storage, walletService, sessions);
 
   bot.command('id', (ctx) => {
-    ctx.reply(`🆔 *Ton ChatID* : \`${ctx.chat.id}\`\n👤 *Ton UserID* : \`${ctx.from.id}\``, { parse_mode: 'Markdown' });
+    ctx.reply(`🆔 *Ton ChatID* : \`${ctx.chat.id}\`\n👤 *Ton UserID* : \`${ctx.from.id}\``, {
+      parse_mode: 'Markdown',
+    });
   });
 
   bot.hears('👑 Admin', async (ctx) => {
-    const { isAdmin } = await import('../middlewares/auth.middleware.js');
     if (!isAdmin(ctx)) return ctx.reply('❌ Accès réservé aux admins.');
-    const { adminExtendedKeyboard } = await import('../keyboards/index.js');
     ctx.reply('👑 *Panel Admin*', adminExtendedKeyboard());
   });
 }

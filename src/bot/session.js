@@ -3,8 +3,9 @@
  * Sessions expire after a configurable timeout
  */
 export class SessionManager {
-  constructor() {
+  constructor(timeoutMinutes = 30) {
     this.sessions = new Map();
+    this.timeoutMinutes = timeoutMinutes;
   }
 
   _getSession(chatId) {
@@ -53,7 +54,7 @@ export class SessionManager {
 
   cleanup() {
     const now = Date.now();
-    const expiry = 30 * 60 * 1000;
+    const expiry = this.timeoutMinutes * 60 * 1000;
 
     for (const [chatId, session] of this.sessions) {
       if (now - session.lastActivity > expiry) {
