@@ -2,23 +2,77 @@ import { ethers } from 'ethers';
 import { BaseProvider } from './base.provider.js';
 import { TOKEN_CONFIGS, ERC20_ABI } from '../core/tokens.config.js';
 import { withTimeout } from '../shared/rpc-timeout.js';
+import { RpcManager } from '../shared/rpc/RpcManager.js';
+import { TransactionError, ERROR_CODES } from '../shared/errors.js';
 
 export class EvmBaseProvider extends BaseProvider {
   constructor(config) {
     super(config.name, config.symbol);
     this.nativeSymbol = config.nativeSymbol || config.symbol;
     this.rpcUrl = config.rpcUrl;
+    this.rpcUrls = [...new Set([config.rpcUrl, ...(config.fallbackRpcUrls || [])].filter(Boolean))];
     this.tokenConfigKey = config.tokenConfigKey;
     this.explorer = config.explorer || null;
     this._provider = null;
+    this._providers = new Map();
     this.tokenAddresses = TOKEN_CONFIGS[this.tokenConfigKey]?.tokens || {};
+    this.balanceRpc = new RpcManager(
+      this.rpcUrls,
+      async (endpoint, { address }) => this._getNativeBalanceFromEndpoint(endpoint, address),
+      { requestTimeoutMs: 8000, failureThreshold: 2, baseDelayMs: 200 }
+    );
   }
 
-  getProvider() {
-    if (!this._provider) {
-      this._provider = new ethers.JsonRpcProvider(this.rpcUrl);
+  getProvider(endpoint = this.rpcUrl) {
+    if (!this._providers.has(endpoint)) {
+      this._providers.set(endpoint, new ethers.JsonRpcProvider(endpoint));
     }
-    return this._provider;
+    return this._providers.get(endpoint);
+  }
+
+  async _rpcCall(endpoint, method, params) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: Date.now(),
+          method,
+          params,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`RPC HTTP ${response.status}`);
+      }
+
+      const payload = await response.json();
+      if (payload.error) {
+        throw new Error(payload.error.message || 'RPC error');
+      }
+
+      return payload.result;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async _getNativeBalanceFromEndpoint(endpoint, address) {
+    const rawBalance = await this._rpcCall(endpoint, 'eth_getBalance', [address, 'latest']);
+    const balance = BigInt(rawBalance || '0x0');
+
+    return {
+      balance: ethers.formatEther(balance),
+      balanceWei: balance.toString(),
+      symbol: this.nativeSymbol,
+      isToken: false,
+      rpcEndpoint: endpoint,
+    };
   }
 
   async createWallet() {
@@ -68,13 +122,15 @@ export class EvmBaseProvider extends BaseProvider {
       };
     }
 
-    const balance = await withTimeout(provider.getBalance(address), 15000);
-    return {
-      balance: ethers.formatEther(balance),
-      balanceWei: balance.toString(),
-      symbol: this.nativeSymbol,
-      isToken: false,
-    };
+    try {
+      return await this.balanceRpc.execute({ address });
+    } catch (error) {
+      throw new TransactionError('Unable to fetch balance - EVM RPC issue', {
+        code: ERROR_CODES.RPC_ERROR,
+        chain: this.symbol,
+        details: error.message,
+      });
+    }
   }
 
   async getAllTokens(address) {

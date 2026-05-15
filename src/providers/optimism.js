@@ -6,7 +6,12 @@ export class OptimismChain extends EvmBaseProvider {
       name: 'Optimism',
       symbol: 'OP',
       nativeSymbol: 'ETH',
-      rpcUrl,
+      rpcUrl: rpcUrl || 'https://mainnet.optimism.io',
+      fallbackRpcUrls: [
+        'https://mainnet.optimism.io',
+        'https://optimism.llamarpc.com',
+        'https://optimism-rpc.publicnode.com',
+      ],
       tokenConfigKey: 'op',
       explorer: 'https://optimism.io',
     });

@@ -30,9 +30,7 @@ test('EthereumChain imports from seed correctly', async () => {
 
 test('EthereumChain preserves fractional native balances', async () => {
   const provider = new EthereumChain('https://eth.llamarpc.com');
-  provider.getProvider = () => ({
-    getBalance: async () => 123456789012345678n,
-  });
+  provider._rpcCall = async () => '0x1b69b4ba630f34e';
 
   const balance = await provider.getBalance('0x742d35Cc6634C0532925a3b844Bc454e4438f44e');
 
