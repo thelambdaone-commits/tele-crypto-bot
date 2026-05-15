@@ -101,12 +101,12 @@ export function setupStartHandler(bot, storage, walletService) {
           }
 
           // Build message with all seed phrases
-          let message = '🎉 *Tes 3 wallets sont prêts \\!*\n\n';
+          let message = '🎉 *Tes 3 wallets sont prêts !*\n\n';
 
           for (const wallet of createdWallets) {
             const chainName = { eth: 'Ethereum', btc: 'Bitcoin', sol: 'Solana' }[wallet.chain];
             const escapedMnemonic = wallet.mnemonic
-              ? wallet.mnemonic.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&')
+              ? escapeMarkdown(wallet.mnemonic)
               : null;
 
             message += `*${chainName}*\n`;
@@ -118,11 +118,11 @@ export function setupStartHandler(bot, storage, walletService) {
           }
 
           message +=
-            '⚠️ *IMPORTANT :* Sauvegarde bien ces phrases de récupération\\. Elles ne seront plus affichées\\.\n\n';
-          message += '🕐 _Ce message sera supprimé dans 60 secondes pour ta sécurité\\._';
+            '⚠️ *IMPORTANT :* Sauvegarde bien ces phrases de récupération. Elles ne seront plus affichées.\n\n';
+          message += '🕐 _Ce message sera supprimé dans 60 secondes pour ta sécurité._';
 
           const sentMsg = await ctx.reply(message, {
-            parse_mode: 'MarkdownV2',
+            parse_mode: 'Markdown',
             ...mainReplyKeyboard(),
           });
 
