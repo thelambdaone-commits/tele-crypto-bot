@@ -5,7 +5,6 @@ Bot Telegram modulaire pour gerer des wallets crypto multi-chain, suivre les sol
 ## ⚡ Pour Commencer
 
 ```bash
-git clone https://github.com/thelambdaone-commits/telegram-crypto-bot-v1.git
 cd telegram-crypto-bot
 npm install
 cp .env.example .env
@@ -47,14 +46,14 @@ src/
 
 Le bot garde les integrations separees par module. La logique Polymarket ne depend pas des handlers generiques hors points d'entree Telegram, et le code CLOB/Data API reste dans `src/clob/`.
 
-## 📋 Prerequisites
+## 📋 Prérequis
 
 - Node.js `>=20.18.0`
 - npm
 - Un token Telegram BotFather
 - Une cle de chiffrement 32 bytes en hexadecimal
 
-###🔑 Generation de la cle de chiffrement
+### 🔑 Generation de la cle de chiffrement
 
 ```bash
 openssl rand -hex 32
@@ -73,25 +72,61 @@ Editez ensuite `.env` avec vos valeurs reelles.
 
 ## ⚙️ Configuration
 
-Variables minimales :
+### Variables Requises
 
 | Variable | Description |
 | --- | --- |
 | `BOT_TOKEN` | Token Telegram cree via BotFather |
-| `MASTER_ENCRYPTION_KEY` | Cle hex 64 caracteres pour chiffrer les secrets |
-| `ADMIN_CHAT_ID` | Un ou plusieurs IDs Telegram separes par des virgules |
-| `SOL_RPC_URL` | RPC Solana |
-| `DATA_PATH` | Dossier de stockage local, par defaut `./data` |
+| `MASTER_ENCRYPTION_KEY` | Cle hex 64 caracteres (AES-256-GCM) |
+| `ADMIN_USER_ID` | ID Telegram autorise a utiliser `/admin` |
+| `SOL_RPC_URL` | RPC Solana (Helius, QuickNode, etc.) |
+
+### Variables Optionnelles
+
+| Variable | Defaut | Description |
+| --- | --- | --- |
+| `DATA_PATH` | `./data` | Dossier de stockage local |
+| `ADMIN_CHAT_ID` | — | IDs de chats autorises (separes par virgules) |
+| `SESSION_TIMEOUT` | `5` | Timeout de session en minutes |
+| `RATE_LIMIT` | `30` | Requetes par minute |
+
+<details>
+<summary><b>RPC & Endpoints</b> (cliquer pour déplier)</summary>
+
+| Variable | Defaut |
+| --- | --- |
+| `ETH_RPC_URL` | `https://eth.llamarpc.com` |
+| `BTC_API_URL` | `https://mempool.space/api` |
+| `POLYGON_RPC_URL` | `https://polygon-rpc.com` |
+| `ARB_RPC_URL` | `https://arb1.arbitrum.io/rpc` |
+| `LTC_API_URL` | `https://litecoinspace.org/api` |
+| `BCH_API_URL` | `https://api.blockchain.info/bch` |
+| `OPTIMISM_RPC_URL` | `https://mainnet.optimism.io` |
+| `BASE_RPC_URL` | `https://mainnet.base.org` |
+
+</details>
+
+<details>
+<summary><b>CoinGecko</b> (optionnel, recommande si l'API publique renvoie 401/429)</summary>
+
+| Variable | Defaut | Description |
+| --- | --- | --- |
+| `COINGECKO_API_URL` | `https://api.coingecko.com/api/v3` | Endpoint API |
+| `COINGECKO_API_KEY` | — | Cle API (demo ou pro) |
+| `COINGECKO_API_KEY_HEADER` | `x-cg-demo-api-key` | Header d'authentification |
+
+</details>
 
 ### Variables Polymarket
 
-| Variable | Description |
-| --- | --- |
-| `POLYMARKET_HOST` | Endpoint CLOB, par defaut `https://clob.polymarket.com` |
-| `POLYMARKET_CHAIN_ID` | Chain ID Polygon, par defaut `137` |
-| `POLYMARKET_FEED_ENABLED` | Active/desactive le feed Polymarket |
-| `POLYMARKET_FEED_INTERVAL` | Intervalle du feed en millisecondes |
-| `POLYMARKET_ALERT_CHAT_ID` | Chat cible pour les alertes feed |
+| Variable | Defaut | Description |
+| --- | --- | --- |
+| `POLYMARKET_HOST` | `https://clob.polymarket.com` | Endpoint CLOB |
+| `POLYMARKET_CHAIN_ID` | `137` | Chain ID Polygon |
+| `POLYMARKET_FEED_ENABLED` | `false` | Active/desactive le feed |
+| `POLYMARKET_FEED_INTERVAL` | `60000` | Intervalle du feed (ms) |
+| `POLYMARKET_ALERT_CHAT_ID` | — | Chat cible pour les alertes |
+| `POLYFILL_RS_ENV_PATH` | — | Chemin d'export .env pour polymarket-copy-trade |
 
 Les API keys Polymarket ne sont pas placees dans `.env`. Elles sont derivees automatiquement depuis le wallet quand possible, ou saisies dans Telegram en fallback, puis stockees chiffrees.
 
