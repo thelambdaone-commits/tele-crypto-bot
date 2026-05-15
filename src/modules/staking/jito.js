@@ -6,11 +6,13 @@
 import { PublicKey, Connection } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
 import { getPricesEUR } from '../../shared/price.js';
+import { config } from '../../core/config.js';
+import { logger } from '../../shared/logger.js';
 
 const JITO_MINT = 'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn';
-const JITO_RPC = 'https://mainnet.helius-rpc.com/?api-key=1d8740dc-e5f4-421c-b823-e1bad1889eff';
+const JITO_RPC = config.rpc.stakingSol || config.rpc.sol;
 const JUPITER_API = 'https://api.jup.ag';
-const SOL_RPC = process.env.SOL_RPC_URL || JITO_RPC;
+const SOL_RPC = JITO_RPC;
 
 // Jito Stake Pool Constants
 const STAKE_POOL_PROGRAM_ID = new PublicKey('SPoo1Ku8WFXoNDS9keSTneZabDECtSTAkgSxzZByMkB');
@@ -32,7 +34,7 @@ const getConnection = () => {
 
 export class JitoService {
   static async getBalance(walletAddress, retryCount = 3) {
-    console.log(`[JITO] getBalance for: ${walletAddress}`);
+    logger.debug('getBalance called', { service: 'jito', walletAddress });
 
     try {
       const walletPubkey = new PublicKey(walletAddress);
@@ -85,7 +87,7 @@ export class JitoService {
         hasAccount: hasAccount,
       };
     } catch (error) {
-      console.log('[JITO] getBalance error:', error.message || error);
+      logger.logError(error, { context: 'jito.getBalance', walletAddress });
       return { success: false, balance: 0, error: error.message };
     }
   }
@@ -144,9 +146,11 @@ export class JitoService {
       const SOL_MINT = 'So11111111111111111111111111111111111111112';
       const amountLamports = Math.floor(amountSOL * 1e9);
 
-      console.log(
-        `[JITO] Enter: Calling Jupiter quote for SOL->JitoSOL, amountLamports=${amountLamports}`
-      );
+      logger.debug('Enter: Calling Jupiter quote', { 
+        service: 'jito', 
+        amountSOL, 
+        amountLamports 
+      });
 
       const quoteResponse = await fetch(
         `${JUPITER_API}/swap/v1/quote?inputMint=${SOL_MINT}&outputMint=${JITO_MINT}&amount=${amountLamports}&slippageBps=50`
@@ -154,15 +158,19 @@ export class JitoService {
 
       if (!quoteResponse.ok) {
         const errText = await quoteResponse.text();
-        console.error(`[JITO] Quote failed: ${quoteResponse.status} - ${errText}`);
+        logger.error('Jupiter quote failed', { 
+          service: 'jito', 
+          status: quoteResponse.status, 
+          error: errText 
+        });
         return { success: false, error: `Failed to get Jupiter quote: ${quoteResponse.status}` };
       }
 
       const quoteData = await quoteResponse.json();
-      console.log('[JITO] Quote response:', JSON.stringify(quoteData).slice(0, 500));
+      logger.debug('Quote response received', { service: 'jito' });
 
       if (!quoteData || !quoteData.outAmount) {
-        console.error('[JITO] Invalid quote data:', quoteData);
+        logger.error('Invalid quote data', { service: 'jito', quoteData });
         return { success: false, error: 'Invalid quote from Jupiter' };
       }
 
@@ -173,7 +181,7 @@ export class JitoService {
       const fromKeypair = Keypair.fromSecretKey(secretKey);
       const userPublicKey = fromKeypair.publicKey.toString();
 
-      console.log(`[JITO] Building swap transaction for user: ${userPublicKey}`);
+      logger.debug('Building swap transaction', { service: 'jito', userPublicKey });
 
       const swapTxResponse = await fetch(`${JUPITER_API}/swap/v1/swap`, {
         method: 'POST',
@@ -188,7 +196,11 @@ export class JitoService {
 
       if (!swapTxResponse.ok) {
         const errText = await swapTxResponse.text();
-        console.error(`[JITO] Swap build failed: ${swapTxResponse.status} - ${errText}`);
+        logger.error('Swap build failed', { 
+          service: 'jito', 
+          status: swapTxResponse.status, 
+          error: errText 
+        });
         return {
           success: false,
           error: `Failed to build swap transaction: ${swapTxResponse.status}`,
@@ -196,10 +208,10 @@ export class JitoService {
       }
 
       const swapData = await swapTxResponse.json();
-      console.log(`[JITO] Swap built, tx length: ${swapData.swapTransaction?.length || 0}`);
+      logger.debug('Swap built', { service: 'jito', txLength: swapData.swapTransaction?.length || 0 });
 
       if (!swapData.swapTransaction) {
-        console.error('[JITO] No swapTransaction in response:', swapData);
+        logger.error('No swapTransaction in response', { service: 'jito', swapData });
         return { success: false, error: 'No swap transaction returned' };
       }
 
@@ -213,10 +225,10 @@ export class JitoService {
 
       const conn = new Connection(rpcUrl, 'confirmed');
       const signature = await conn.sendTransaction(swapTransaction);
-      console.log(`[JITO] Transaction sent: ${signature}`);
+      logger.info('Transaction sent', { service: 'jito', signature });
 
       await conn.confirmTransaction(signature, 'confirmed');
-      console.log(`[JITO] Transaction confirmed: ${signature}`);
+      logger.info('Transaction confirmed', { service: 'jito', signature });
 
       return {
         success: true,
@@ -317,7 +329,11 @@ export class JitoService {
 
       if (!swapTxResponse.ok) {
         const errText = await swapTxResponse.text();
-        console.error(`[JITO] Swap build failed: ${swapTxResponse.status} - ${errText}`);
+        logger.error('ExitFast Swap build failed', { 
+          service: 'jito', 
+          status: swapTxResponse.status, 
+          error: errText 
+        });
         return { success: false, error: 'Failed to build swap transaction' };
       }
 
@@ -334,10 +350,10 @@ export class JitoService {
       swapTransaction.sign([fromKeypair]);
 
       const signature = await conn.sendTransaction(swapTransaction);
-      console.log(`[JITO] ExitFast Transaction sent: ${signature}`);
+      logger.info('ExitFast Transaction sent', { service: 'jito', signature });
 
       await conn.confirmTransaction(signature, 'confirmed');
-      console.log(`[JITO] ExitFast Transaction confirmed: ${signature}`);
+      logger.info('ExitFast Transaction confirmed', { service: 'jito', signature });
 
       return {
         success: true,
@@ -360,7 +376,7 @@ export class JitoService {
   }
 
   static async exitStandard(walletPrivateKey, amountJitoSOL) {
-    console.log(`[JITO] Initiating real Standard Exit for ${amountJitoSOL} JitoSOL`);
+    logger.info('Initiating Standard Exit', { service: 'jito', amountJitoSOL });
     try {
       const { Keypair, Transaction, TransactionInstruction, SystemProgram, StakeProgram } =
         await import('@solana/web3.js');
@@ -493,15 +509,13 @@ export class JitoService {
         stakeAccountAddress: tempStakeAccount.publicKey.toString(),
       };
     } catch (error) {
-      console.error('[JITO] exitStandard error:', error.message);
+      logger.logError(error, { context: 'jito.exitStandard' });
       return { success: false, error: error.message };
     }
   }
 
   static async getPendingStandardExits(walletAddress, specificAddress = null) {
-    console.log(
-      `[JITO] Checking pending exits for wallet ${walletAddress}${specificAddress ? ` (specific: ${specificAddress})` : ''}`
-    );
+    logger.debug('Checking pending exits', { service: 'jito', walletAddress, specificAddress });
     try {
       const conn = getConnection();
       const STAKE_PROGRAM_ID = new PublicKey('Stake11111111111111111111111111111111111111');
@@ -509,23 +523,21 @@ export class JitoService {
       let stakeAccounts = [];
 
       if (specificAddress) {
-        console.log(`[JITO] Explicitly checking address: ${specificAddress}`);
+        logger.debug('Explicitly checking address', { service: 'jito', specificAddress });
         try {
           const pubkey = new PublicKey(specificAddress);
           const acc = await conn.getParsedAccountInfo(pubkey);
           if (acc.value) {
-            console.log(
-              `[JITO] Found account ${specificAddress}. Owner: ${acc.value.owner.toString()}`
-            );
+            logger.debug('Account found', { service: 'jito', specificAddress });
             stakeAccounts.push({
               pubkey: pubkey,
               account: acc.value,
             });
           } else {
-            console.log(`[JITO] Account ${specificAddress} NOT FOUND on blockchain.`);
+            logger.debug('Account NOT FOUND', { service: 'jito', specificAddress });
           }
         } catch (e) {
-          console.log(`[JITO] Error checking specific address: ${e.message}`);
+          logger.warn('Error checking specific address', { service: 'jito', error: e.message });
         }
       }
 
@@ -556,7 +568,7 @@ export class JitoService {
         const parsedData = account.account.data?.parsed;
         // Skip accounts that aren't parsed stake accounts
         if (!parsedData || parsedData.program !== 'stake') {
-          console.log(`[JITO] Skipping non-stake account: ${account.pubkey.toString()}`);
+          logger.debug('Skipping non-stake account', { service: 'jito', pubkey: account.pubkey.toString() });
           continue;
         }
 
@@ -584,7 +596,7 @@ export class JitoService {
         epochInfo: epochInfo,
       };
     } catch (error) {
-      console.error('[JITO] getPendingStandardExits error:', error.message);
+      logger.logError(error, { context: 'jito.getPendingStandardExits', walletAddress });
 
       // Basic fallback to at least get epoch info if possible
       try {
@@ -688,7 +700,7 @@ export class JitoService {
         message: 'Successfully withdrawn SOL from stake account',
       };
     } catch (error) {
-      console.error('[JITO] claimExitStandard error:', error.message || error);
+      logger.logError(error, { context: 'jito.claimExitStandard', stakeAccountAddress });
       return { success: false, error: error.message || 'Erreur inconnue lors du retrait' };
     }
   }

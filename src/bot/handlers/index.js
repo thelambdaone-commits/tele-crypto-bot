@@ -14,7 +14,7 @@ import { setupPolymarketHandlers } from './polymarket/index.js';
 import { setupCommands } from './commands/index.js';
 import { setupBalanceHandlers } from './balance.handlers.js';
 import { setupNavigationHandlers } from './nav.handlers.js';
-import { SessionManager } from '../session.js';
+import { SessionManager } from '../../core/session/index.js';
 import { WalletService } from '../../modules/wallet/wallet.service.js';
 import { config } from '../../core/config.js';
 import { DepositMonitor } from '../../core/monitor.js';
@@ -28,10 +28,19 @@ import { logger } from '../../shared/logger.js';
  */
 export async function setupHandlers(bot, storage) {
   const walletService = new WalletService(storage, config);
-  const sessions = new SessionManager(config.sessionTimeout || 30);
+  const sessions = new SessionManager({
+    timeoutMinutes: config.sessionTimeout || 30,
+    persistPath: config.dataPath,
+  });
 
-  // Cleanup intervals
-  setInterval(() => sessions.cleanup(), 5 * 60 * 1000);
+  await sessions.init();
+
+  // Cleanup & Flush interval
+  setInterval(async () => {
+    await sessions.cleanup();
+    await sessions.flush();
+  }, 5 * 60 * 1000);
+
   setInterval(() => cleanupLimiters(), 60 * 1000);
 
   // Setup deposit monitor
@@ -108,4 +117,6 @@ export async function setupHandlers(bot, storage) {
     if (!isAdmin(ctx)) return ctx.reply('❌ Accès réservé aux admins.');
     ctx.reply('👑 *Panel Admin*', adminExtendedKeyboard());
   });
+
+  return { sessions, walletService, depositMonitor };
 }

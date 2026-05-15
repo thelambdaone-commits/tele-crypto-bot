@@ -49,6 +49,7 @@ export const config = {
     matic: process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com',
     op: process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io',
     base: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
+    stakingSol: process.env.STAKING_SOL_RPC_URL,
   },
 };
 

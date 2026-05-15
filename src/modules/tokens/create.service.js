@@ -14,6 +14,7 @@ import {
   AuthorityType,
 } from '@solana/spl-token';
 import { config } from '../../core/config.js';
+import { logger } from '../../shared/logger.js';
 
 const connection = new Connection(config.rpc.sol, 'confirmed');
 
@@ -26,7 +27,7 @@ export const TokenService = {
    */
   async createMint(payerPrivateKey, decimals) {
     try {
-      console.log('[TOKEN_SERVICE] createMint - key length:', payerPrivateKey?.length);
+      logger.debug('createMint started', { service: 'token', keyLength: payerPrivateKey?.length });
 
       let keypair;
       // Try hex first (most common), then base64
@@ -40,7 +41,7 @@ export const TokenService = {
         keypair = Keypair.fromSecretKey(secretKey);
       }
 
-      console.log('[TOKEN_SERVICE] Keypair created, pubkey:', keypair.publicKey.toString());
+      logger.debug('Keypair created', { service: 'token', pubkey: keypair.publicKey.toString() });
 
       const mint = await createMint(
         connection,
@@ -55,7 +56,7 @@ export const TokenService = {
         mint: mint,
       };
     } catch (error) {
-      console.error('[TOKEN_SERVICE] createMint error:', error);
+      logger.logError(error, { context: 'token.createMint' });
       return {
         success: false,
         error: error.message || 'Failed to create mint',
@@ -91,7 +92,7 @@ export const TokenService = {
         ata: ata.address,
       };
     } catch (error) {
-      console.error('[TOKEN_SERVICE] createATA error:', error);
+      logger.logError(error, { context: 'token.createATA', mintAddress, ownerAddress });
       return {
         success: false,
         error: error.message || 'Failed to create ATA',
@@ -138,7 +139,7 @@ export const TokenService = {
         txHash: txHash,
       };
     } catch (error) {
-      console.error('[TOKEN_SERVICE] mintTo error:', error);
+      logger.logError(error, { context: 'token.mintTo', mintAddress, destinationAddress });
       return {
         success: false,
         error: error.message || 'Failed to mint tokens',
@@ -179,7 +180,7 @@ export const TokenService = {
         txHash: txHash,
       };
     } catch (error) {
-      console.error('[TOKEN_SERVICE] revokeMintAuthority error:', error);
+      logger.logError(error, { context: 'token.revokeMintAuthority', mintAddress });
       return {
         success: false,
         error: error.message || 'Failed to revoke mint authority',
@@ -209,7 +210,7 @@ export const TokenService = {
         totalEstimate: totalEstimate / 1e9,
       };
     } catch (error) {
-      console.error('[TOKEN_SERVICE] estimateRealCost error:', error);
+      logger.logError(error, { context: 'token.estimateRealCost' });
       return {
         mintRent: 0.002,
         ataRent: 0.002,

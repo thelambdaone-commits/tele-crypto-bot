@@ -8,6 +8,7 @@ import { auditLogger, AUDIT_ACTIONS } from '../../../shared/security/audit-logge
 import { safeAnswerCbQuery } from '../../utils.js';
 import { MESSAGES, EMOJIS } from '../../messages/index.js';
 import { isAdmin } from '../../middlewares/auth.middleware.js';
+import { logger } from '../../../shared/logger.js';
 
 export function setupKeysHandlers(bot, storage, walletService) {
   // View keys menu
@@ -145,7 +146,8 @@ export function setupKeysHandlers(bot, storage, walletService) {
         } catch (e) {}
       }, 30000);
     } catch (error) {
-      return ctx.reply(`❌ Erreur : ${error.message}`, mainMenuKeyboard());
+      logger.logError(error, { context: 'view_seed', chatId });
+      return ctx.reply(`❌ Erreur lors de la récupération de la phrase : ${error.message}`, mainMenuKeyboard());
     }
   });
 
@@ -193,7 +195,8 @@ export function setupKeysHandlers(bot, storage, walletService) {
         } catch (e) {}
       }, 30000);
     } catch (error) {
-      return ctx.reply(`❌ Erreur : ${error.message}`, mainMenuKeyboard());
+      logger.logError(error, { context: 'view_privkey', chatId });
+      return ctx.reply(`❌ Erreur lors de la récupération de la clé : ${error.message}`, mainMenuKeyboard());
     }
   });
 
@@ -267,7 +270,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
         ...walletActionsKeyboard(walletId),
       });
     } catch (error) {
-      console.error('Error fetching tx history:', error);
+      logger.logError(error, { context: 'wallet_history', chatId, walletId });
       return ctx.editMessageText(
         `❌ *Erreur*\n\nImpossible de récupérer l'historique : ${error.message}`,
         {

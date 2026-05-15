@@ -12,6 +12,7 @@ import {
 } from '../../keyboards/index.js';
 import { safeAnswerCbQuery } from '../../utils.js';
 import { formatEUR, getPricesEUR } from '../../../shared/price.js';
+import { logger } from '../../../shared/logger.js';
 
 function formatAmount(amount) {
   return amount.toLocaleString('fr-FR', {
@@ -85,7 +86,7 @@ export function setupStakingTextInput(bot, storage, walletService, sessions) {
     await handleJitoExitQuickAmount(ctx, percentage, storage, walletService, sessions);
   });
 
-  console.log('[STAKING_TEXT_INPUT] Loaded');
+  logger.info('Staking text input handlers initialized', { service: 'staking' });
 }
 
 async function handleJitoExitQuickAmount(ctx, percentage, storage, walletService, sessions) {
@@ -147,10 +148,10 @@ async function handleJitoExitQuickAmount(ctx, percentage, storage, walletService
         [Markup.button.callback('❌ Annuler', 'jito_staking')],
       ]),
     });
-  } catch (error) {
-    console.error('handleJitoExitQuickAmount error:', error);
-    ctx.reply('❌ Erreur : ' + error.message, mainMenuKeyboard());
-  }
+    } catch (error) {
+      logger.logError(error, { context: 'handleJitoExitQuickAmount', chatId });
+      ctx.reply('❌ Erreur : ' + error.message, mainMenuKeyboard());
+    }
 }
 
 async function handleJitoEnterAmount(ctx, text, storage, walletService, sessions) {
@@ -224,14 +225,14 @@ async function handleJitoEnterAmount(ctx, text, storage, walletService, sessions
         "Le montant reçu peut varier légèrement au moment de l'exécution.",
       { parse_mode: 'Markdown', ...keyboard }
     );
-  } catch (error) {
-    console.error('[JITO_ENTER_AMOUNT] Error:', error);
-    await ctx.reply(`❌ Erreur: ${error.message}`, {
-      parse_mode: 'Markdown',
-      ...mainMenuKeyboard(),
-    });
-    sessions.clearState(chatId);
-  }
+    } catch (error) {
+      logger.logError(error, { context: 'handleJitoEnterAmount', chatId });
+      await ctx.reply(`❌ Erreur: ${error.message}`, {
+        parse_mode: 'Markdown',
+        ...mainMenuKeyboard(),
+      });
+      sessions.clearState(chatId);
+    }
 }
 
 async function handleJitoEnterConfirm(ctx, storage, walletService, sessions) {
@@ -281,14 +282,14 @@ async function handleJitoEnterConfirm(ctx, storage, walletService, sessions) {
 
     sessions.clearData(chatId);
     sessions.clearState(chatId);
-  } catch (error) {
-    console.error('[JITO_ENTER_CONFIRM] Error:', error);
-    await ctx.editMessageText(`❌ Erreur: ${error.message}`, {
-      parse_mode: 'Markdown',
-      ...mainMenuKeyboard(),
-    });
-    sessions.clearState(chatId);
-  }
+    } catch (error) {
+      logger.logError(error, { context: 'handleJitoEnterConfirm', chatId });
+      await ctx.editMessageText(`❌ Erreur: ${error.message}`, {
+        parse_mode: 'Markdown',
+        ...mainMenuKeyboard(),
+      });
+      sessions.clearState(chatId);
+    }
 }
 
 async function handleJitoExitFastAmount(ctx, text, storage, walletService, sessions) {
@@ -409,14 +410,14 @@ async function handleJitoExitFastAmount(ctx, text, storage, walletService, sessi
         "Le montant reçu peut varier légèrement au moment de l'exécution.",
       { parse_mode: 'Markdown', ...keyboard }
     );
-  } catch (error) {
-    console.error('[JITO_EXIT_FAST_AMOUNT] Error:', error);
-    await ctx.reply(`❌ Erreur: ${error.message}`, {
-      parse_mode: 'Markdown',
-      ...mainMenuKeyboard(),
-    });
-    sessions.clearState(chatId);
-  }
+    } catch (error) {
+      logger.logError(error, { context: 'handleJitoExitFastAmount', chatId });
+      await ctx.reply(`❌ Erreur: ${error.message}`, {
+        parse_mode: 'Markdown',
+        ...mainMenuKeyboard(),
+      });
+      sessions.clearState(chatId);
+    }
 }
 
 async function handleJitoExitManual(ctx, storage, walletService, sessions) {
@@ -481,14 +482,14 @@ async function handleJitoExitFastConfirm(ctx, storage, walletService, sessions) 
 
     sessions.clearData(chatId);
     sessions.clearState(chatId);
-  } catch (error) {
-    console.error('[JITO_EXIT_FAST_CONFIRM] Error:', error);
-    await ctx.editMessageText(`❌ Erreur: ${error.message}`, {
-      parse_mode: 'Markdown',
-      ...mainMenuKeyboard(),
-    });
-    sessions.clearState(chatId);
-  }
+    } catch (error) {
+      logger.logError(error, { context: 'handleJitoExitFastConfirm', chatId });
+      await ctx.editMessageText(`❌ Erreur: ${error.message}`, {
+        parse_mode: 'Markdown',
+        ...mainMenuKeyboard(),
+      });
+      sessions.clearState(chatId);
+    }
 }
 
 async function handleJitoExitStandardAmount(ctx, text, storage, walletService, sessions) {
@@ -552,10 +553,10 @@ async function handleJitoExitStandardAmount(ctx, text, storage, walletService, s
         ]),
       }
     );
-  } catch (error) {
-    console.error('[JITO_EXIT_STANDARD_AMOUNT] Error:', error);
-    await ctx.reply(`❌ Erreur: ${error.message}`);
-  }
+    } catch (error) {
+      logger.logError(error, { context: 'handleJitoExitStandardAmount', chatId });
+      await ctx.reply(`❌ Erreur: ${error.message}`);
+    }
 }
 
 async function handleJitoUnstakeManualAddress(ctx, text, storage, sessions) {
@@ -594,10 +595,10 @@ async function handleJitoUnstakeManualAddress(ctx, text, storage, sessions) {
         ]),
       }
     );
-  } catch (error) {
-    console.error('handleJitoUnstakeManualAddress error:', error);
-    await ctx.reply(`❌ Erreur lors de l'enregistrement : ${error.message}`);
-  }
+    } catch (error) {
+      logger.logError(error, { context: 'handleJitoUnstakeManualAddress', chatId });
+      await ctx.reply(`❌ Erreur lors de l'enregistrement : ${error.message}`);
+    }
 }
 
 const Formatting = {

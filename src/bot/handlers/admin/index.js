@@ -4,7 +4,7 @@ import { setupAdminStats } from './stats.js';
 import { setupAdminUsers } from './users.js';
 import { setupAdminActions, setupAdminMisc } from './actions.js';
 import { setupAdminDust } from './dust.js';
-import { safeAnswerCbQuery } from '../../utils.js';
+import { safeAnswerCbQuery } from '../../../shared/utils/telegram.js';
 
 export function setupAdminHandlers(bot, storage, sessions, walletService) {
   // Admin command

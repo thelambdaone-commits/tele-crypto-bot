@@ -9,6 +9,7 @@ import {
 } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
 import { BaseProvider } from './base.provider.js';
+import { TransactionError, ERROR_CODES } from '../shared/errors.js';
 import { TOKEN_CONFIGS, getTokenConfig } from '../core/tokens.config.js';
 
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
@@ -172,13 +173,10 @@ export class SolanaChain extends BaseProvider {
     }
 
     // All RPCs failed
-    console.warn(`[SOL] All RPCs failed for address ${address.slice(0, 12)}...`);
-    return {
-      balance: '0',
-      balanceLamports: '0',
-      symbol: this.symbol,
-      error: 'Unable to fetch balance - network issue',
-    };
+    throw new TransactionError('Unable to fetch balance - network issue', {
+      code: ERROR_CODES.RPC_ERROR,
+      chain: 'SOL',
+    });
   }
 
   async estimateFees(_fromAddress, _toAddress, _amount) {
@@ -239,15 +237,27 @@ export class SolanaChain extends BaseProvider {
       })
     );
 
-    const signature = await sendAndConfirmTransaction(this.connection, transaction, [fromKeypair]);
+    try {
+      const signature = await sendAndConfirmTransaction(this.connection, transaction, [fromKeypair]);
 
-    return {
-      hash: signature,
-      from: fromKeypair.publicKey.toString(),
-      to: toAddress,
-      amount: amount.toString(),
-      status: 'success',
-    };
+      return {
+        hash: signature,
+        from: fromKeypair.publicKey.toString(),
+        to: toAddress,
+        amount: amount.toString(),
+        status: 'success',
+      };
+    } catch (error) {
+      let code = ERROR_CODES.BROADCAST_FAILED;
+      if (error.message.includes('insufficient funds')) code = ERROR_CODES.INSUFFICIENT_FUNDS;
+      else if (error.message.includes('Simulation failed')) code = ERROR_CODES.SIMULATION_ERROR;
+
+      throw new TransactionError(error.message, {
+        code,
+        chain: 'SOL',
+        details: error,
+      });
+    }
   }
 
   async getTransactionHistory(address, limit = 5) {

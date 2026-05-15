@@ -1,6 +1,7 @@
 import { convertToEUR, formatEUR } from '../../../shared/price.js';
 import { MESSAGES, EMOJIS } from '../../messages/index.js';
 import { logger } from '../../../shared/logger.js';
+import { ERROR_CODES } from '../../../shared/errors.js';
 
 /**
  * Format transaction details for confirmation
@@ -68,13 +69,29 @@ export async function formatTxDetails(data, feeLevel) {
  */
 export async function handleSendError(ctx, error, mainMenuKeyboard) {
   logger.logError(error, { context: 'handleSendError', chatId: ctx.chat?.id });
-  const errorMessage = error.message.includes('insufficient funds')
-    ? '❌ Solde insuffisant pour couvrir le montant et les frais.'
-    : error.message.includes('user rejected')
-      ? "❌ Transaction refusee par l'utilisateur."
-      : `❌ Erreur: ${error.message}`;
 
-  return ctx.editMessageText(errorMessage, {
+  let message;
+  switch (error.code) {
+    case ERROR_CODES.INSUFFICIENT_FUNDS:
+      message = '❌ Solde insuffisant pour couvrir le montant et les frais.';
+      break;
+    case ERROR_CODES.RPC_ERROR:
+      message = '❌ Erreur de connexion au réseau. Réessaie.';
+      break;
+    case ERROR_CODES.BROADCAST_FAILED:
+      message = '❌ La transaction a échoué lors de la diffusion sur le réseau.';
+      break;
+    case ERROR_CODES.USER_REJECTED:
+      message = "❌ Transaction refusée par l'utilisateur.";
+      break;
+    case ERROR_CODES.INVALID_ADDRESS:
+      message = '❌ Adresse de destination invalide.';
+      break;
+    default:
+      message = `❌ Erreur: ${error.message}`;
+  }
+
+  return ctx.editMessageText(message, {
     parse_mode: 'Markdown',
     ...mainMenuKeyboard(),
   });

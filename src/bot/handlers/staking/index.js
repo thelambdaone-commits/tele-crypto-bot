@@ -4,6 +4,7 @@ import { JitoService } from '../../../modules/staking/jito.js';
 import { mainMenuKeyboard } from '../../keyboards/index.js';
 import { safeAnswerCbQuery } from '../../utils.js';
 import { getPricesEUR, formatEUR } from '../../../shared/price.js';
+import { logger } from '../../../shared/logger.js';
 
 function formatAmount(amount) {
   const num = parseFloat(amount);
@@ -141,22 +142,23 @@ async function handleStakeCommand(ctx, storage) {
       parse_mode: 'Markdown',
       ...stakingKeyboard(apyData),
     });
-  } catch (error) {
-    try {
-      await ctx.telegram.deleteMessage(chatId, loadingMsg.message_id);
-    } catch (e) {}
-    ctx.reply(
-      '❌ Impossible de charger les rendements.\n\n' +
-        '━━━━━━━━━━━━\n' +
-        '🔷 Arbitrum - Aave V3: USDC ~1.65%, USDT ~2.13%\n' +
-        '🟣 Solana - Kamino: USDC ~3.80%\n' +
-        '🟣 Solana - Jupiter: USDC ~5.20%, USDT ~4.80%\n' +
-        '━━━━━━━━━━━━\n' +
-        '_Ces taux sont approximatifs_',
-      mainMenuKeyboard()
-    );
+    } catch (error) {
+      logger.logError(error, { context: 'handleStakeCommand', chatId });
+      try {
+        await ctx.telegram.deleteMessage(chatId, loadingMsg.message_id);
+      } catch (e) {}
+      ctx.reply(
+        '❌ Impossible de charger les rendements.\n\n' +
+          '━━━━━━━━━━━━\n' +
+          '🔷 Arbitrum - Aave V3: USDC ~1.65%, USDT ~2.13%\n' +
+          '🟣 Solana - Kamino: USDC ~3.80%\n' +
+          '🟣 Solana - Jupiter: USDC ~5.20%, USDT ~4.80%\n' +
+          '━━━━━━━━━━━━\n' +
+          '_Ces taux sont approximatifs_',
+        mainMenuKeyboard()
+      );
+    }
   }
-}
 
 async function handleYieldCommand(ctx, storage, walletService) {
   const chatId = ctx.chat.id;
@@ -197,7 +199,9 @@ async function handleYieldCommand(ctx, storage, walletService) {
             totalMonthlyYield += monthlyYield;
             hasPositions = true;
           }
-        } catch (e) {}
+          } catch (e) {
+            logger.warn('Failed to fetch Aave position', { walletAddress: wallet.address, error: e.message });
+          }
       }
 
       if (!hasPositions) {
@@ -220,7 +224,9 @@ async function handleYieldCommand(ctx, storage, walletService) {
             text += `Kamino ${token.symbol}: *${formatAmount(token.amount)}*\n`;
             hasPositions = true;
           }
-        } catch (e) {}
+          } catch (e) {
+            logger.warn('Failed to fetch Kamino position', { walletAddress: wallet.address, error: e.message });
+          }
 
         try {
           const jupiterPos = await Promise.race([
@@ -232,7 +238,9 @@ async function handleYieldCommand(ctx, storage, walletService) {
             text += `Jupiter ${token.symbol}: *${formatAmount(token.amount)}*\n`;
             hasPositions = true;
           }
-        } catch (e) {}
+          } catch (e) {
+            logger.warn('Failed to fetch Jupiter position', { walletAddress: wallet.address, error: e.message });
+          }
 
         // JitoSOL balance - use CoinGecko direct price
         try {
@@ -248,7 +256,9 @@ async function handleYieldCommand(ctx, storage, walletService) {
             text += '\n';
             hasPositions = true;
           }
-        } catch (e) {}
+          } catch (e) {
+            logger.warn('Failed to fetch Jito balance', { walletAddress: wallet.address, error: e.message });
+          }
       }
 
       if (!hasPositions) {
@@ -276,20 +286,21 @@ async function handleYieldCommand(ctx, storage, walletService) {
       parse_mode: 'Markdown',
       ...mainMenuKeyboard(),
     });
-  } catch (error) {
-    try {
-      await ctx.telegram.deleteMessage(chatId, loadingMsg.message_id);
-    } catch (e) {}
-    ctx.reply(
-      '❌ Impossible de charger les positions.\n\n' +
-        '━━━━━━━━━━━━\n' +
-        'Le service est temporairement indisponible.\n' +
-        '━━━━━━━━━━━━\n' +
-        '_Utilisez /stake pour voir les rendements_',
-      mainMenuKeyboard()
-    );
+    } catch (error) {
+      logger.logError(error, { context: 'handleYieldCommand', chatId });
+      try {
+        await ctx.telegram.deleteMessage(chatId, loadingMsg.message_id);
+      } catch (e) {}
+      ctx.reply(
+        '❌ Impossible de charger les positions.\n\n' +
+          '━━━━━━━━━━━━\n' +
+          'Le service est temporairement indisponible.\n' +
+          '━━━━━━━━━━━━\n' +
+          '_Utilisez /stake pour voir les rendements_',
+        mainMenuKeyboard()
+      );
+    }
   }
-}
 
 async function handleCalcCommand(ctx, args) {
   const chatId = ctx.chat.id;
@@ -438,41 +449,46 @@ async function handleCalcCommand(ctx, args) {
       parse_mode: 'Markdown',
       ...mainMenuKeyboard(),
     });
-  } catch (error) {
-    try {
-      await ctx.telegram.deleteMessage(chatId, loadingMsg.message_id);
-    } catch (e) {}
-    ctx.reply(
-      '❌ Erreur lors du calcul.\n' + '━━━━━━━━━━━━\n' + '_Reessayez plus tard_',
-      mainMenuKeyboard()
-    );
+    } catch (error) {
+      logger.logError(error, { context: 'handleCalcCommand', chatId, args });
+      try {
+        await ctx.telegram.deleteMessage(chatId, loadingMsg.message_id);
+      } catch (e) {}
+      ctx.reply(
+        '❌ Erreur lors du calcul.\n' + '━━━━━━━━━━━━\n' + '_Reessayez plus tard_',
+        mainMenuKeyboard()
+      );
+    }
   }
-}
 
 export function setupStakingHandlers(bot, storage, walletService, sessions) {
   // Import and setup Jito handlers
   import('./jito.js')
     .then(({ setupJitoHandlers }) => {
       setupJitoHandlers(bot, storage, walletService, sessions);
-      console.log('[STAKING] Jito handlers loaded');
+      logger.info('Jito handlers loaded', { service: 'staking' });
     })
-    .catch((err) => console.error('[STAKING] Failed to load Jito handlers:', err));
+    .catch((err) => logger.error('Failed to load Jito handlers', { service: 'staking', error: err }));
 
   // Import and setup Marinade handlers
   import('./marinade.js')
     .then(({ setupMarinadeHandlers }) => {
       setupMarinadeHandlers(bot, storage, walletService, sessions);
-      console.log('[STAKING] Marinade handlers loaded');
+      logger.info('Marinade handlers loaded', { service: 'staking' });
     })
-    .catch((err) => console.error('[STAKING] Failed to load Marinade handlers:', err));
+    .catch((err) =>
+      logger.error('Failed to load Marinade handlers', { service: 'staking', error: err })
+    );
 
   // Import and setup Staking text input handlers
   import('./text-input.js')
     .then(({ setupStakingTextInput }) => {
       setupStakingTextInput(bot, storage, walletService, sessions);
-      console.log('[STAKING] Text input handlers loaded');
+      logger.info('Text input handlers loaded', { service: 'staking' });
     })
-    .catch((err) => console.error('[STAKING] Failed to load text input handlers:', err));
+    .catch((err) =>
+      logger.error('Failed to load text input handlers', { service: 'staking', error: err })
+    );
 
   bot.command('stake', async (ctx) => {
     await handleStakeCommand(ctx, storage);

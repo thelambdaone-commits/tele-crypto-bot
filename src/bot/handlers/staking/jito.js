@@ -14,6 +14,7 @@ import {
 } from '../../keyboards/index.js';
 import { safeAnswerCbQuery } from '../../utils.js';
 import { formatEUR, getPricesEUR } from '../../../shared/price.js';
+import { logger } from '../../../shared/logger.js';
 
 function formatAmount(amount) {
   return amount.toLocaleString('fr-FR', {
@@ -63,7 +64,6 @@ async function syncJitoUnstakes(chatId, storage) {
         }
       } else {
         // Update estimated date if it changed
-        const request = requests.find((r) => r.stakeAccountAddress === exit.address);
         if (request && (exit.estimatedAvailableAt || exit.status)) {
           await storage.updateUnstakeRequest(chatId, request.id, {
             estimatedAvailableAt: exit.estimatedAvailableAt || request.estimatedAvailableAt,
@@ -74,7 +74,7 @@ async function syncJitoUnstakes(chatId, storage) {
     }
     return importedCount;
   } catch (e) {
-    console.error('Sync error:', e);
+    logger.logError(e, { context: 'syncJitoUnstakes', chatId });
     return 0;
   }
 }
@@ -201,7 +201,7 @@ export function setupJitoHandlers(bot, storage, walletService, sessions) {
       if (error.message && error.message.includes('message is not modified')) {
         return;
       }
-      console.error('Jito staking menu error:', error);
+      logger.logError(error, { context: 'jito_staking_menu', chatId: ctx.chat.id });
       ctx.editMessageText(`❌ Erreur: ${error.message}`, {
         parse_mode: 'Markdown',
         ...mainMenuKeyboard(),
@@ -621,7 +621,7 @@ export function setupJitoHandlers(bot, storage, walletService, sessions) {
       sessions.clearState(chatId);
       sessions.clearData(chatId);
     } catch (error) {
-      console.error('Jito unstake error:', error);
+      logger.logError(error, { context: 'confirm_jito_exit_standard', chatId });
       ctx.editMessageText(
         `❌ Erreur lors de l'initialisation: ${error.message}`,
         mainMenuKeyboard()

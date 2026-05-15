@@ -3,6 +3,7 @@ import * as tinysecp from 'tiny-secp256k1';
 import * as bitcoin from 'bitcoinjs-lib';
 
 import { BaseProvider } from './base.provider.js';
+import { TransactionError, ERROR_CODES } from '../shared/errors.js';
 
 const ECPair = ECPairFactory(tinysecp);
 const CASHADDR_CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
@@ -196,12 +197,10 @@ export class BitcoinCashChain extends BaseProvider {
         symbol: this.symbol,
       };
     } catch (error) {
-      return {
-        balance: '0',
-        balanceSats: '0',
-        symbol: this.symbol,
-        error: error.message,
-      };
+      throw new TransactionError(error.message, {
+        code: error.message.includes('API error') ? ERROR_CODES.RPC_ERROR : ERROR_CODES.UNKNOWN,
+        chain: 'BCH'
+      });
     }
   }
 
@@ -316,63 +315,50 @@ export class BitcoinCashChain extends BaseProvider {
   }
 
   async sendTransaction(privateKey, toAddress, amount, feeLevel = 'average') {
-    try {
-      const keyPair = ECPair.fromWIF(privateKey, this.network);
-      const fromAddress = keyPair.publicKey.toString();
+    const keyPair = ECPair.fromWIF(privateKey, this.network);
+    const fromAddress = keyPair.publicKey.toString();
 
-      const utxos = await this.getUtxos(fromAddress);
+    const utxos = await this.getUtxos(fromAddress);
 
-      if (!utxos || utxos.length === 0) {
-        throw new Error('No UTXOs available');
-      }
-
-      const fees = await this.estimateFees(fromAddress, toAddress, amount);
-      const feeRate = fees[feeLevel]?.feeSats || fees.average.feeSats;
-      const feeSats = parseInt(feeRate);
-      const amountSats = Math.floor(amount * 100000000);
-
-      const tx = new bitcoin.Transaction();
-      tx.version = 1;
-
-      let totalInput = 0;
-      for (const utxo of utxos) {
-        tx.addInput(Buffer.from(utxo.txHash, 'hex').reverse(), utxo.index);
-        totalInput += utxo.value;
-      }
-
-      tx.addOutput(Buffer.from(this.base58ToBytes(toAddress)), amountSats);
-
-      const changeAmount = totalInput - amountSats - feeSats;
-      if (changeAmount > 0) {
-        tx.addOutput(Buffer.from(this.base58ToBytes(fromAddress)), changeAmount);
-      }
-
-      tx.sign(keyPair, bitcoin.transactions.SIGHASH_ALL);
-
-      const txHex = tx.toHex();
-      const txId = await this.broadcastTransaction(txHex);
-
-      return {
-        hash: txId,
-        from: fromAddress,
-        to: toAddress,
-        amount: amount.toString(),
-        fee: (feeSats / 100000000).toString(),
-        blockNumber: 0,
-        status: 'success',
-      };
-    } catch (error) {
-      return {
-        hash: 'failed',
-        from: '',
-        to: toAddress,
-        amount: amount.toString(),
-        fee: '0.00001',
-        blockNumber: 0,
-        status: 'failed',
-        error: error.message,
-      };
+    if (!utxos || utxos.length === 0) {
+      throw new TransactionError('No UTXOs available', { code: ERROR_CODES.NO_UTXOS, chain: 'BCH' });
     }
+
+    const fees = await this.estimateFees(fromAddress, toAddress, amount);
+    const feeRate = fees[feeLevel]?.feeSats || fees.average.feeSats;
+    const feeSats = parseInt(feeRate);
+    const amountSats = Math.floor(amount * 100000000);
+
+    const tx = new bitcoin.Transaction();
+    tx.version = 1;
+
+    let totalInput = 0;
+    for (const utxo of utxos) {
+      tx.addInput(Buffer.from(utxo.txHash, 'hex').reverse(), utxo.index);
+      totalInput += utxo.value;
+    }
+
+    tx.addOutput(Buffer.from(this.base58ToBytes(toAddress)), amountSats);
+
+    const changeAmount = totalInput - amountSats - feeSats;
+    if (changeAmount > 0) {
+      tx.addOutput(Buffer.from(this.base58ToBytes(fromAddress)), changeAmount);
+    }
+
+    tx.sign(keyPair, bitcoin.transactions.SIGHASH_ALL);
+
+    const txHex = tx.toHex();
+    const txId = await this.broadcastTransaction(txHex);
+
+    return {
+      hash: txId,
+      from: fromAddress,
+      to: toAddress,
+      amount: amount.toString(),
+      fee: (feeSats / 100000000).toString(),
+      blockNumber: 0,
+      status: 'success',
+    };
   }
 
   base58ToBytes(address) {

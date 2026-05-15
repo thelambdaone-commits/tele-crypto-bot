@@ -8,6 +8,7 @@ import { MarinadeService } from '../../../modules/staking/marinade.js';
 import { mainMenuKeyboard } from '../../keyboards/index.js';
 import { safeAnswerCbQuery } from '../../utils.js';
 import { formatEUR, getPricesEUR } from '../../../shared/price.js';
+import { logger } from '../../../shared/logger.js';
 
 export function setupMarinadeHandlers(bot, storage, walletService) {
   // Show Marinade staking menu
@@ -67,7 +68,7 @@ export function setupMarinadeHandlers(bot, storage, walletService) {
         }
       );
     } catch (error) {
-      console.error('Marinade staking menu error:', error);
+      logger.logError(error, { context: 'marinade_staking_menu', chatId: ctx.chat.id });
       ctx.editMessageText(`❌ Erreur: ${error.message}`, {
         parse_mode: 'Markdown',
         ...mainMenuKeyboard(),
@@ -127,5 +128,5 @@ export function setupMarinadeHandlers(bot, storage, walletService) {
     );
   });
 
-  console.log('[MARINADE_HANDLERS] Loaded');
+  logger.info('Marinade handlers initialized', { service: 'staking' });
 }

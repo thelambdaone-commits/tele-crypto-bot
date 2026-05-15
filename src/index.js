@@ -14,7 +14,7 @@ await storage.init();
 logger.info('Bot starting', { adminId: config.adminChatId });
 
 // Setup handlers
-await setupHandlers(bot, storage);
+const { sessions } = await setupHandlers(bot, storage);
 
 // Error handling
 bot.catch((err, ctx) => {
@@ -29,6 +29,9 @@ bot.catch((err, ctx) => {
 async function shutdown(signal) {
   logger.info(`Bot shutting down (${signal})`);
   cleanupAllFeeds();
+  if (sessions) {
+    await sessions.flush();
+  }
   await auditLogger.flush();
   bot.stop(signal);
 }

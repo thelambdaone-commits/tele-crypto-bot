@@ -5,10 +5,12 @@
 
 import { PublicKey, Connection } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
+import { config } from '../../core/config.js';
+import { logger } from '../../shared/logger.js';
 
 const MARINADE_MINT = 'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So';
-const MARINADE_RPC = 'https://mainnet.helius-rpc.com/?api-key=1d8740dc-e5f4-421c-b823-e1bad1889eff';
-const SOL_RPC = process.env.SOL_RPC_URL || MARINADE_RPC;
+const MARINADE_RPC = config.rpc.stakingSol || config.rpc.sol;
+const SOL_RPC = MARINADE_RPC;
 
 let connection;
 
@@ -52,6 +54,7 @@ export class MarinadeService {
         };
       }
     } catch (error) {
+      logger.logError(error, { context: 'marinade.getBalance', walletAddress });
       return {
         success: false,
         error: error.message,
@@ -79,6 +82,7 @@ export class MarinadeService {
         feeUSD: 0,
       };
     } catch (error) {
+      logger.logError(error, { context: 'marinade.quoteEnter', amountSOL });
       return {
         success: false,
         error: error.message,
@@ -102,6 +106,7 @@ export class MarinadeService {
         message: 'Stake transactions require wallet signing in bot flow',
       };
     } catch (error) {
+      logger.logError(error, { context: 'marinade.enter', amountSOL });
       return {
         success: false,
         error: error.message,
@@ -127,6 +132,7 @@ export class MarinadeService {
         mode: 'fast',
       };
     } catch (error) {
+      logger.logError(error, { context: 'marinade.quoteExitFast', amountmSOL });
       return {
         success: false,
         error: error.message,
@@ -148,6 +154,7 @@ export class MarinadeService {
         mode: 'fast',
       };
     } catch (error) {
+      logger.logError(error, { context: 'marinade.exitFast', amountmSOL });
       return {
         success: false,
         error: error.message,
@@ -175,6 +182,7 @@ export class MarinadeService {
         requiresClaim: true,
       };
     } catch (error) {
+      logger.logError(error, { context: 'marinade.quoteExitStandard', amountmSOL });
       return {
         success: false,
         error: error.message,
@@ -196,6 +204,7 @@ export class MarinadeService {
         requiresClaim: true,
       };
     } catch (error) {
+      logger.logError(error, { context: 'marinade.exitStandard', amountmSOL });
       return {
         success: false,
         error: error.message,
@@ -227,6 +236,7 @@ export class MarinadeService {
         message: 'Claim transaction requires signing in bot flow',
       };
     } catch (error) {
+      logger.logError(error, { context: 'marinade.claimExitStandard', walletAddress, exitRequestId });
       return {
         success: false,
         error: error.message,
@@ -246,6 +256,7 @@ export class MarinadeService {
         source: 'marinade',
       };
     } catch (error) {
+      logger.logError(error, { context: 'marinade.getApy' });
       return {
         success: false,
         error: error.message,

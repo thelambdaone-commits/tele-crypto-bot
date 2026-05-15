@@ -3,7 +3,7 @@ import {
   adminUserKeyboard,
   adminCancelKeyboard,
 } from '../../keyboards/index.js';
-import { safeAnswerCbQuery, escapeMarkdown } from '../../utils.js';
+import { safeAnswerCbQuery, escapeMarkdown } from '../../../shared/utils/telegram.js';
 import { isAdmin } from '../../middlewares/auth.middleware.js';
 import {
   getRateLimitStats,

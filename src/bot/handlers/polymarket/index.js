@@ -28,7 +28,20 @@ import {
   handleHistoryCommand,
   handleThemeSelectCommand,
   handleThemeTradesCommand,
+  loadPolymarketHistory,
 } from './ui.js';
+
+export {
+  calculateOfficialPortfolioPnl,
+  calculatePortfolioPnl,
+  calculatePolymarketTradeVolume,
+  calculateRealizedPnl,
+  filterPolymarketTradesByTheme,
+  getPolymarketTradeThemes,
+} from '../../../modules/polymarket/analytics.js';
+
+export { formatCollateralBalance } from './formatters.js';
+export { loadPolymarketHistory } from './ui.js';
 
 export function setupPolymarketHandlers(bot, storage, walletService, sessions) {
   // Callback query handler for wallet selection

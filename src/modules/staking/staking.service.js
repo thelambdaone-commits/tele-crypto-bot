@@ -25,8 +25,11 @@ const JUPITER_TOKENS = {
   USDT: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
 };
 
-const ARB_RPC = 'https://arb1.arbitrum.io/rpc';
-const SOL_RPC = 'https://mainnet.helius-rpc.com/?api-key=1d8740dc-e5f4-421c-b823-e1bad1889eff';
+import { config } from '../../core/config.js';
+import { logger } from '../../shared/logger.js';
+
+const ARB_RPC = config.rpc.arb || 'https://arb1.arbitrum.io/rpc';
+const SOL_RPC = config.rpc.stakingSol || config.rpc.sol;
 
 const PROTOCOL_INFO = {
   'aave-v3': {
@@ -102,6 +105,7 @@ export class StakingService {
       apyCache.lastUpdate = Date.now();
       return result;
     } catch (error) {
+      logger.logError(error, { context: 'staking.getAaveApy' });
       return {
         USDC: { apy: '1.65', symbol: 'USDC' },
         USDT: { apy: '2.13', symbol: 'USDT' },
@@ -138,7 +142,9 @@ export class StakingService {
         apyCache.lastUpdate = Date.now();
         return result;
       }
-    } catch (error) {}
+    } catch (error) {
+      logger.logError(error, { context: 'staking.getKaminoApy' });
+    }
 
     const result = { USDC: { apy: '3.80', symbol: 'USDC' } };
     apyCache.kamino = result;
@@ -262,11 +268,14 @@ export class StakingService {
               protocol: 'aave-v3',
             };
           }
-        } catch (e) {}
+        } catch (e) {
+          logger.warn('Error fetching Aave token balance', { symbol, error: e.message });
+        }
       }
 
       return positions;
     } catch (error) {
+      logger.logError(error, { context: 'staking.getUserAavePosition', address });
       return {};
     }
   }
@@ -299,6 +308,7 @@ export class StakingService {
 
       return { tokens: kTokens };
     } catch (error) {
+      logger.logError(error, { context: 'staking.getUserKaminoPosition', address });
       return { tokens: [] };
     }
   }
@@ -333,6 +343,7 @@ export class StakingService {
 
       return { tokens: jTokens };
     } catch (error) {
+      logger.logError(error, { context: 'staking.getUserJupiterPosition', address });
       return { tokens: [] };
     }
   }

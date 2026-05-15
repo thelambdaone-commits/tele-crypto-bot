@@ -5,6 +5,7 @@ import * as ecc from 'tiny-secp256k1';
 import ECPairFactoryModule from 'ecpair';
 
 import { BaseProvider } from './base.provider.js';
+import { TransactionError, ERROR_CODES } from '../shared/errors.js';
 
 const bip32 = BIP32Factory(ecc);
 const ECPairFactory = ECPairFactoryModule.default || ECPairFactoryModule;
@@ -123,12 +124,10 @@ export class BitcoinChain extends BaseProvider {
       }
     }
 
-    return {
-      balance: '0',
-      balanceSats: '0',
-      symbol: this.symbol,
-      error: 'Unable to fetch balance - network issue',
-    };
+    throw new TransactionError('Unable to fetch balance - network issue', {
+      code: ERROR_CODES.RPC_ERROR,
+      chain: 'BTC',
+    });
   }
 
   async getUtxos(address) {
@@ -297,22 +296,37 @@ export class BitcoinChain extends BaseProvider {
     const tx = psbt.extractTransaction();
     const txHex = tx.toHex();
 
-    // Broadcast transaction
-    const broadcastResponse = await fetch(`${this.apiUrl}/tx`, {
-      method: 'POST',
-      body: txHex,
-    });
+    try {
+      const broadcastResponse = await fetch(`${this.apiUrl}/tx`, {
+        method: 'POST',
+        body: txHex,
+      });
 
-    const txid = await broadcastResponse.text();
+      if (!broadcastResponse.ok) {
+        const errorText = await broadcastResponse.text();
+        throw new Error(`Broadcast failed: ${errorText}`);
+      }
 
-    return {
-      hash: txid,
-      from: fromAddress,
-      to: toAddress,
-      amount: amount.toString(),
-      fee: feeData.estimatedFee,
-      status: 'broadcast',
-    };
+      const txid = await broadcastResponse.text();
+
+      return {
+        hash: txid,
+        from: fromAddress,
+        to: toAddress,
+        amount: amount.toString(),
+        fee: feeData.estimatedFee,
+        status: 'broadcast',
+      };
+    } catch (error) {
+      let code = ERROR_CODES.BROADCAST_FAILED;
+      if (error.message.includes('Insufficient balance')) code = ERROR_CODES.INSUFFICIENT_FUNDS;
+      
+      throw new TransactionError(error.message, {
+        code,
+        chain: 'BTC',
+        details: error,
+      });
+    }
   }
 
   async getTransactionHistory(address, limit = 5) {

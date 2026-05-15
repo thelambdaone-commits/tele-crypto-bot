@@ -9,6 +9,7 @@
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import { createMint, getOrCreateAssociatedTokenAccount, mintTo } from '@solana/spl-token';
 import { config } from '../../core/config.js';
+import { logger } from '../../shared/logger.js';
 
 const connection = new Connection(config.rpc.sol, 'confirmed');
 
@@ -23,7 +24,7 @@ export const NFTService = {
    */
   async createNFT(payerPrivateKey, name, description, imageUrl) {
     try {
-      console.log('[NFT_SERVICE] createNFT - name:', name);
+      logger.debug('createNFT started', { service: 'nft', name });
 
       let keypair;
       if (payerPrivateKey.length === 64) {
@@ -34,7 +35,7 @@ export const NFTService = {
         keypair = Keypair.fromSecretKey(secretKey);
       }
 
-      console.log('[NFT_SERVICE] Keypair created, pubkey:', keypair.publicKey.toString());
+      logger.debug('Keypair created', { service: 'nft', pubkey: keypair.publicKey.toString() });
 
       // Create mint with supply=1, decimals=0
       const mint = await createMint(
@@ -46,7 +47,7 @@ export const NFTService = {
       );
 
       const mintAddress = mint.toString();
-      console.log('[NFT_SERVICE] Mint created:', mintAddress);
+      logger.debug('Mint created', { service: 'nft', mintAddress });
 
       // Create ATA for the owner
       const ata = await getOrCreateAssociatedTokenAccount(
@@ -57,7 +58,7 @@ export const NFTService = {
       );
 
       const ataAddress = ata.address.toString();
-      console.log('[NFT_SERVICE] ATA created:', ataAddress);
+      logger.debug('ATA created', { service: 'nft', ataAddress });
 
       // Mint NFT (supply = 1)
       const amountInLamports = 1; // 1 NFT
@@ -70,7 +71,7 @@ export const NFTService = {
         amountInLamports
       );
 
-      console.log('[NFT_SERVICE] NFT minted, tx:', txHash);
+      logger.info('NFT minted', { service: 'nft', txHash, mintAddress });
 
       // Create metadata JSON (off-chain)
       const metadata = {
@@ -95,7 +96,7 @@ export const NFTService = {
         metadata: metadata,
       };
     } catch (error) {
-      console.error('[NFT_SERVICE] createNFT error:', error);
+      logger.logError(error, { context: 'nft.createNFT', name });
       return {
         success: false,
         error: error.message || 'Failed to create NFT',
@@ -152,7 +153,7 @@ export const NFTService = {
         totalEstimate: totalEstimate / 1e9,
       };
     } catch (error) {
-      console.error('[NFT_SERVICE] estimateRealCost error:', error);
+      logger.logError(error, { context: 'nft.estimateRealCost' });
       return {
         mintRent: 0.002,
         ataRent: 0.002,
