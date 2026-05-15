@@ -312,6 +312,7 @@ export class BitcoinChain extends BaseProvider {
         from: fromAddress,
         to: toAddress,
         amount: amount.toString(),
+        symbol: 'BTC',
         fee: feeData.estimatedFee,
         status: 'broadcast',
       };

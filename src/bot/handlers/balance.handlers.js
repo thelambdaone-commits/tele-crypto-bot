@@ -1,11 +1,9 @@
-/**
- * Balance & Price Handlers
- */
 import { Markup } from 'telegraf';
 import { mainMenuKeyboard, walletListKeyboard } from '../keyboards/index.js';
+import { getPricesEUR, formatCryptoPricesEUR, clearPriceCache } from '../../shared/price.js';
+import { buildBalancesText } from '../ui/wallet-display.js';
 
 export function setupBalanceHandlers(bot, storage, walletService) {
-  // Action: view_balances
   bot.action('view_balances', async (ctx) => {
     const chatId = ctx.chat.id;
     await ctx.answerCbQuery().catch(() => {});
@@ -17,41 +15,7 @@ export function setupBalanceHandlers(bot, storage, walletService) {
         .catch(() => {});
     }
 
-    const { convertToEUR, formatEUR } = await import('../../shared/price.js');
-
-    let text = '💰 *Soldes de tes Wallets*\n\n';
-    let totalEUR = 0;
-
-    for (const wallet of wallets) {
-      try {
-        const balance = await walletService.getBalance(chatId, wallet.id);
-        const balanceNum = parseFloat(balance.balance) || 0;
-
-        let valueEUR = 0;
-        if (balanceNum > 0) {
-          try {
-            const conversion = await convertToEUR(wallet.chain, balanceNum);
-            valueEUR = conversion.valueEUR || 0;
-            totalEUR += valueEUR;
-          } catch {
-            // Keep balance display available even if EUR conversion fails.
-          }
-        }
-
-        text += `🔸 *${wallet.label}* (${wallet.chain.toUpperCase()})\n`;
-        text += `Solde: ${balance.balance} ${wallet.chain.toUpperCase()}`;
-        if (valueEUR > 0) {
-          text += ` ≈ ${formatEUR(valueEUR)}`;
-        }
-        text += '\n\n';
-      } catch (error) {
-        text += `🔸 *${wallet.label}* (${wallet.chain.toUpperCase()})\n`;
-        text += '❌ Erreur de récupération\n\n';
-      }
-    }
-
-    text += '━━━━━━━━━━━━\n';
-    text += `💶 *Total :* ${formatEUR(totalEUR)}`;
+    const text = '💰 *Soldes de tes Wallets*' + await buildBalancesText(walletService, storage, chatId);
 
     ctx
       .editMessageText(text, {
@@ -61,13 +25,10 @@ export function setupBalanceHandlers(bot, storage, walletService) {
       .catch(() => {});
   });
 
-  // Action: prices_eur
   bot.action('prices_eur', async (ctx) => {
     await ctx.answerCbQuery().catch(() => {});
 
     try {
-      const { getPricesEUR, formatCryptoPricesEUR, clearPriceCache } =
-        await import('../../shared/price.js');
       clearPriceCache();
       const prices = await getPricesEUR(true);
       const text = formatCryptoPricesEUR(prices);
@@ -80,7 +41,6 @@ export function setupBalanceHandlers(bot, storage, walletService) {
     }
   });
 
-  // Hears: 💰 Mes Wallets
   bot.hears('💰 Mes Wallets', async (ctx) => {
     const wallets = await storage.getWallets(ctx.chat.id);
     ctx.reply('👛 *Tes Wallets*', {
@@ -89,11 +49,8 @@ export function setupBalanceHandlers(bot, storage, walletService) {
     });
   });
 
-  // Hears: 📊 Cours EUR
   bot.hears('📊 Cours EUR', async (ctx) => {
     try {
-      const { getPricesEUR, formatCryptoPricesEUR, clearPriceCache } =
-        await import('../../shared/price.js');
       clearPriceCache();
       const prices = await getPricesEUR(true);
       const text = formatCryptoPricesEUR(prices);
@@ -109,7 +66,6 @@ export function setupBalanceHandlers(bot, storage, walletService) {
     }
   });
 
-  // Hears: 💵 Soldes
   bot.hears('💵 Soldes', async (ctx) => {
     const chatId = ctx.chat.id;
     const wallets = await storage.getWallets(chatId);
@@ -117,50 +73,12 @@ export function setupBalanceHandlers(bot, storage, walletService) {
       return ctx.reply("❌ Tu n'as pas encore de wallet.");
     }
 
-    const { convertToEUR, formatEUR } = await import('../../shared/price.js');
-
-    let text = '💰 *Soldes de tes Wallets*\n\n';
-    let totalEUR = 0;
-
-    for (const wallet of wallets) {
-      try {
-        const balance = await walletService.getBalance(chatId, wallet.id);
-        const balanceNum = parseFloat(balance.balance) || 0;
-
-        let valueEUR = 0;
-        if (balanceNum > 0) {
-          try {
-            const conversion = await convertToEUR(wallet.chain, balanceNum);
-            valueEUR = conversion.valueEUR || 0;
-            totalEUR += valueEUR;
-          } catch {
-            // Keep balance display available even if EUR conversion fails.
-          }
-        }
-
-        text += `🔸 *${wallet.label}* (${wallet.chain.toUpperCase()})\n`;
-        text += `Solde: ${balance.balance} ${wallet.chain.toUpperCase()}`;
-        if (valueEUR > 0) {
-          text += ` ≈ ${formatEUR(valueEUR)}`;
-        }
-        text += '\n\n';
-      } catch (error) {
-        text += `🔸 *${wallet.label}* (${wallet.chain.toUpperCase()})\n`;
-        text += '❌ Erreur de récupération\n\n';
-      }
-    }
-
-    text += '━━━━━━━━━━━━\n';
-    text += `💶 *Total :* ${formatEUR(totalEUR)}`;
-
+    const text = '💰 *Soldes de tes Wallets*' + await buildBalancesText(walletService, storage, chatId);
     await ctx.reply(text, { parse_mode: 'Markdown' });
   });
 
-  // Refresh prices button
   bot.action('refresh_prices', async (ctx) => {
     try {
-      const { getPricesEUR, formatCryptoPricesEUR, clearPriceCache } =
-        await import('../../shared/price.js');
       clearPriceCache();
       const prices = await getPricesEUR(true);
       const text = formatCryptoPricesEUR(prices);
@@ -180,7 +98,6 @@ export function setupBalanceHandlers(bot, storage, walletService) {
     }
   });
 
-  // Close message button
   bot.action('close_message', async (ctx) => {
     await ctx.deleteMessage();
   });

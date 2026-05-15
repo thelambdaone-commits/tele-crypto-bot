@@ -68,6 +68,15 @@ export class SessionManager {
     this.isDirty = true;
   }
 
+  updateData(chatId, partial) {
+    const session = this._getSession(chatId);
+    session.data = { ...session.data, ...partial };
+    session.lastActivity = Date.now();
+    this.memoryStore.set(chatId, session);
+    this.isDirty = true;
+    return session.data;
+  }
+
   clearData(chatId) {
     const session = this._getSession(chatId);
     session.data = {};

@@ -6,7 +6,7 @@ import { formatPriceUpdateDate } from './price.js';
 
 const width = 800;
 const height = 400;
-import { COINGECKO_API, COIN_IDS, buildHeaders, COINGECKO_API_KEY } from './coingecko.js';
+import { COINGECKO_API, COIN_IDS, fetchWithFallback, COINGECKO_API_KEY } from './coingecko.js';
 const GRAPH_USAGE = 'Usage : /graph btc 7|30|90|365|all';
 const SUPPORTED_PERIODS = new Set(['7', '30', '90', '365', 'all']);
 const PRICE_HISTORY_CACHE_TTL = 5 * 60 * 1000;
@@ -133,10 +133,9 @@ async function fetchCoinGeckoMarketChart(coinId, days) {
   }
 
   const url = `${COINGECKO_API}/coins/${coinId}/market_chart?vs_currency=eur&days=${days}`;
-  const headers = buildHeaders();
 
   const request = (async () => {
-    const response = await fetch(url, { headers });
+    const response = await fetchWithFallback(url);
     if (response.ok) {
       const data = await response.json();
       setCachedPriceHistory(coinId, days, data.prices);

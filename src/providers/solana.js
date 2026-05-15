@@ -4,10 +4,11 @@ import {
   PublicKey,
   Transaction,
   SystemProgram,
+  ComputeBudgetProgram,
   LAMPORTS_PER_SOL,
   sendAndConfirmTransaction,
 } from '@solana/web3.js';
-import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
+import { getAssociatedTokenAddress, getAccount, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 import { BaseProvider } from './base.provider.js';
 import { TransactionError, ERROR_CODES } from '../shared/errors.js';
 import { TOKEN_CONFIGS, getTokenConfig } from '../core/tokens.config.js';
@@ -220,7 +221,6 @@ export class SolanaChain extends BaseProvider {
       const priorityFee = fees[feeLevel]?.priorityFee || 0;
 
       if (priorityFee > 0) {
-        const { ComputeBudgetProgram } = await import('@solana/web3.js');
         transaction.add(
           ComputeBudgetProgram.setComputeUnitPrice({
             microLamports: Math.floor((priorityFee * 1000) / 200000), // Rough conversion to microLamports for priority
@@ -245,6 +245,8 @@ export class SolanaChain extends BaseProvider {
         from: fromKeypair.publicKey.toString(),
         to: toAddress,
         amount: amount.toString(),
+        symbol: 'SOL',
+        fee: (5000 / 1e9).toString(),
         status: 'success',
       };
     } catch (error) {
@@ -462,7 +464,6 @@ export class SolanaChain extends BaseProvider {
       await getAccount(conn, ata);
       return { ata: ata.toString(), created: false };
     } catch {
-      const { createAssociatedTokenAccountInstruction } = await import('@solana/spl-token');
       const transaction = new Transaction();
       transaction.add(
         createAssociatedTokenAccountInstruction(
@@ -485,7 +486,6 @@ export class SolanaChain extends BaseProvider {
     const priorityFee = fees[feeLevel]?.priorityFee || 0;
 
     if (priorityFee > 0) {
-      const { ComputeBudgetProgram } = await import('@solana/web3.js');
       transaction.add(
         ComputeBudgetProgram.setComputeUnitPrice({
           microLamports: Math.floor((priorityFee * 1000) / 200000),

@@ -14,11 +14,12 @@ export class StorageService {
   constructor(dataPath, masterKey) {
     this.dataPath = dataPath;
     this.masterKey = masterKey;
-    this.masterKey = masterKey;
     this.locks = new Map();
     this.statsPath = path.join(dataPath, '_stats.enc');
     this.polymarket = new PolymarketCredentialsService(this);
     this.secrets = new SecretVault(dataPath, masterKey);
+    this.cache = new Map();
+    this.cacheTTL = 30000; // 30 seconds
     logger.info('Stockage initialise', { path: this.dataPath });
   }
 
@@ -61,20 +62,32 @@ export class StorageService {
     }
   }
 
+  async withUserLock(chatId, fn) {
+    return this._withLock(chatId, fn);
+  }
+
   /**
    * Load user data from encrypted file
    * @param {number} chatId
    */
   async loadUserData(chatId) {
+    const cached = this.cache.get(chatId);
+    if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
+      return JSON.parse(JSON.stringify(cached.data));
+    }
+
     const filePath = this._getFilePath(chatId);
 
     try {
       const encryptedData = await fs.readFile(filePath, 'utf8');
       const decryptedData = decrypt(encryptedData, this.masterKey);
-      return JSON.parse(decryptedData);
+      const data = JSON.parse(decryptedData);
+      
+      this.cache.set(chatId, { data, timestamp: Date.now() });
+      return data;
     } catch (error) {
       if (error.code === 'ENOENT') {
-        return {
+        const defaultData = {
           chatId,
           wallets: [],
           pendingTransactions: [],
@@ -83,6 +96,8 @@ export class StorageService {
           },
           createdAt: new Date().toISOString(),
         };
+        // Don't cache default data until it's actually saved
+        return defaultData;
       }
       throw error;
     }
@@ -99,16 +114,21 @@ export class StorageService {
     const jsonData = JSON.stringify(data, null, 2);
     const encryptedData = encrypt(jsonData, this.masterKey);
     await fs.writeFile(filePath, encryptedData, 'utf8');
+    
+    // Update cache
+    this.cache.set(chatId, { data, timestamp: Date.now() });
   }
 
   /**
    * Update user profile information (name, username)
    */
   async updateUserProfile(chatId, firstName, username) {
-    const userData = await this.loadUserData(chatId);
-    userData.firstName = firstName;
-    userData.username = username;
-    await this.saveUserData(chatId, userData);
+    return this._withLock(chatId, async () => {
+      const userData = await this.loadUserData(chatId);
+      userData.firstName = firstName;
+      userData.username = username;
+      await this.saveUserData(chatId, userData);
+    });
   }
 
   /**

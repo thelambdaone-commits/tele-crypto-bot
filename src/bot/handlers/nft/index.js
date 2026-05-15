@@ -10,6 +10,7 @@ import { Markup } from 'telegraf';
 import { mainMenuKeyboard } from '../../keyboards/index.js';
 import { safeAnswerCbQuery } from '../../utils.js';
 import { logger } from '../../../shared/logger.js';
+import { isAdmin } from '../../middlewares/auth.middleware.js';
 
 /**
  * Start the NFT wizard - reusable function
@@ -18,7 +19,6 @@ import { logger } from '../../../shared/logger.js';
 async function startNFTWizard(ctx, chatId, storage, sessions) {
   try {
     // Check if user is admin (V1: admins only)
-    const { isAdmin } = await import('../../middlewares/auth.middleware.js');
     const isAdminUser = isAdmin(chatId);
     logger.info('[NFT] Starting wizard', { chatId, isAdmin: isAdminUser });
 

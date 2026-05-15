@@ -1,3 +1,4 @@
+import { ethers } from 'ethers';
 import { config } from '../../../core/config.js';
 import { getPricesEUR, formatEUR } from '../../../shared/price.js';
 import { generatePriceChart, parseGraphCommand } from '../../../shared/chart.js';
@@ -11,7 +12,6 @@ export function setupMarketCommands(bot) {
     const loadingMsg = await ctx.reply('⛽ Récupération des frais de transaction...');
 
     try {
-      const { ethers } = await import('ethers');
 
       const getEthFees = async () => {
         const ethProvider = new ethers.JsonRpcProvider(

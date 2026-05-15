@@ -259,6 +259,7 @@ export class LitecoinChain extends BaseProvider {
       from: keyPair.publicKey.toString(),
       to: toAddress,
       amount: amount.toString(),
+      symbol: 'LTC',
       fee: (feeSats / 100000000).toString(),
       blockNumber: 0,
       status: 'success',

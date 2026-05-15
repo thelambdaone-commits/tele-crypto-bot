@@ -5,7 +5,7 @@
 import {
   COINGECKO_API,
   COIN_IDS,
-  buildHeaders,
+  fetchWithFallback,
 } from './coingecko.js';
 
 let priceCache = {
@@ -40,10 +40,7 @@ export async function getPricesEUR(force = false) {
 
   try {
     const ids = Object.values(COIN_IDS).join(',');
-    const headers = buildHeaders();
-    const response = await fetch(`${COINGECKO_API}/simple/price?ids=${ids}&vs_currencies=eur`, {
-      headers,
-    });
+    const response = await fetchWithFallback(`${COINGECKO_API}/simple/price?ids=${ids}&vs_currencies=eur`);
 
     if (!response.ok) {
       throw new Error('Erreur API CoinGecko');

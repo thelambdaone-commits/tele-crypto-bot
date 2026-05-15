@@ -1,3 +1,4 @@
+import { Markup } from 'telegraf';
 import {
   walletListKeyboard,
   feeSelectionKeyboard,
@@ -60,7 +61,6 @@ export function setupSendActions(bot, storage, walletService, sessions) {
     } else {
       // Other chains: go directly to address
       sessions.setState(chatId, 'ENTER_ADDRESS');
-      const { Markup } = await import('telegraf');
       const cancelKeyboard = Markup.inlineKeyboard([
         [Markup.button.callback('❌ Annuler', 'cancel')],
       ]);
@@ -82,8 +82,7 @@ export function setupSendActions(bot, storage, walletService, sessions) {
     await safeAnswerCbQuery(ctx);
 
     const data = sessions.getData(chatId);
-    sessions.setData(chatId, {
-      ...data,
+    sessions.updateData(chatId, {
       selectedChain: chain,
       selectedToken: token === 'native' ? null : token,
     });
@@ -91,7 +90,6 @@ export function setupSendActions(bot, storage, walletService, sessions) {
 
     const chainSymbol = chain.toUpperCase();
     const tokenLabel = token === 'native' ? chainSymbol : token;
-    const { Markup } = await import('telegraf');
     const cancelKeyboard = Markup.inlineKeyboard([
       [Markup.button.callback('❌ Annuler', 'cancel')],
     ]);
@@ -133,7 +131,7 @@ export function setupSendActions(bot, storage, walletService, sessions) {
       );
     }
 
-    sessions.setData(chatId, { ...sessionData, toAddress: address, selectedChain: chain });
+    sessions.updateData(chatId, { toAddress: address, selectedChain: chain });
 
     ctx.editMessageText(
       `📬 *Envoyer à :*\n\`${address}\`\n\nDepuis quel wallet ${chain.toUpperCase()} ?`,
@@ -200,7 +198,7 @@ export function setupSendActions(bot, storage, walletService, sessions) {
         );
       }
 
-      sessions.setData(chatId, { ...data, amount });
+      sessions.updateData(chatId, { amount });
 
       const actualFees = await walletService.estimateFees(
         chatId,
@@ -209,7 +207,7 @@ export function setupSendActions(bot, storage, walletService, sessions) {
         amount,
         tokenSymbol
       );
-      sessions.setData(chatId, { ...sessions.getData(chatId), fees: actualFees });
+      sessions.updateData(chatId, { fees: actualFees });
 
       const displaySymbol = tokenSymbol || data.selectedChain.toUpperCase();
       const amountEUR = tokenSymbol
@@ -241,7 +239,6 @@ export function setupSendActions(bot, storage, walletService, sessions) {
     const data = sessions.getData(chatId);
     const label = data.amountType === 'native' ? data.selectedChain.toUpperCase() : 'Euros';
 
-    const { Markup } = await import('telegraf');
     const cancelKeyboard = Markup.inlineKeyboard([
       [Markup.button.callback('❌ Annuler', 'cancel')],
     ]);
@@ -261,7 +258,7 @@ export function setupSendActions(bot, storage, walletService, sessions) {
 
     const data = sessions.getData(chatId);
     const actualFeeLevel = feeLevel === 'auto' ? 'slow' : feeLevel;
-    sessions.setData(chatId, { ...data, feeLevel: actualFeeLevel });
+    sessions.updateData(chatId, { feeLevel: actualFeeLevel });
 
     const text = await formatTxDetails(data, actualFeeLevel);
 

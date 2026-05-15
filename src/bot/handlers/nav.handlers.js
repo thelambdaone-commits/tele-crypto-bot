@@ -10,6 +10,7 @@ import {
 } from '../keyboards/index.js';
 import { safeEditMessage } from '../utils.js';
 import { logger } from '../../shared/logger.js';
+import { getFullHelpText } from '../ui/index.js';
 
 export function setupNavigationHandlers(bot, storage, walletService, sessions) {
   // Action: back_to_menu
@@ -54,7 +55,6 @@ export function setupNavigationHandlers(bot, storage, walletService, sessions) {
   // Action: help_menu
   bot.action('help_menu', async (ctx) => {
     await ctx.answerCbQuery().catch((err) => logger.debug('help_menu answerCbQuery failed', { error: err.message }));
-    const { getFullHelpText } = await import('../ui/index.js');
     await safeEditMessage(ctx, getFullHelpText(), {
       parse_mode: 'Markdown',
       ...mainMenuKeyboard(),
@@ -101,7 +101,6 @@ export function setupNavigationHandlers(bot, storage, walletService, sessions) {
 
   // Hears: help buttons
   bot.hears(['🆘 Help', '❓ Aide'], async (ctx) => {
-    const { getFullHelpText } = await import('../ui/index.js');
     await ctx.reply(getFullHelpText(), {
       parse_mode: 'Markdown',
       ...mainMenuKeyboard(),

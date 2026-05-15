@@ -1,6 +1,7 @@
 import { RateLimiter } from '../../shared/security/rate-limit.js';
 import { config } from '../../core/config.js';
 import { isAdmin } from './auth.middleware.js';
+import { isValidAddress } from '../../shared/validation.js';
 
 // Different rate limiters for different action types
 const limiters = {
@@ -80,9 +81,7 @@ export function sanitizeInput(input) {
  * Validate wallet address format
  */
 export function isValidAddressFormat(address) {
-  if (!address || typeof address !== 'string') return false;
-  if (address.length < 26 || address.length > 130) return false;
-  return /^[a-zA-Z0-9]+$/.test(address);
+  return isValidAddress(address);
 }
 
 /**

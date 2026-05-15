@@ -152,7 +152,7 @@ export async function handleApiKeyInput(ctx, storage, sessions) {
   const text = ctx.message.text.trim();
 
   const data = sessions.getData(chatId);
-  sessions.setData(chatId, { ...data, apiKey: text });
+  sessions.updateData(chatId, { apiKey: text });
   sessions.setState(chatId, 'AWAITING_POLY_SECRET');
 
   await ctx.reply('📌 *Étape 2/3*\n\nEntrez votre *API Secret*:', { parse_mode: 'Markdown' });
@@ -163,7 +163,7 @@ export async function handleApiSecretInput(ctx, storage, sessions) {
   const text = ctx.message.text.trim();
 
   const data = sessions.getData(chatId);
-  sessions.setData(chatId, { ...data, apiSecret: text });
+  sessions.updateData(chatId, { apiSecret: text });
   sessions.setState(chatId, 'AWAITING_POLY_PASSPHRASE');
 
   await ctx.reply('📌 *Étape 3/3*\n\nEntrez votre *API Passphrase*:', { parse_mode: 'Markdown' });

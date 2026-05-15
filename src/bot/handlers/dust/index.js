@@ -1,5 +1,6 @@
 import { Markup } from 'telegraf';
 import { SolanaBurner } from '../../../modules/dust/solana.burner.js';
+import { ethers } from 'ethers';
 import { getPricesEUR, formatEUR } from '../../../shared/price.js';
 import { mainMenuKeyboard } from '../../keyboards/index.js';
 import { config } from '../../../core/config.js';
@@ -7,7 +8,6 @@ import { safeAnswerCbQuery } from '../../utils.js';
 
 async function getEthGasPrice() {
   try {
-    const { ethers } = await import('ethers');
     const provider = new ethers.JsonRpcProvider(config.rpc?.eth || 'https://eth.llamarpc.com');
     const feeData = await provider.getFeeData();
     const gasPrice = feeData.gasPrice ? Number(feeData.gasPrice) / 1e9 : 30;

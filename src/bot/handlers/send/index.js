@@ -1,7 +1,7 @@
 import { setupSendActions } from './actions.js';
 import { setupSendTextInput } from './text-input.js';
 import { safeAnswerCbQuery } from '../../utils.js';
-import { mainMenuKeyboard } from '../../keyboards/index.js';
+import { mainMenuKeyboard, quickAmountKeyboard } from '../../keyboards/index.js';
 import { MESSAGES, EMOJIS } from '../../messages/index.js';
 
 /**
@@ -28,15 +28,14 @@ export function setupSendHandlers(bot, storage, walletService, sessions) {
     await safeAnswerCbQuery(ctx);
 
     const data = sessions.getData(chatId);
-    sessions.setData(chatId, { ...data, amountType: type });
+      sessions.updateData(chatId, { amountType: type });
 
     try {
       const balanceData = await walletService.getBalance(chatId, data.selectedWalletId);
 
       // Store current balance for quick calculations
       const balanceNum = Number.parseFloat(balanceData.balance);
-      sessions.setData(chatId, {
-        ...sessions.getData(chatId),
+      sessions.updateData(chatId, {
         currentBalance: balanceNum,
         currentBalanceLamports: balanceData.balanceLamports,
       });
@@ -47,7 +46,6 @@ export function setupSendHandlers(bot, storage, walletService, sessions) {
         `Ton solde : *${balanceData.balance} ${data.selectedChain.toUpperCase()}*\n\n` +
         `Entre le montant en *${label}* ou utilise les raccourcis :`;
 
-      const { quickAmountKeyboard } = await import('../../keyboards/index.js');
       ctx.editMessageText(prompt, { parse_mode: 'Markdown', ...quickAmountKeyboard() });
       sessions.setState(chatId, 'SELECT_QUICK_AMOUNT');
     } catch (error) {

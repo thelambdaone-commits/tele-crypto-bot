@@ -60,8 +60,8 @@ export class PolymarketCredentialsService {
     signatureTimestamp,
     metadata = {}
   ) {
-    const data = await this.storage.loadUserData(chatId, true);
-    try {
+    return this.storage.withUserLock(chatId, async () => {
+      const data = await this.storage.loadUserData(chatId);
       const credentialsList = this._normalizeCredentials(data);
       const normalizedAddress = address.toLowerCase();
       const existingIndex = credentialsList.findIndex(
@@ -93,11 +93,8 @@ export class PolymarketCredentialsService {
       }
 
       data.activePmCredentialId = credentialId;
-      await this.storage.saveUserData(chatId, data, true);
-    } catch (error) {
-      this.storage._releaseLock(chatId);
-      throw error;
-    }
+      await this.storage.saveUserData(chatId, data);
+    });
   }
 
   async getActive(chatId) {
@@ -145,8 +142,8 @@ export class PolymarketCredentialsService {
   }
 
   async setActive(chatId, credentialId) {
-    const data = await this.storage.loadUserData(chatId, true);
-    try {
+    return this.storage.withUserLock(chatId, async () => {
+      const data = await this.storage.loadUserData(chatId);
       const credentialsList = this._normalizeCredentials(data);
       const exists = credentialsList.some((creds) => creds.id === credentialId);
       if (!exists) {
@@ -154,23 +151,17 @@ export class PolymarketCredentialsService {
       }
 
       data.activePmCredentialId = credentialId;
-      await this.storage.saveUserData(chatId, data, true);
-    } catch (error) {
-      this.storage._releaseLock(chatId);
-      throw error;
-    }
+      await this.storage.saveUserData(chatId, data);
+    });
   }
 
   async delete(chatId) {
-    const data = await this.storage.loadUserData(chatId, true);
-    try {
+    return this.storage.withUserLock(chatId, async () => {
+      const data = await this.storage.loadUserData(chatId);
       this._normalizeCredentials(data);
       data.activePmCredentialId = null;
-      await this.storage.saveUserData(chatId, data, true);
-    } catch (error) {
-      this.storage._releaseLock(chatId);
-      throw error;
-    }
+      await this.storage.saveUserData(chatId, data);
+    });
   }
 
   async exists(chatId) {

@@ -84,8 +84,17 @@ export class RateLimiter {
       const valid = requests.filter((time) => now - time < this.windowMs);
       if (valid.length === 0) {
         this.requests.delete(chatId);
+        // Also cleanup warnings for users with no active requests
+        this.warnings.delete(chatId);
       } else {
         this.requests.set(chatId, valid);
+      }
+    }
+
+    // Secondary pass for orphan warnings
+    for (const chatId of this.warnings.keys()) {
+      if (!this.requests.has(chatId)) {
+        this.warnings.delete(chatId);
       }
     }
   }

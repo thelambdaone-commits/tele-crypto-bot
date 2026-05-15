@@ -11,6 +11,7 @@ import { TokenService } from '../../../modules/tokens/create.service.js';
 import { mainMenuKeyboard } from '../../keyboards/index.js';
 import { safeAnswerCbQuery } from '../../utils.js';
 import { logger } from '../../../shared/logger.js';
+import { isAdmin } from '../../middlewares/auth.middleware.js';
 
 function formatSOL(amount) {
   return amount.toFixed(6);
@@ -26,7 +27,6 @@ async function startMintWizard(ctx, chatId, storage, sessions) {
     logger.info('[MINT] Starting wizard', { chatId });
 
     // Check if user is admin (V1: admins only)
-    const { isAdmin } = await import('../../middlewares/auth.middleware.js');
     const isAdminUser = isAdmin(chatId);
     logger.info('[MINT] Admin check', { chatId, isAdmin: isAdminUser });
 
@@ -235,7 +235,7 @@ export function setupTokenHandlers(bot, storage, walletService, sessions) {
     const decimals = parseInt(ctx.match[1]);
 
     const data = sessions.getData(chatId);
-    sessions.setData(chatId, { ...data, decimals: decimals });
+    sessions.updateData(chatId, { decimals });
 
     sessions.setState(chatId, 'TOKEN_SUPPLY');
 

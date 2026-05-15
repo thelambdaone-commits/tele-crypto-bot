@@ -5,6 +5,7 @@ import {
 } from '../../keyboards/index.js';
 import { safeAnswerCbQuery } from '../../utils.js';
 import { MESSAGES, EMOJIS } from '../../messages/index.js';
+import { convertToEUR, formatEUR } from '../../../shared/price.js';
 
 export function setupWalletList(bot, storage, walletService) {
   // List wallets
@@ -76,7 +77,6 @@ export function setupWalletList(bot, storage, walletService) {
       balanceText = `*${balance.balance} ${wallet.chain.toUpperCase()}*`;
 
       // Get EUR value
-      const { convertToEUR, formatEUR } = await import('../../../shared/price.js');
       const conversion = await convertToEUR(wallet.chain, Number.parseFloat(balance.balance));
       balanceEUR = ` (${formatEUR(conversion.valueEUR)})`;
     } catch (e) {}

@@ -355,6 +355,7 @@ export class BitcoinCashChain extends BaseProvider {
       from: fromAddress,
       to: toAddress,
       amount: amount.toString(),
+      symbol: 'BCH',
       fee: (feeSats / 100000000).toString(),
       blockNumber: 0,
       status: 'success',

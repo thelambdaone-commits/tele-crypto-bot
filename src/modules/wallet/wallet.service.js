@@ -7,6 +7,7 @@ import { BitcoinCashChain } from '../../providers/bitcoincash.js';
 import { PolygonChain } from '../../providers/polygon.js';
 import { OptimismChain } from '../../providers/optimism.js';
 import { BaseChain } from '../../providers/base.js';
+import { TransactionError, ERROR_CODES } from '../../shared/errors.js';
 
 export class WalletService {
   constructor(storage, config) {
@@ -110,26 +111,25 @@ export class WalletService {
    */
   async getAllBalances(chatId) {
     const wallets = await this.storage.getWallets(chatId);
-    const balances = [];
 
-    for (const wallet of wallets) {
-      try {
-        const chainHandler = this.chains[wallet.chain];
-        const balance = await chainHandler.getBalance(wallet.address);
-        balances.push({
-          ...wallet,
-          balance: balance.balance,
-        });
-      } catch (error) {
-        balances.push({
-          ...wallet,
-          balance: 'Erreur',
-          error: error.message,
-        });
-      }
-    }
-
-    return balances;
+    return Promise.all(
+      wallets.map(async (wallet) => {
+        try {
+          const chainHandler = this.chains[wallet.chain];
+          const balance = await chainHandler.getBalance(wallet.address);
+          return {
+            ...wallet,
+            balance: balance.balance,
+          };
+        } catch (error) {
+          return {
+            ...wallet,
+            balance: 'Erreur',
+            error: error.message,
+          };
+        }
+      })
+    );
   }
 
   /**
@@ -170,6 +170,21 @@ export class WalletService {
 
     if (!wallet) {
       throw new Error('Wallet non trouve');
+    }
+
+    const parsedAmount = Number.parseFloat(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      throw new TransactionError('Montant invalide', {
+        code: ERROR_CODES.INVALID_AMOUNT,
+        chain: wallet.chain,
+      });
+    }
+
+    if (parsedAmount > 1e15) {
+      throw new TransactionError('Montant excessif', {
+        code: ERROR_CODES.INVALID_AMOUNT,
+        chain: wallet.chain,
+      });
     }
 
     const chainHandler = this.chains[wallet.chain];

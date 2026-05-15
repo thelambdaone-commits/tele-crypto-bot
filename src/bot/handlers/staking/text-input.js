@@ -124,8 +124,7 @@ async function handleJitoExitQuickAmount(ctx, percentage, storage, walletService
     const minReceived = quote.minReceived || amountOut * 0.995;
     const estimatedValueEUR = amountOut * jitoPriceEur;
 
-    sessions.setData(chatId, {
-      ...data,
+    sessions.updateData(chatId, {
       amount: amount,
       quote: quote,
     });
@@ -193,8 +192,7 @@ async function handleJitoEnterAmount(ctx, text, storage, walletService, sessions
     const slippage = quote.priceImpact !== undefined ? `${quote.priceImpact.toFixed(2)}%` : 'N/A';
     const walletLabel = wallet?.label || wallet?.address?.slice(0, 8) + '...' || 'SOL';
 
-    sessions.setData(chatId, {
-      ...data,
+    sessions.updateData(chatId, {
       amount: amount,
       quote: quote,
       walletId: wallet.id,
@@ -380,8 +378,7 @@ async function handleJitoExitFastAmount(ctx, text, storage, walletService, sessi
     const walletLabel = wallet?.label || wallet?.address?.slice(0, 8) + '...' || 'SOL';
     const estimatedValueEUR = amount * jitoPriceEur;
 
-    sessions.setData(chatId, {
-      ...data,
+    sessions.updateData(chatId, {
       amount: amount,
       quote: quote,
       walletId: wallet.id,
@@ -536,7 +533,7 @@ async function handleJitoExitStandardAmount(ctx, text, storage, walletService, s
 
     const amountSOL = amount * (data.rateSol || 1.07);
 
-    sessions.setData(chatId, { ...data, amount });
+    sessions.updateData(chatId, { amount });
     sessions.setState(chatId, 'JITO_EXIT_STANDARD_CONFIRM');
 
     await ctx.reply(
