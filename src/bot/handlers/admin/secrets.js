@@ -1,6 +1,6 @@
 import { Markup } from 'telegraf';
 import { isAdmin } from '../../middlewares/auth.middleware.js';
-import { adminExtendedKeyboard, adminCancelKeyboard } from '../../keyboards/index.js';
+import { adminCancelKeyboard } from '../../keyboards/index.js';
 import { safeAnswerCbQuery, safeEditMessage } from '../../../shared/utils/telegram.js';
 import { logger } from '../../../shared/logger.js';
 

@@ -1,4 +1,5 @@
 import { Markup } from 'telegraf';
+import { CALLBACKS } from '../constants/callbacks.js';
 
 // Re-export specific modules
 export * from './admin.keyboards.js';
@@ -20,24 +21,24 @@ export function mainReplyKeyboard() {
 export function mainMenuKeyboard() {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('💰 Mes Wallets', 'list_wallets'),
-      Markup.button.callback('💸 Envoyer', 'send_funds'),
+      Markup.button.callback('💰 Mes Wallets', CALLBACKS.LIST_WALLETS),
+      Markup.button.callback('💸 Envoyer', CALLBACKS.SEND_FUNDS),
     ],
     [
-      Markup.button.callback('💵 Soldes', 'view_balances'),
-      Markup.button.callback('🔍 Analyser', 'analyze_address'),
+      Markup.button.callback('💵 Soldes', CALLBACKS.VIEW_BALANCES),
+      Markup.button.callback('🔍 Analyser', CALLBACKS.ANALYZE_ADDRESS),
     ],
     [
-      Markup.button.callback('🆕 Nouveau Wallet', 'create_wallet'),
-      Markup.button.callback('🔐 Mes Clés', 'view_keys'),
+      Markup.button.callback('🆕 Nouveau Wallet', CALLBACKS.CREATE_WALLET),
+      Markup.button.callback('🔐 Mes Clés', CALLBACKS.VIEW_KEYS),
     ],
     [
-      Markup.button.callback('📊 Cours EUR', 'prices_eur'),
-      Markup.button.callback('🆘 Help', 'help_menu'),
+      Markup.button.callback('📊 Cours EUR', CALLBACKS.PRICES_EUR),
+      Markup.button.callback('🆘 Help', CALLBACKS.HELP_MENU),
     ],
     [
-      Markup.button.callback("➕ Plus d'actions", 'plus_actions'),
-      Markup.button.callback('❌ Fermer', 'close_menu'),
+      Markup.button.callback("➕ Plus d'actions", CALLBACKS.PLUS_ACTIONS),
+      Markup.button.callback('❌ Fermer', CALLBACKS.CLOSE_MENU),
     ],
   ]);
 }
@@ -45,25 +46,25 @@ export function mainMenuKeyboard() {
 export function advancedActionsKeyboard() {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('📈 Staking', 'staking_yield'),
-      Markup.button.callback('💧 Liquid Staking', 'liquid_staking_menu'),
+      Markup.button.callback('📈 Staking', CALLBACKS.STAKING_YIELD),
+      Markup.button.callback('💧 Liquid Staking', CALLBACKS.LIQUID_STAKING_MENU),
     ],
     [
-      Markup.button.callback('📊 Cours EUR', 'prices_eur'),
-      Markup.button.callback('🧹 Dust Keeper', 'dust_analysis'),
+      Markup.button.callback('📊 Cours EUR', CALLBACKS.PRICES_EUR),
+      Markup.button.callback('🧹 Dust Keeper', CALLBACKS.DUST_ANALYSIS),
     ],
     [
-      Markup.button.callback('🔥 Burn SOL', 'burn_tokens'),
-      Markup.button.callback('🎯 Polymarket', 'pm_menu_refresh'),
+      Markup.button.callback('🔥 Burn SOL', CALLBACKS.BURN_TOKENS),
+      Markup.button.callback('🎯 Polymarket', CALLBACKS.PM_MENU_REFRESH),
     ],
     [
-      Markup.button.callback('⛏️ Créer un Token', 'create_token'),
-      Markup.button.callback('🖼 Créer un NFT', 'create_nft'),
+      Markup.button.callback('⛏️ Créer un Token', CALLBACKS.CREATE_TOKEN),
+      Markup.button.callback('🖼 Créer un NFT', CALLBACKS.CREATE_NFT),
     ],
-    [Markup.button.callback('⬅️ Retour', 'back_to_menu')],
+    [Markup.button.callback('⬅️ Retour', CALLBACKS.BACK_TO_MENU)],
   ]);
 }
 
 export function cancelKeyboard() {
-  return Markup.inlineKeyboard([[Markup.button.callback('❌ Annuler', 'cancel')]]);
+  return Markup.inlineKeyboard([[Markup.button.callback('❌ Annuler', CALLBACKS.CANCEL)]]);
 }

@@ -28,6 +28,7 @@ build/
 *.tmp
 *.temp
 .cache/
+scratch/
 
 # OS files
 .DS_Store

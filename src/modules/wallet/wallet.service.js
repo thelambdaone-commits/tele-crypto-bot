@@ -163,11 +163,10 @@ export class WalletService {
   }
 
   /**
-   * Send transaction - no passphrase
+   * Pre-flight validation before sending a transaction
    */
-  async sendTransaction(chatId, walletId, toAddress, amount, feeLevel, tokenSymbol = null) {
+  async estimateAndValidate(chatId, walletId, toAddress, amount, tokenSymbol = null) {
     const wallet = await this.storage.getWalletWithKey(chatId, walletId);
-
     if (!wallet) {
       throw new Error('Wallet non trouve');
     }
@@ -188,6 +187,46 @@ export class WalletService {
     }
 
     const chainHandler = this.chains[wallet.chain];
+
+    // Validate destination address
+    if (!chainHandler.validateAddress(toAddress)) {
+      throw new TransactionError('Adresse de destination invalide', {
+        code: ERROR_CODES.INVALID_ADDRESS,
+        chain: wallet.chain,
+      });
+    }
+
+    // Estimate fees for pre-flight
+    const fees = await chainHandler.estimateFees(wallet.address, toAddress, amount, tokenSymbol);
+
+    // Check balance sufficiency
+    const balance = await chainHandler.getBalance(wallet.address, tokenSymbol);
+    const balanceNum = Number.parseFloat(balance.balance);
+    if (parsedAmount > balanceNum) {
+      throw new TransactionError('Solde insuffisant', {
+        code: ERROR_CODES.INSUFFICIENT_FUNDS,
+        chain: wallet.chain,
+      });
+    }
+
+    return {
+      wallet,
+      chainHandler,
+      fees,
+      balance,
+      parsedAmount,
+      isValid: true,
+    };
+  }
+
+  /**
+   * Send transaction with pre-flight validation
+   */
+  async sendTransaction(chatId, walletId, toAddress, amount, feeLevel = 'average', tokenSymbol = null) {
+    const { wallet, chainHandler } = await this.estimateAndValidate(
+      chatId, walletId, toAddress, amount, tokenSymbol
+    );
+
     return await chainHandler.sendTransaction(
       wallet.privateKey,
       toAddress,

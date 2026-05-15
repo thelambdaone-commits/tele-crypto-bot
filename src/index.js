@@ -1,3 +1,5 @@
+import { existsSync } from 'fs';
+import { join } from 'path';
 import { Telegraf } from 'telegraf';
 import { config } from './core/config.js';
 import { setupHandlers } from './bot/handlers/index.js';
@@ -5,6 +7,14 @@ import { StorageService } from './core/storage.js';
 import { logger } from './shared/logger.js';
 import { cleanupAllFeeds } from './clob/feed.js';
 import { auditLogger } from './shared/security/audit-logger.js';
+
+// Security: reject unencrypted session files at startup
+const sessionsJsonPath = join(config.dataPath, 'sessions.json');
+if (existsSync(sessionsJsonPath)) {
+  const msg = 'SECURITY_ALERT: Unencrypted sessions.json detected. Remove it immediately.';
+  logger.error(msg);
+  process.exit(1);
+}
 
 const bot = new Telegraf(config.botToken);
 const storage = new StorageService(config.dataPath, config.masterKey);

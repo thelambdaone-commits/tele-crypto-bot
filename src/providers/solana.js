@@ -12,6 +12,7 @@ import { getAssociatedTokenAddress, getAccount, createAssociatedTokenAccountInst
 import { BaseProvider } from './base.provider.js';
 import { TransactionError, ERROR_CODES } from '../shared/errors.js';
 import { TOKEN_CONFIGS, getTokenConfig } from '../core/tokens.config.js';
+import { RpcManager } from '../shared/rpc/RpcManager.js';
 
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 import * as bip39 from 'bip39';
@@ -23,12 +24,35 @@ export class SolanaChain extends BaseProvider {
     this.primaryRpcUrl = rpcUrl;
     this.connection = new Connection(rpcUrl, 'confirmed');
 
-    // Fallback RPC endpoints
-    this.fallbackRpcs = [
+    const endpoints = [
+      rpcUrl,
       'https://api.mainnet-beta.solana.com',
       'https://solana-mainnet.g.alchemy.com/v2/demo',
       'https://rpc.ankr.com/solana',
-    ];
+    ].filter(Boolean);
+
+    this.balanceRpc = new RpcManager(endpoints, async (endpoint, { address }) => {
+      const conn = new Connection(endpoint, {
+        commitment: 'confirmed',
+        confirmTransactionInitialTimeout: 10000,
+      });
+      const balance = await conn.getBalance(new PublicKey(address));
+      return {
+        balance: (balance / LAMPORTS_PER_SOL).toString(),
+        balanceLamports: balance.toString(),
+        symbol: this.symbol,
+      };
+    }, { requestTimeoutMs: 10000, failureThreshold: 3 });
+
+    this.tokenRpc = new RpcManager(endpoints, async (endpoint, { publicKey }) => {
+      const conn = new Connection(endpoint, {
+        commitment: 'confirmed',
+        confirmTransactionInitialTimeout: 10000,
+      });
+      return await conn.getParsedTokenAccountsByOwner(publicKey, {
+        programId: TOKEN_PROGRAM_ID,
+      });
+    }, { requestTimeoutMs: 15000, failureThreshold: 3 });
   }
 
   async createWallet() {
@@ -149,35 +173,15 @@ export class SolanaChain extends BaseProvider {
         return await this.getTokenBalance(address, config.mint);
       }
     }
-    const publicKey = new PublicKey(address);
 
-    // Try primary connection first
-    const rpcsToTry = [this.primaryRpcUrl, ...this.fallbackRpcs];
-
-    for (const rpcUrl of rpcsToTry) {
-      try {
-        const conn = new Connection(rpcUrl, {
-          commitment: 'confirmed',
-          confirmTransactionInitialTimeout: 10000,
-        });
-        const balance = await conn.getBalance(publicKey);
-
-        return {
-          balance: (balance / LAMPORTS_PER_SOL).toString(),
-          balanceLamports: balance.toString(),
-          symbol: this.symbol,
-        };
-      } catch (error) {
-        // Try next RPC silently
-        continue;
-      }
+    try {
+      return await this.balanceRpc.execute({ address });
+    } catch (error) {
+      throw new TransactionError('Unable to fetch balance - network issue', {
+        code: ERROR_CODES.RPC_ERROR,
+        chain: 'SOL',
+      });
     }
-
-    // All RPCs failed
-    throw new TransactionError('Unable to fetch balance - network issue', {
-      code: ERROR_CODES.RPC_ERROR,
-      chain: 'SOL',
-    });
   }
 
   async estimateFees(_fromAddress, _toAddress, _amount) {
@@ -368,45 +372,30 @@ export class SolanaChain extends BaseProvider {
 
   async getTokens(address) {
     const publicKey = new PublicKey(address);
-    const rpcsToTry = [this.primaryRpcUrl, ...this.fallbackRpcs];
 
-    for (const rpcUrl of rpcsToTry) {
-      try {
-        const conn = new Connection(rpcUrl, {
-          commitment: 'confirmed',
-          confirmTransactionInitialTimeout: 10000,
-        });
+    try {
+      const tokenAccounts = await this.tokenRpc.execute({ publicKey });
+      return tokenAccounts.value
+        .map((account) => {
+          const info = account.account.data.parsed.info;
+          const mint = info.mint;
+          const amount = info.tokenAmount;
 
-        const tokenAccounts = await conn.getParsedTokenAccountsByOwner(publicKey, {
-          programId: TOKEN_PROGRAM_ID,
-        });
-
-        const tokens = tokenAccounts.value
-          .map((account) => {
-            const info = account.account.data.parsed.info;
-            const mint = info.mint;
-            const amount = info.tokenAmount;
-
-            return {
-              mint,
-              address: account.pubkey.toString(),
-              amount: Number(amount.amount) / Math.pow(10, amount.decimals),
-              decimals: amount.decimals,
-              uiAmount: amount.uiAmount,
-              isNonZero: amount.amount > 0,
-              programId: account.account.data.program,
-              associated: account.pubkey.toBase58().startsWith(mint.slice(0, 10)),
-            };
-          })
-          .filter((t) => t.isNonZero);
-
-        return tokens;
-      } catch (error) {
-        continue;
-      }
+          return {
+            mint,
+            address: account.pubkey.toString(),
+            amount: Number(amount.amount) / Math.pow(10, amount.decimals),
+            decimals: amount.decimals,
+            uiAmount: amount.uiAmount,
+            isNonZero: amount.amount > 0,
+            programId: account.account.data.program,
+            associated: account.pubkey.toBase58().startsWith(mint.slice(0, 10)),
+          };
+        })
+        .filter((t) => t.isNonZero);
+    } catch {
+      return [];
     }
-
-    return [];
   }
 
   async getAllTokensWithSymbols(address) {

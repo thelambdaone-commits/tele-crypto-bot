@@ -1,4 +1,5 @@
 import { Markup } from 'telegraf';
+import { CALLBACKS } from '../constants/callbacks.js';
 
 export function walletListKeyboard(wallets, prefix = 'wallet_') {
   const chainEmojis = {
@@ -18,7 +19,7 @@ export function walletListKeyboard(wallets, prefix = 'wallet_') {
       `${prefix}${w.id}`
     ),
   ]);
-  buttons.push([Markup.button.callback('↩️ Retour', 'back_to_menu')]);
+  buttons.push([Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)]);
   return Markup.inlineKeyboard(buttons);
 }
 
@@ -29,7 +30,7 @@ export function walletActionsKeyboard(walletId) {
     [Markup.button.callback('🔑 Voir Clé Privée', `view_privkey_${walletId}`)],
     [Markup.button.callback('📜 Historique', `wallet_history_${walletId}`)],
     [Markup.button.callback('🗑 Supprimer', `delete_wallet_${walletId}`)],
-    [Markup.button.callback('↩️ Retour', 'view_keys')],
+    [Markup.button.callback('↩️ Retour', CALLBACKS.VIEW_KEYS)],
   ]);
 }
 
@@ -43,7 +44,7 @@ export function deleteConfirmKeyboard(walletId) {
 export function corruptedWalletKeyboard(walletId) {
   return Markup.inlineKeyboard([
     [Markup.button.callback('🗑️ Supprimer ce wallet', `confirm_delete_${walletId}`)],
-    [Markup.button.callback('↩️ Retour', 'view_keys')],
+    [Markup.button.callback('↩️ Retour', CALLBACKS.VIEW_KEYS)],
   ]);
 }
 
@@ -52,7 +53,7 @@ export function walletCreationMethodKeyboard(chain) {
     [Markup.button.callback('🆕 Générer Nouveau Wallet', `generate_${chain}`)],
     [Markup.button.callback('🔑 Importer une Clé Privée', `import_key_${chain}`)],
     [Markup.button.callback('🔐 Importer une Seed Phrase', `import_seed_${chain}`)],
-    [Markup.button.callback('🔙 Retour', 'create_wallet')],
+    [Markup.button.callback('🔙 Retour', CALLBACKS.CREATE_WALLET)],
   ]);
 }
 
@@ -75,6 +76,6 @@ export function chainSelectionKeyboard(actionPrefix = 'chain_') {
       Markup.button.callback('🔵 Optimism', `${actionPrefix}op`),
     ],
     [Markup.button.callback('🟦 Base', `${actionPrefix}base`)],
-    [Markup.button.callback('↩️ Retour', 'back_to_menu')],
+    [Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)],
   ]);
 }

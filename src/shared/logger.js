@@ -28,6 +28,25 @@ class Logger {
   constructor(logFile = 'bot.log') {
     this.logPath = join(LOG_DIR, logFile);
     this.errorLogPath = join(LOG_DIR, 'errors.log');
+    this.redactKeys = new Set([
+      'privateKey', 'encryptedPrivateKey',
+      'seedPhrase', 'mnemonic', 'encryptedMnemonic',
+      'secretKey', 'apiKey', 'apiSecret', 'apiPassphrase',
+      'passphrase', 'masterKey',
+    ]);
+  }
+
+  redact(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    const clone = Array.isArray(obj) ? [...obj] : { ...obj };
+    for (const key of Object.keys(clone)) {
+      if (this.redactKeys.has(key)) {
+        clone[key] = '[REDACTED]';
+      } else if (typeof clone[key] === 'object' && clone[key] !== null) {
+        clone[key] = this.redact(clone[key]);
+      }
+    }
+    return clone;
   }
 
   /**
@@ -52,7 +71,7 @@ class Logger {
       timestamp: new Date().toISOString(),
       level,
       message,
-      ...context,
+      ...this.redact(context),
     });
   }
 

@@ -18,20 +18,30 @@ export async function buildBalancesText(walletService, storage, chatId) {
   let text = '\n';
   let totalEUR = 0;
 
-  for (const wallet of wallets) {
-    try {
-      const { balance, valueEUR } = await getWalletBalanceEUR(
-        walletService, chatId, wallet
-      );
+  const results = await Promise.all(
+    wallets.map(async (wallet) => {
+      try {
+        const { balance, valueEUR } = await getWalletBalanceEUR(
+          walletService, chatId, wallet
+        );
+        return { wallet, balance, valueEUR, error: null };
+      } catch {
+        return { wallet, balance: null, valueEUR: 0, error: true };
+      }
+    })
+  );
+
+  for (const { wallet, balance, valueEUR, error } of results) {
+    if (!error) {
       totalEUR += valueEUR;
       text += `🔸 *${wallet.label}* (${wallet.chain.toUpperCase()})\n`;
       text += `Solde: ${balance.balance} ${wallet.chain.toUpperCase()}`;
       if (valueEUR > 0) text += ` ≈ ${formatEUR(valueEUR)}`;
-      text += '\n\n';
-    } catch {
+    } else {
       text += `🔸 *${wallet.label}* (${wallet.chain.toUpperCase()})\n`;
       text += '❌ Erreur de récupération\n\n';
     }
+    text += '\n\n';
   }
 
   text += '━━━━━━━━━━━━\n';

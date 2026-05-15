@@ -1,46 +1,47 @@
 import { Markup } from 'telegraf';
+import { CALLBACKS, dynamicCallback } from '../constants/callbacks.js';
 
 export function adminKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('📊 Statistiques', 'admin_stats')],
-    [Markup.button.callback('🔒 securite', 'admin_security')],
-    [Markup.button.callback('⚙️ Panel Admin', 'admin_panel')],
-    [Markup.button.callback('❌ Fermer', 'close_menu')],
+    [Markup.button.callback('📊 Statistiques', CALLBACKS.ADMIN_STATS)],
+    [Markup.button.callback('🔒 Securite', CALLBACKS.ADMIN_SECURITY)],
+    [Markup.button.callback('⚙️ Panel Admin', CALLBACKS.ADMIN_PANEL)],
+    [Markup.button.callback('❌ Fermer', CALLBACKS.CLOSE_MENU)],
   ]);
 }
 
 export function adminExtendedKeyboard() {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('📊 Statistiques', 'admin_stats'),
-      Markup.button.callback('🔒 Securite', 'admin_security'),
+      Markup.button.callback('📊 Statistiques', CALLBACKS.ADMIN_STATS),
+      Markup.button.callback('🔒 Securite', CALLBACKS.ADMIN_SECURITY),
     ],
     [
-      Markup.button.callback('👥 Liste Users', 'admin_list_users'),
-      Markup.button.callback('🔍 Voir User', 'admin_view_user'),
+      Markup.button.callback('👥 Liste Users', CALLBACKS.ADMIN_LIST_USERS),
+      Markup.button.callback('🔍 Voir User', CALLBACKS.ADMIN_VIEW_USER),
     ],
     [
-      Markup.button.callback('🧹 Dust Global', 'admin_dust'),
-      Markup.button.callback('📜 Logs Audit', 'admin_logs'),
+      Markup.button.callback('🧹 Dust Global', CALLBACKS.ADMIN_DUST),
+      Markup.button.callback('📜 Logs Audit', CALLBACKS.ADMIN_LOGS),
     ],
     [
-      Markup.button.callback('🔐 Secrets', 'admin_secrets'),
-      Markup.button.callback('📢 Broadcast', 'admin_broadcast'),
+      Markup.button.callback('🔐 Secrets', CALLBACKS.ADMIN_SECRETS),
+      Markup.button.callback('📢 Broadcast', CALLBACKS.ADMIN_BROADCAST),
     ],
     [
-      Markup.button.callback('🚫 Ban User', 'admin_ban'),
-      Markup.button.callback('✅ Unban User', 'admin_unban'),
+      Markup.button.callback('🚫 Ban User', CALLBACKS.ADMIN_BAN),
+      Markup.button.callback('✅ Unban User', CALLBACKS.ADMIN_UNBAN),
     ],
   ]);
 }
 
 export function adminUserKeyboard(targetUserId) {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('🔑 Voir Cles', `admin_user_keys_${targetUserId}`)],
-    [Markup.button.callback('↩️ Retour Panel Admin', 'admin_panel')],
+    [Markup.button.callback('🔑 Voir Cles', dynamicCallback.adminUserKeys(targetUserId))],
+    [Markup.button.callback('↩️ Retour Panel Admin', CALLBACKS.ADMIN_PANEL)],
   ]);
 }
 
 export function adminCancelKeyboard() {
-  return Markup.inlineKeyboard([[Markup.button.callback('❌ Annuler', 'admin_panel')]]);
+  return Markup.inlineKeyboard([[Markup.button.callback('❌ Annuler', CALLBACKS.ADMIN_PANEL)]]);
 }

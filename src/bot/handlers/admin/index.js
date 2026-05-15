@@ -6,6 +6,7 @@ import { setupAdminActions, setupAdminMisc } from './actions.js';
 import { setupAdminDust } from './dust.js';
 import { setupAdminSecrets } from './secrets.js';
 import { safeAnswerCbQuery } from '../../../shared/utils/telegram.js';
+import { CALLBACKS } from '../../constants/callbacks.js';
 
 export function setupAdminHandlers(bot, storage, sessions, walletService) {
   // Admin command
@@ -21,7 +22,7 @@ export function setupAdminHandlers(bot, storage, sessions, walletService) {
   });
 
   // Admin panel back action
-  bot.action('admin_panel', async (ctx) => {
+  bot.action(CALLBACKS.ADMIN_PANEL, async (ctx) => {
     await safeAnswerCbQuery(ctx);
     if (!isAdmin(ctx)) return;
     sessions.clearState(ctx.chat.id);

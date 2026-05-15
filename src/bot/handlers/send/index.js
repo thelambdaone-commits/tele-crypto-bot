@@ -1,15 +1,15 @@
 import { setupSendActions } from './actions.js';
 import { setupSendTextInput } from './text-input.js';
-import { safeAnswerCbQuery } from '../../utils.js';
+import { safeAnswerCbQuery } from '../../../shared/utils/telegram.js';
 import { mainMenuKeyboard, quickAmountKeyboard } from '../../keyboards/index.js';
-import { MESSAGES, EMOJIS } from '../../messages/index.js';
+import { CALLBACKS, CALLBACK_REGEX } from '../../constants/callbacks.js';
 
 /**
  * Setup all send-related handlers
  */
 export function setupSendHandlers(bot, storage, walletService, sessions) {
   // Analyze address menu
-  bot.action('analyze_address', async (ctx) => {
+  bot.action(CALLBACKS.ANALYZE_ADDRESS, async (ctx) => {
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
 
@@ -22,7 +22,7 @@ export function setupSendHandlers(bot, storage, walletService, sessions) {
   });
 
   // Amount type selection (callback from ENTER_ADDRESS flow)
-  bot.action(/^amount_type_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.AMOUNT_TYPE, async (ctx) => {
     const type = ctx.match[1]; // native or eur
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
