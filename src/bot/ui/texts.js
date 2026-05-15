@@ -43,7 +43,7 @@ ${sectionTitle('🆘', 'GÉNÉRAL')}
  */
 export function getFullHelpText() {
   return `
-🎮 *Bienvenue dans l'aide du Bot Slash !*
+🎮 *Bienvenue dans l'aide du Bot !*
 
 ${sectionTitle('🔐', 'WALLETS')}
 \`/wallet\` — 👛 Affiche tes wallets
