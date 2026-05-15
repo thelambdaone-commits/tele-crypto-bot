@@ -5,6 +5,7 @@ Bot Telegram modulaire pour gerer des wallets crypto multi-chain, suivre les sol
 ## ⚡ Pour Commencer
 
 ```bash
+git clone https://github.com/thelambdaone-commits/telegram-crypto-bot-v1.git
 cd telegram-crypto-bot
 npm install
 cp .env.example .env
