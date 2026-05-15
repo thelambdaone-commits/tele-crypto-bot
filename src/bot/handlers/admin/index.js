@@ -4,6 +4,7 @@ import { setupAdminStats } from './stats.js';
 import { setupAdminUsers } from './users.js';
 import { setupAdminActions, setupAdminMisc } from './actions.js';
 import { setupAdminDust } from './dust.js';
+import { setupAdminSecrets } from './secrets.js';
 import { safeAnswerCbQuery } from '../../../shared/utils/telegram.js';
 
 export function setupAdminHandlers(bot, storage, sessions, walletService) {
@@ -37,4 +38,5 @@ export function setupAdminHandlers(bot, storage, sessions, walletService) {
   setupAdminActions(bot, storage, sessions);
   setupAdminMisc(bot, storage, sessions);
   setupAdminDust(bot, storage, walletService);
+  setupAdminSecrets(bot, storage, sessions);
 }

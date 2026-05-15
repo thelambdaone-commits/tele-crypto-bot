@@ -24,10 +24,13 @@ export function adminExtendedKeyboard() {
       Markup.button.callback('📜 Logs Audit', 'admin_logs'),
     ],
     [
+      Markup.button.callback('🔐 Secrets', 'admin_secrets'),
+      Markup.button.callback('📢 Broadcast', 'admin_broadcast'),
+    ],
+    [
       Markup.button.callback('🚫 Ban User', 'admin_ban'),
       Markup.button.callback('✅ Unban User', 'admin_unban'),
     ],
-    [Markup.button.callback('📢 Broadcast', 'admin_broadcast')],
   ]);
 }
 

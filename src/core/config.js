@@ -1,10 +1,17 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
+import { dirname, resolve, join } from 'path';
+import { SecretVault } from './secret-vault.js';
 
 dotenv.config();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const dataPath = process.env.DATA_PATH || resolve(__dirname, '../../data');
+const masterKey = process.env.MASTER_ENCRYPTION_KEY;
+
+// Initialize vault synchronously for boot
+const vault = new SecretVault(dataPath, masterKey);
+vault.loadSync();
 
 function parseIdList(value) {
   return value
@@ -21,10 +28,10 @@ const adminUserId = [...configuredAdminUserId, ...adminChatId.filter((id) => id 
 
 export const config = {
   botToken: process.env.BOT_TOKEN,
-  masterKey: process.env.MASTER_ENCRYPTION_KEY,
+  masterKey,
   adminChatId,
   adminUserId: [...new Set(adminUserId)],
-  dataPath: process.env.DATA_PATH || resolve(__dirname, '../../data'),
+  dataPath,
   rateLimit: Number.parseInt(process.env.RATE_LIMIT || '30'),
   sessionTimeout: Number.parseInt(process.env.SESSION_TIMEOUT || '5'),
 
@@ -36,7 +43,8 @@ export const config = {
     alertChatId: process.env.POLYMARKET_ALERT_CHAT_ID
       ? Number(process.env.POLYMARKET_ALERT_CHAT_ID)
       : null,
-    polyfillEnvPath: process.env.POLYFILL_RS_ENV_PATH || '',
+    // Hardcoded path to avoid leak and simplify config
+    polyfillEnvPath: join(dataPath, 'polymarket-copy-trade', 'runtime.env'),
   },
 
   rpc: {
@@ -49,7 +57,8 @@ export const config = {
     matic: process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com',
     op: process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io',
     base: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
-    stakingSol: process.env.STAKING_SOL_RPC_URL,
+    // Preference for vault-stored secret
+    stakingSol: vault.get('stakingRpc') || process.env.STAKING_SOL_RPC_URL,
   },
 };
 

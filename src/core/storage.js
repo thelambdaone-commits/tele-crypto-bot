@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { decrypt, encrypt } from '../shared/encryption.js';
 import { PolymarketCredentialsService } from './polymarket-credentials.js';
+import { SecretVault } from './secret-vault.js';
 import { logger } from '../shared/logger.js';
 
 /**
@@ -17,11 +18,13 @@ export class StorageService {
     this.activeReleases = new Map();
     this.statsPath = path.join(dataPath, '_stats.enc');
     this.polymarket = new PolymarketCredentialsService(this);
+    this.secrets = new SecretVault(dataPath, masterKey);
     logger.info(`Stockage initialise`, { path: this.dataPath });
   }
 
   async init() {
     await fs.mkdir(this.dataPath, { recursive: true });
+    await this.secrets.init();
     logger.info(`Stockage initialise`, { path: this.dataPath });
   }
 
