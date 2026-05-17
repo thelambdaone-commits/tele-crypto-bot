@@ -42,7 +42,8 @@ src/
 ├── modules/             # Services metier: wallet, staking, tokens, NFTs, dust
 ├── providers/           # Adaptateurs blockchain
 ├── shared/              # Logger, chiffrement, prix, securite
-└── index.js            # Point d'entree
+├── bootstrap.js         # Initialisation et verification au demarrage
+└── index.js             # Point d'entree
 ```
 
 Le bot garde les integrations separees par module. La logique Polymarket ne depend pas des handlers generiques hors points d'entree Telegram, et le code CLOB/Data API reste dans `src/clob/`.
@@ -90,7 +91,11 @@ Editez ensuite `.env` avec vos valeurs reelles.
 | `ADMIN_CHAT_ID` | — | IDs de chats autorises (separes par virgules) |
 | `SESSION_TIMEOUT` | `5` | Timeout de session en minutes |
 | `RATE_LIMIT` | `30` | Requetes par minute |
-
+| `STAKING_SOL_RPC_URL` | — | RPC Solana dedie aux operations de staking (override) |
+| `DAILY_LIMIT_SOL` | — | Limite journaliere en SOL (circuit breaker) |
+| `DAILY_LIMIT_ETH` | — | Limite journaliere en ETH (circuit breaker) |
+| `DAILY_LIMIT_USD` | — | Limite journaliere en USD (circuit breaker) |
+ 
 <details>
 <summary><b>RPC & Endpoints</b> (cliquer pour déplier)</summary>
 
@@ -155,6 +160,10 @@ npm run precheck
 npm run check:polymarket
 npm run check:polymarket-history
 npm run lint
+npm run lint:fix
+npm run format
+npm run config:check
+npm run ci
 ```
 
 ### Polymarket dans Telegram
