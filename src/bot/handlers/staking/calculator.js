@@ -111,10 +111,15 @@ async function handleCalcCommand(ctx, args) {
       text += `${token} • APY: *${StakingService.formatApy(p.apy)}*\n\n`;
 
       text += '📈 *Gains bruts*\n';
-      text += `1 mois: *+${formatCurrency(StakingService.calculateYield(amount, p.apy, 1))}*\n`;
-      text += `3 mois: *+${formatCurrency(StakingService.calculateYield(amount, p.apy, 3))}*\n`;
-      text += `6 mois: *+${formatCurrency(StakingService.calculateYield(amount, p.apy, 6))}*\n`;
-      text += `1 an: *+${formatCurrency(StakingService.calculateYield(amount, p.apy, 12))}*\n\n`;
+      const gross30d = StakingService.calculateYieldForDays(amount, p.apy, 30);
+      const gross90d = StakingService.calculateYieldForDays(amount, p.apy, 90);
+      const gross180d = StakingService.calculateYieldForDays(amount, p.apy, 180);
+      const gross365d = StakingService.calculateYieldForDays(amount, p.apy, 365);
+
+      text += `30j: *+${formatCurrency(gross30d)}*\n`;
+      text += `90j: *+${formatCurrency(gross90d)}*\n`;
+      text += `180j: *+${formatCurrency(gross180d)}*\n`;
+      text += `365j: *+${formatCurrency(gross365d)}*\n\n`;
 
       text += '💸 *Frais*\n';
       text += `Depot: ${formatCurrency(profit.breakdown.depositFee)}\n`;
@@ -123,10 +128,10 @@ async function handleCalcCommand(ctx, args) {
       text += `Total: ${formatCurrency(profit.totalFees)}\n\n`;
 
       text += '💰 *Gains nets*\n';
-      text += `1 mois: *+${formatCurrency(profit.netProfit / 12)}*\n`;
-      text += `3 mois: *+${formatCurrency((profit.netProfit / 12) * 3)}*\n`;
-      text += `6 mois: *+${formatCurrency((profit.netProfit / 12) * 6)}*\n`;
-      text += `1 an: *+${formatCurrency(profit.netProfit)}*\n\n`;
+      text += `30j: *+${formatCurrency(gross30d - profit.totalFees)}*\n`;
+      text += `90j: *+${formatCurrency(gross90d - profit.totalFees)}*\n`;
+      text += `180j: *+${formatCurrency(gross180d - profit.totalFees)}*\n`;
+      text += `365j: *+${formatCurrency(profit.netProfit)}*\n\n`;
 
       text += `📊 ROI annualise: *${profit.roi}%*\n`;
       text += '━━━━━━━━━━━━\n\n';
@@ -145,6 +150,7 @@ async function handleCalcCommand(ctx, args) {
       );
     }
 
+    text += '_Projection APY composée sur 30j/90j/180j/365j_\n';
     text += '_Prix mis a jour automatiquement_\n';
     text += '_Frais fixes (non garanties)_\n';
 

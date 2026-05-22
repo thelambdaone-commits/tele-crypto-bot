@@ -62,8 +62,8 @@ function buildYieldRows(apyData, defaultAmount) {
         chain: chain.displayName,
         icon: chain.icon,
         source: entry.source || 'llama.fi',
-        yearlyYield: StakingService.calculateYield(defaultAmount, apy, 12),
-        monthlyYield: StakingService.calculateYield(defaultAmount, apy, 1),
+        yearlyYield: StakingService.calculateYieldForDays(defaultAmount, apy, 365),
+        monthlyYield: StakingService.calculateYieldForDays(defaultAmount, apy, 30),
         fees: profit.totalFees,
       });
     }
@@ -84,8 +84,8 @@ function buildYieldRows(apyData, defaultAmount) {
       chain: 'Solana',
       icon: '🟣',
       source: 'estimation',
-      yearlyYield: StakingService.calculateYield(defaultAmount, apy, 12),
-      monthlyYield: StakingService.calculateYield(defaultAmount, apy, 1),
+      yearlyYield: StakingService.calculateYieldForDays(defaultAmount, apy, 365),
+      monthlyYield: StakingService.calculateYieldForDays(defaultAmount, apy, 30),
       fees: profit.totalFees,
     });
   }
@@ -105,8 +105,8 @@ function buildYieldRows(apyData, defaultAmount) {
       chain: 'Solana',
       icon: '🟣',
       source: 'estimation',
-      yearlyYield: StakingService.calculateYield(defaultAmount, apy, 12),
-      monthlyYield: StakingService.calculateYield(defaultAmount, apy, 1),
+      yearlyYield: StakingService.calculateYieldForDays(defaultAmount, apy, 365),
+      monthlyYield: StakingService.calculateYieldForDays(defaultAmount, apy, 30),
       fees: profit.totalFees,
     });
   }
@@ -126,8 +126,8 @@ function buildYieldRows(apyData, defaultAmount) {
       chain: 'Solana',
       icon: '🟣',
       source: 'live',
-      yearlyYield: StakingService.calculateYield(defaultAmount, apy, 12),
-      monthlyYield: StakingService.calculateYield(defaultAmount, apy, 1),
+      yearlyYield: StakingService.calculateYieldForDays(defaultAmount, apy, 365),
+      monthlyYield: StakingService.calculateYieldForDays(defaultAmount, apy, 30),
       fees: profit.totalFees,
     });
   }
@@ -147,7 +147,7 @@ function formatYieldRows(rows) {
       const link = url ? `\n   [Ouvrir le site officiel](${url})` : '';
       return (
         `${rank}. ${row.icon} *${row.apy.toFixed(2)}%* • ${row.protocol} ${row.token}\n` +
-        `   ${row.chain} • 1 an: *+${formatCurrency(row.yearlyYield)}* • 1 mois: +${formatCurrency(row.monthlyYield)}\n` +
+        `   ${row.chain} • 1 an: *+${formatCurrency(row.yearlyYield)}* • 30j: +${formatCurrency(row.monthlyYield)}\n` +
         `   Frais estimés: ~${formatFee(row.fees)} • source: ${row.source}` +
         link
       );
@@ -174,6 +174,7 @@ async function handleStakeCommand(ctx, _storage, { edit = false } = {}) {
       text += '━━━━━━━━━━━━\n';
       text += formatYieldRows(rows);
       text += '\n━━━━━━━━━━━━\n';
+      text += '_Projection APY composée sur 30j/365j, hors variation du taux._\n';
       text += '_Utilisez /calc <montant> <token> <protocole>_\n';
       text += '_pour calculer avec votre propre montant_\n';
       text += '_ou /yield pour voir vos positions_';
@@ -221,6 +222,7 @@ async function handleStakeCommand(ctx, _storage, { edit = false } = {}) {
     text += formatYieldRows(rows);
 
     text += '\n━━━━━━━━━━━━\n';
+    text += '_Projection APY composée sur 30j/365j, hors variation du taux._\n';
     text += '_Utilisez /calc <montant> <token> <protocole>_\n';
     text += '_pour calculer avec votre propre montant_\n';
     text += '_ou /yield pour voir vos positions_';

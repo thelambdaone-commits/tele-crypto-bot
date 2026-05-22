@@ -181,7 +181,18 @@ export class StakingService {
     const numAmount = parseFloat(amount);
     const numApy = parseFloat(apy);
     if (isNaN(numAmount) || isNaN(numApy)) return 0;
-    return ((numAmount * numApy) / 100 / 12) * months;
+    const days = (Number(months) * 365) / 12;
+    return this.calculateYieldForDays(numAmount, numApy, days);
+  }
+
+  static calculateYieldForDays(amount, apy, days) {
+    const numAmount = parseFloat(amount);
+    const numApy = parseFloat(apy);
+    const numDays = parseFloat(days);
+    if (isNaN(numAmount) || isNaN(numApy) || isNaN(numDays)) return 0;
+    if (numAmount <= 0 || numDays <= 0) return 0;
+
+    return numAmount * ((1 + numApy / 100) ** (numDays / 365) - 1);
   }
 
   static calculateProfit({ amount, apy, months, protocol }) {
@@ -205,7 +216,7 @@ export class StakingService {
 
     const protocolInfo = PROTOCOL_INFO[protocol] || PROTOCOL_INFO['aave-v3'];
 
-    const grossYield = ((numAmount * numApy) / 100 / 12) * months;
+    const grossYield = this.calculateYield(numAmount, numApy, months);
 
     const depositFee = protocolInfo.networkFeeDeposit;
     const withdrawFee = protocolInfo.networkFeeWithdraw;
@@ -336,7 +347,7 @@ export class StakingService {
   }
 
   static calculateMonthlyYield(amount, apy) {
-    return this.calculateYield(amount, apy, 1);
+    return this.calculateYieldForDays(amount, apy, 30);
   }
 
   static getDepositUrl(protocol, _symbol) {
