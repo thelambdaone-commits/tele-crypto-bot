@@ -176,6 +176,7 @@ export const ETH_STAKING_PROVIDERS = {
     project: 'lido',
     sourceUrl: 'https://docs.lido.fi/deployed-contracts/',
     explorerTx: 'https://etherscan.io/tx/',
+    fallbackApy: 2.56,
   },
   rocketpool: {
     id: 'rocketpool',
@@ -191,6 +192,7 @@ export const ETH_STAKING_PROVIDERS = {
     explorerTx: 'https://etherscan.io/tx/',
     directDepositEnabled: false,
     directWithdrawEnabled: false,
+    fallbackApy: 2.06,
   },
   frax: {
     id: 'frax',
@@ -206,6 +208,25 @@ export const ETH_STAKING_PROVIDERS = {
     project: 'frax-ether',
     sourceUrl: 'https://docs.frax.com/protocol/assets/frxeth/addresses',
     explorerTx: 'https://etherscan.io/tx/',
+    fallbackApy: 2.97,
+  },
+  etherfi: {
+    id: 'etherfi',
+    name: 'Ether.fi',
+    displayName: 'Ether.fi',
+    icon: '🌱',
+    chain: 'eth',
+    depositToken: 'ETH',
+    receiptToken: 'eETH',
+    stakingAddress: '0x35FA1647351FDdD0CbF35174197ad3a2e790C1c1',
+    tokenAddress: '0x35FA1647351FDdD0CbF35174197ad3a2e790C1c1',
+    underlyingAddress: '0x0000000000000000000000000000000000000000',
+    project: 'ether.fi',
+    sourceUrl: 'https://ether.fi',
+    explorerTx: 'https://etherscan.io/tx/',
+    directDepositEnabled: false,
+    directWithdrawEnabled: false,
+    fallbackApy: 3.02,
   },
 };
 

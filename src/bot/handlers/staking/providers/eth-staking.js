@@ -40,7 +40,7 @@ async function renderProtocolMenu(ctx, protocolId) {
     `APY estimé: *${fmt(quote.apy)}* (${quote.source})\n\n`;
 
   if (protocol.directDepositEnabled === false) {
-    text += 'Le dépôt direct est désactivé ici. Utilise le front officiel ou un DEX avec liquidité rETH.\n\n';
+    text += `Le dépôt direct est désactivé ici. Utilise le front officiel ou un DEX avec liquidité ${protocol.receiptToken}.\n\n`;
   }
 
   text += `Source contrats: ${protocol.sourceUrl}`;
@@ -94,7 +94,7 @@ export function setupEthStakingHandlers(bot, storage, _walletService, sessions) 
     await renderProtocolMenu(ctx, ctx.match[1]);
   });
 
-  bot.action(/^eth_stake_(deposit|withdraw)_(lido|rocketpool|frax)_(.+)$/, async (ctx) => {
+  bot.action(/^eth_stake_(deposit|withdraw)_(lido|rocketpool|frax|etherfi)_(.+)$/, async (ctx) => {
     await safeAnswerCbQuery(ctx);
     const action = ctx.match[1];
     const protocolId = ctx.match[2];
@@ -110,7 +110,7 @@ export function setupEthStakingHandlers(bot, storage, _walletService, sessions) 
     );
   });
 
-  bot.action(/^eth_stake_(deposit|withdraw)_(lido|rocketpool|frax)$/, async (ctx) => {
+  bot.action(/^eth_stake_(deposit|withdraw)_(lido|rocketpool|frax|etherfi)$/, async (ctx) => {
     await safeAnswerCbQuery(ctx);
     await selectEthWallet(ctx, storage, sessions, ctx.match[1], ctx.match[2]);
   });

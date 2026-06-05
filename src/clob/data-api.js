@@ -2,7 +2,10 @@ const DATA_API = 'https://data-api.polymarket.com';
 const GAMMA_API = 'https://gamma-api.polymarket.com';
 
 async function fetchJson(url, label) {
-  const response = await fetch(url);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  const response = await fetch(url, { signal: controller.signal });
+  clearTimeout(timeout);
   if (!response.ok) {
     throw new Error(`${label} HTTP ${response.status}`);
   }
@@ -70,7 +73,7 @@ export async function getUserPositions(
   };
 }
 
-export async function getUserClosedPositions(address, { limit = 50, maxPages = 20 } = {}) {
+export async function getUserClosedPositions(address, { limit = 50, maxPages = 3 } = {}) {
   const userAddress = await resolvePolymarketUserAddress(address);
   const positions = [];
 

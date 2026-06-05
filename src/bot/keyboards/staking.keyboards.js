@@ -136,13 +136,50 @@ export function aaveWalletKeyboard(action, chainId, tokenSymbol, wallets) {
 
 export function stakingHubKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('🏆 Staking Optimizer', CALLBACKS.STAKING_OPTIMIZER)],
-    [Markup.button.callback('💵 USDC/USDT → Aave V3', CALLBACKS.AAVE_MENU)],
-    [Markup.button.callback('⚡ ETH Staking', CALLBACKS.ETH_STAKING_MENU)],
-    [Markup.button.callback('🔄 Curve LP', CALLBACKS.CURVE_LP_MENU)],
+    [
+      Markup.button.callback('🟣 SOL Staking', CALLBACKS.LIQUID_STAKING_MENU),
+      Markup.button.callback('🔷 ETH Staking', CALLBACKS.ETH_STAKING_MENU),
+    ],
+    [
+      Markup.button.callback('💵 USDC Staking', 'usdc_staking_menu'),
+      Markup.button.callback('🟢 USDT Staking', 'usdt_staking_menu'),
+    ],
+    [
+      Markup.button.callback('🏆 Optimizer', CALLBACKS.STAKING_OPTIMIZER),
+      Markup.button.callback('🔄 Curve LP', CALLBACKS.CURVE_LP_MENU),
+    ],
     [Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)],
   ]);
 }
+
+export function usdcStakingKeyboard() {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback('🔷 Aave V3 (Arbitrum)', 'aave_deposit_token_arb_USDC'),
+      Markup.button.callback('🔵 Aave V3 (Optimism)', 'aave_deposit_token_op_USDC'),
+    ],
+    [
+      Markup.button.callback('🌀 Aave V3 (Base)', 'aave_deposit_token_base_USDC'),
+      Markup.button.callback('🟣 Aave V3 (Polygon)', 'aave_deposit_token_matic_USDC'),
+    ],
+    [Markup.button.callback('↩️ Retour', CALLBACKS.STAKING_MENU)],
+  ]);
+}
+
+export function usdtStakingKeyboard() {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback('🔷 Aave V3 (Arbitrum)', 'aave_deposit_token_arb_USDT'),
+      Markup.button.callback('🔵 Aave V3 (Optimism)', 'aave_deposit_token_op_USDT'),
+    ],
+    [
+      Markup.button.callback('🟣 Aave V3 (Polygon)', 'aave_deposit_token_matic_USDT'),
+      Markup.button.callback('🔷 Aave V3 (Ethereum)', 'aave_deposit_token_eth_USDT'),
+    ],
+    [Markup.button.callback('↩️ Retour', CALLBACKS.STAKING_MENU)],
+  ]);
+}
+
 
 export function ethStakingKeyboard() {
   const buttons = getEthStakingProviders().map((provider) => [

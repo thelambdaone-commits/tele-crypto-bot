@@ -1,4 +1,4 @@
-import { liquidStakingKeyboard } from '../../keyboards/index.js';
+import { liquidStakingKeyboard, usdcStakingKeyboard, usdtStakingKeyboard } from '../../keyboards/index.js';
 import { safeAnswerCbQuery } from '../../utils.js';
 import { handleStakeCommand, handleYieldCommand } from './display.js';
 import { handleCalcCommand } from './calculator.js';
@@ -48,6 +48,24 @@ export function setupStakingHandlers(bot, storage, walletService, sessions) {
   bot.action('staking_menu', async (ctx) => {
     await safeAnswerCbQuery(ctx);
     await handleStakeCommand(ctx, storage, { edit: true });
+  });
+
+  bot.action('usdc_staking_menu', async (ctx) => {
+    await safeAnswerCbQuery(ctx);
+    await ctx.editMessageText(
+      '💵 *Staking USDC*\n\n' +
+        'Sélectionnez une option de dépôt Aave V3 pour l’USDC :',
+      { parse_mode: 'Markdown', ...usdcStakingKeyboard() }
+    );
+  });
+
+  bot.action('usdt_staking_menu', async (ctx) => {
+    await safeAnswerCbQuery(ctx);
+    await ctx.editMessageText(
+      '🟢 *Staking USDT*\n\n' +
+        'Sélectionnez une option de dépôt Aave V3 pour l’USDT :',
+      { parse_mode: 'Markdown', ...usdtStakingKeyboard() }
+    );
   });
 
   bot.action('liquid_staking_menu', async (ctx) => {

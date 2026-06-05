@@ -83,7 +83,7 @@ export class EthLstProvider extends StakingProvider {
       });
     }
 
-    return 0;
+    return protocol.fallbackApy || 0;
   }
 
   async quote({ protocolId, amount = 0 }) {

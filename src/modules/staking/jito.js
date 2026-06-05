@@ -15,7 +15,7 @@ const JUPITER_API = 'https://api.jup.ag';
 const SOL_RPC = JITO_RPC;
 
 // Jito Stake Pool Constants
-const STAKE_POOL_PROGRAM_ID = new PublicKey('SPoo1Ku8WFXoNDS9keSTneZabDECtSTAkgSxzZByMkB');
+const STAKE_POOL_PROGRAM_ID = new PublicKey('SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy');
 const JITO_STAKE_POOL_ADDRESS = new PublicKey('Jito4APyf642JPZPx3hGc6WWJ8zPKtRbRs4P815Awbb');
 const STAKE_PROGRAM_ID = StakeProgram.programId;
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
@@ -414,22 +414,27 @@ export class JitoService {
       const poolInfo = await conn.getAccountInfo(JITO_STAKE_POOL_ADDRESS);
       if (!poolInfo) throw new Error('Impossible de récupérer les infos de la pool Jito');
 
-      // The validator list address is at offset 65 in the Stake Pool account data
-      const validatorListAddr = new PublicKey(poolInfo.data.slice(65, 65 + 32));
+      // The validator list address is at offset 98 in the Stake Pool account data
+      const validatorListAddr = new PublicKey(poolInfo.data.slice(98, 98 + 32));
       const validatorListAcc = await conn.getAccountInfo(validatorListAddr);
       if (!validatorListAcc) throw new Error('Impossible de récupérer la liste des validateurs');
 
-      // Find first active validator with enough balance (simplified scan)
-      // ValidatorList structure: Header(1) + Count(4) + Validators(Count * 73)
-      const validatorCount = validatorListAcc.data.readUInt32LE(1);
+      // The manager fee account is at offset 194 in the Stake Pool account data
+      const managerFeeAccount = new PublicKey(poolInfo.data.slice(194, 194 + 32));
+
+      // Find first active validator with enough balance
+      const validatorCount = validatorListAcc.data.readUInt32LE(5);
       let validatorStakeAccount = null;
 
       for (let i = 0; i < validatorCount; i++) {
-        const offset = 5 + i * 73;
-        const voteAddr = new PublicKey(validatorListAcc.data.slice(offset, offset + 32));
-        const status = validatorListAcc.data[offset + 32]; // 0 = Active
+        const entryOffset = 9 + i * 73;
+        const status = validatorListAcc.data[entryOffset + 40]; // 0 = Active
+        const activeStakeLamports = validatorListAcc.data.readBigUInt64LE(entryOffset);
 
-        if (status === 0) {
+        if (status === 0 && activeStakeLamports >= BigInt(lamports)) {
+          const voteAddr = new PublicKey(
+            validatorListAcc.data.slice(entryOffset + 41, entryOffset + 73)
+          );
           const [derived] = PublicKey.findProgramAddressSync(
             [voteAddr.toBuffer(), JITO_STAKE_POOL_ADDRESS.toBuffer()],
             STAKE_POOL_PROGRAM_ID
@@ -441,25 +446,7 @@ export class JitoService {
 
       if (!validatorStakeAccount) throw new Error('Aucun validateur disponible pour le retrait');
 
-      // Step C: Approve token transfer (for the withdrawStake instruction)
-      // Instruction index 4 for SPL Token Approve
-      const approveData = Buffer.alloc(9);
-      approveData.writeUInt8(4, 0);
-      approveData.writeBigUint64LE(BigInt(lamports), 1);
-
-      transaction.add(
-        new TransactionInstruction({
-          keys: [
-            { pubkey: userPoolTokenAccount, isSigner: false, isWritable: true },
-            { pubkey: withdrawAuthority, isSigner: false, isWritable: false },
-            { pubkey: fromKeypair.publicKey, isSigner: true, isWritable: false },
-          ],
-          programId: TOKEN_PROGRAM_ID,
-          data: approveData,
-        })
-      );
-
-      // Step D: Withdraw Stake instruction (Instruction index 10)
+      // Step C: Withdraw Stake instruction (Instruction index 10)
       const withdrawData = Buffer.alloc(9);
       withdrawData.writeUInt8(10, 0); // WithdrawStake index
       withdrawData.writeBigUint64LE(BigInt(lamports), 1);
@@ -473,14 +460,14 @@ export class JitoService {
             { pubkey: withdrawAuthority, isSigner: false, isWritable: false },
             { pubkey: validatorStakeAccount, isSigner: false, isWritable: true },
             { pubkey: tempStakeAccount.publicKey, isSigner: false, isWritable: true },
-            { pubkey: fromKeypair.publicKey, isSigner: false, isWritable: false }, // Stake authority
-            { pubkey: withdrawAuthority, isSigner: false, isWritable: false }, // Transfer authority (the delegate we approved)
+            { pubkey: fromKeypair.publicKey, isSigner: false, isWritable: false }, // Stake authority (new withdraw authority)
+            { pubkey: fromKeypair.publicKey, isSigner: true, isWritable: false }, // User transfer authority (signer)
             { pubkey: userPoolTokenAccount, isSigner: false, isWritable: true },
             {
-              pubkey: new PublicKey('JitoFeeY9mJ3p7Z3CndYfncZfN8Jp5DrsA7uB6u5j7j'),
+              pubkey: managerFeeAccount,
               isSigner: false,
               isWritable: true,
-            }, // Manager fee account (placeholder, should be from pool info)
+            }, // Manager fee account
             { pubkey: new PublicKey(JITO_MINT), isSigner: false, isWritable: true },
             { pubkey: SYSVAR_CLOCK_ID, isSigner: false, isWritable: false },
             { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },

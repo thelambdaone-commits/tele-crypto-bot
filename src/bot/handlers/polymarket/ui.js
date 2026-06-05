@@ -26,7 +26,7 @@ import {
 } from '../../../shared/utils/telegram.js';
 
 const HISTORY_PAGE_SIZE = 10;
-const HISTORY_FETCH_LIMIT = 500;
+const HISTORY_FETCH_LIMIT = 10;
 
 export async function loadPolymarketHistory(
   chatId,
