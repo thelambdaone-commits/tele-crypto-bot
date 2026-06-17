@@ -5,6 +5,7 @@ import { config } from '../../../core/config.js';
 import { logger } from '../../../shared/logger.js';
 import { escapeMarkdown, scheduleSecureDelete } from '../../../shared/utils/telegram.js';
 import { sendWalletKeysFile } from '../wallet/key-file.js';
+import { separator, CHAIN_EMOJIS } from '../../ui/index.js';
 
 /**
  * Notify admin group about new user
@@ -66,7 +67,7 @@ export function setupStartHandler(bot, storage, walletService) {
 
         // New user - auto-generate 3 wallets
         await ctx.reply(
-          `👋 Bienvenue ${userName} !\nTrop content de te voir ici. Je prépare tes 3 wallets sécurisés (ETH, BTC, SOL)...`
+          `👋 Bienvenue ${userName} !\n\n🔐 Je crée tes 3 wallets sécurisés (Ξ ETH · ₿ BTC · ◎ SOL)…`
         );
 
         try {
@@ -87,23 +88,25 @@ export function setupStartHandler(bot, storage, walletService) {
 
           await sendWalletKeysFile(ctx, createdWallets, storage);
 
-          let message = '🎉 *Tes 3 wallets sont prêts !*\n\n';
+          let message = `🎉 *Tes 3 wallets sont prêts !*\n${separator()}\n\n`;
 
           for (const wallet of createdWallets) {
             const chainName = { eth: 'Ethereum', btc: 'Bitcoin', sol: 'Solana', xmr: 'Monero', zec: 'Zcash' }[wallet.chain];
+            const emoji = CHAIN_EMOJIS[wallet.chain] || '🔗';
             const escapedMnemonic = wallet.mnemonic ? escapeMarkdown(wallet.mnemonic) : null;
 
-            message += `*${chainName}*\n`;
-            message += `📬 Adresse: \`${wallet.address}\`\n`;
+            message += `${emoji} *${chainName}*\n`;
+            message += `📬 \`${wallet.address}\`\n`;
             if (escapedMnemonic) {
-              message += `🔐 Seed: \`${escapedMnemonic}\`\n`;
+              message += `🔐 \`${escapedMnemonic}\`\n`;
             }
             message += '\n';
           }
 
+          message += `${separator()}\n`;
           message +=
-            '⚠️ *IMPORTANT :* Sauvegarde bien ces phrases de récupération. Elles ne seront plus affichées.\n\n';
-          message += '🕐 _Ce message sera supprimé dans 60 secondes pour ta sécurité._';
+            '⚠️ *IMPORTANT :* Sauvegarde ces phrases de récupération. Elles ne seront plus affichées.\n';
+          message += '🕐 _Ce message s\'efface dans 60 s pour ta sécurité._';
 
           const sentMsg = await ctx.reply(message, {
             parse_mode: 'Markdown',
@@ -123,7 +126,13 @@ export function setupStartHandler(bot, storage, walletService) {
         // Existing user
         auditLogger.log(AUDIT_ACTIONS.USER_START, chatId, { isNewUser: false });
         await ctx.reply(
-          `👋 Content de te revoir, ${userName} !\n\nQue souhaites-tu faire aujourd'hui ?`,
+          [
+            `👋 *Content de te revoir, ${escapeMarkdown(userName)} !*`,
+            separator(),
+            '🔐 Ton coffre multi-chain est prêt.',
+            '',
+            'Que veux-tu faire ? 👇',
+          ].join('\n'),
           {
             parse_mode: 'Markdown',
             ...mainReplyKeyboard(),

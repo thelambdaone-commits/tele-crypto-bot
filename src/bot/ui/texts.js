@@ -3,7 +3,7 @@
  * @module ui/texts
  */
 
-import { sectionTitle } from './formatters.js';
+import { sectionTitle, separator } from './formatters.js';
 
 /**
  * Texte d'aide principal du bot
@@ -86,4 +86,21 @@ ${sectionTitle('🆘', 'GÉNÉRAL')}
 
 💡 *Astuce :* Utilise les boutons du menu pour une navigation plus facile !
   `.trim();
+}
+
+/**
+ * Prompt premium et unique de sélection de réseau (création de wallet et
+ * réception). Le corps du message porte le titre/séparateur/avertissement —
+ * le clavier (chainSelectionKeyboard) ne porte que les boutons.
+ * @returns {string}
+ */
+export function chainSelectionPrompt() {
+  return [
+    '🌐 *Choisis ton réseau*',
+    separator(),
+    '🔑 Chaque réseau possède sa propre adresse.',
+    "💵 Les stablecoins *USDT* / *USDC* arrivent sur le réseau de l'adresse choisie.",
+    '',
+    '⚠️ Un envoi depuis un *mauvais réseau* entraîne une *perte définitive* des fonds.',
+  ].join('\n');
 }

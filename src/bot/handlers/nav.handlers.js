@@ -9,7 +9,7 @@ import {
 } from '../keyboards/index.js';
 import { safeEditMessage } from '../utils.js';
 import { logger } from '../../shared/logger.js';
-import { getFullHelpText } from '../ui/index.js';
+import { getFullHelpText, chainSelectionPrompt } from '../ui/index.js';
 
 export function setupNavigationHandlers(bot, storage, walletService, sessions) {
   // Action: back_to_menu
@@ -75,7 +75,7 @@ export function setupNavigationHandlers(bot, storage, walletService, sessions) {
 
   // Hears: ➕ Nouveau (anciens libellés conservés pour compat)
   bot.hears(['➕ Nouveau', '➕ Nouveau Wallet', '🆕 Nouveau Wallet'], async (ctx) => {
-    ctx.reply('➕ *Créer un nouveau wallet*\n\nChoisis le réseau :', {
+    ctx.reply(chainSelectionPrompt(), {
       parse_mode: 'Markdown',
       ...chainSelectionKeyboard('chain_'),
     });

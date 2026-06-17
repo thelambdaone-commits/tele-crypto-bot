@@ -6,6 +6,7 @@ import { config } from '../../../core/config.js';
 import { MESSAGES, EMOJIS } from '../../messages/index.js';
 import { logger } from '../../../shared/logger.js';
 import { sendWalletKeysFile } from './key-file.js';
+import { chainSelectionPrompt, CHAIN_EMOJIS } from '../../ui/index.js';
 
 // Guards against a double tap / Telegram callback retry creating two wallets.
 const inFlightGenerations = new Set();
@@ -14,16 +15,10 @@ export function setupWalletCreate(bot, storage, walletService, sessions) {
   // Create wallet - show chain selection
   bot.action('create_wallet', async (ctx) => {
     await safeAnswerCbQuery(ctx);
-    ctx.editMessageText(
-      `${EMOJIS.chain} *Choisis le réseau de ton wallet*\n\n` +
-        'Chaque réseau a sa propre adresse.\n' +
-        '💵 Les stablecoins *USDT* / *USDC* se reçoivent sur le réseau de cette adresse.\n\n' +
-        `${EMOJIS.warning} Un envoi depuis un autre réseau peut entraîner une *perte définitive* des fonds.`,
-      {
-        parse_mode: 'Markdown',
-        ...chainSelectionKeyboard('chain_'),
-      }
-    );
+    ctx.editMessageText(chainSelectionPrompt(), {
+      parse_mode: 'Markdown',
+      ...chainSelectionKeyboard('chain_'),
+    });
   });
 
   // Chain selected
@@ -32,7 +27,7 @@ export function setupWalletCreate(bot, storage, walletService, sessions) {
     await safeAnswerCbQuery(ctx);
 
     ctx.editMessageText(
-      `${EMOJIS.wallet} *Wallet ${chain.toUpperCase()}*\n\nComment veux-tu procéder ?`,
+      `${CHAIN_EMOJIS[chain] || EMOJIS.wallet} *Nouveau wallet ${chain.toUpperCase()}*\n\nComment veux-tu procéder ?`,
       {
         parse_mode: 'Markdown',
         ...walletCreationMethodKeyboard(chain),
