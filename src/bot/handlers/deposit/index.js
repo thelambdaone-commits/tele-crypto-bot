@@ -276,6 +276,7 @@ export function setupDepositHandlers(bot, storage) {
     const qrOptions = { uri };
     if (!net.isNative) {
       qrOptions.logoSymbol = symbol.toLowerCase();
+      qrOptions.pastilleSymbol = chain; // small network badge on the token logo
       qrOptions.label = `${symbol} · ${net.chainName}`;
     }
 

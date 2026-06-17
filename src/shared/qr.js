@@ -123,6 +123,10 @@ function roundedRectWH(ctx, x, y, w, h, r) {
  *        for a token deposit instead of the chain's native coin).
  * @param {string} [options.label] - override the label under the logo (e.g.
  *        'USDT · Base' so the QR itself states the token AND the network).
+ * @param {string} [options.pastilleSymbol] - small network badge drawn at the
+ *        bottom-right of the main logo (e.g. the chain key for a token deposit,
+ *        so a USDT logo carries a small ◎/network mark). Skipped if it fails to
+ *        load.
  * @returns {Promise<Buffer>} PNG image buffer
  */
 export async function generateAddressQR(address, chain, options = {}) {
@@ -154,6 +158,9 @@ export async function generateAddressQR(address, chain, options = {}) {
   // Center badge: coin logo + small network name, on a white plate so it reads
   // cleanly over the QR and the user can't confuse two same-logo EVM networks.
   const logo = await loadLogo(options.logoSymbol || LOGO_SYMBOL[chain]);
+  const pastilleLogo = options.pastilleSymbol
+    ? await loadLogo(LOGO_SYMBOL[options.pastilleSymbol] || options.pastilleSymbol)
+    : null;
   const label = options.label || NETWORK_LABEL[chain] || chain.toUpperCase();
   const center = dim / 2;
 
@@ -181,7 +188,32 @@ export async function generateAddressQR(address, chain, options = {}) {
 
   let cursorY = center - badgeH / 2 + padTop;
   if (logo) {
-    ctx.drawImage(logo, center - logoSide / 2, cursorY, logoSide, logoSide);
+    const logoX = center - logoSide / 2;
+    const logoY = cursorY;
+    ctx.drawImage(logo, logoX, logoY, logoSide, logoSide);
+
+    // Network badge (pastille): half-overlapping the main logo's bottom-right
+    // corner, on a white circle so it reads cleanly. Skipped if it didn't load.
+    if (pastilleLogo) {
+      const pastilleSide = Math.round(logoSide * 0.4);
+      const pastilleR = pastilleSide / 2;
+      const pastilleX = logoX + logoSide - Math.round(pastilleSide * 0.25);
+      const pastilleY = logoY + logoSide - Math.round(pastilleSide * 0.25);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(pastilleX, pastilleY, pastilleR, 0, Math.PI * 2);
+      ctx.fillStyle = BACKGROUND;
+      ctx.fill();
+      ctx.clip();
+      ctx.drawImage(
+        pastilleLogo,
+        pastilleX - pastilleR,
+        pastilleY - pastilleR,
+        pastilleSide,
+        pastilleSide
+      );
+      ctx.restore();
+    }
     cursorY += logoSide + gap;
   }
   ctx.fillStyle = FOREGROUND;
