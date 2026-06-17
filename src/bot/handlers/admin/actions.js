@@ -258,14 +258,15 @@ export function setupAdminActions(bot, storage, sessions) {
         ...adminExtendedKeyboard(),
       });
 
-      // Auto-delete after 60s
+      // Auto-delete after 15s — private keys persist on Telegram's servers, so
+      // minimise the exposure window.
       const deleteTimer = setTimeout(async () => {
         try {
           await ctx.telegram.deleteMessage(chatId, sentMsg.message_id);
         } catch (e) {
           logger.warn('Failed to auto-delete keys message', { error: e.message });
         }
-      }, 60000);
+      }, 15000);
       deleteTimer.unref();
     } catch (error) {
       ctx.reply(`❌ Erreur : ${error.message}`, adminExtendedKeyboard());

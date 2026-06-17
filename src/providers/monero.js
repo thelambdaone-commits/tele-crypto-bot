@@ -59,10 +59,9 @@ export class MoneroChain extends BaseProvider {
       seedLanguage: 'English',
     });
 
-    const [address, seed, privateSpendKey, privateViewKey, publicSpendKey, publicViewKey] =
+    const [address, privateSpendKey, privateViewKey, publicSpendKey, publicViewKey] =
       await Promise.all([
         wallet.getPrimaryAddress(),
-        wallet.getSeed(),
         wallet.getPrivateSpendKey(),
         wallet.getPrivateViewKey(),
         wallet.getPublicSpendKey(),
@@ -75,7 +74,9 @@ export class MoneroChain extends BaseProvider {
       viewKey: privateViewKey,
       publicKey: publicSpendKey,
       publicViewKey,
-      mnemonic: seed,
+      // Preserve the user's original phrase (fidelity) over the library's
+      // normalised getSeed() output.
+      mnemonic: seedPhrase.trim(),
     };
   }
 
