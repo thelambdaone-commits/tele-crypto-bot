@@ -53,3 +53,9 @@ crypto-bot.zip
 # Output logs
 output.log
 .gitagent/
+
+# Large media — provisioned out-of-band (kept on the host / cached as a Telegram
+# file_id), not stored in git. The welcome video is read from this path at
+# runtime (src/bot/handlers/start/index.js), so keep the file on the server.
+videoplayback.mp4
+*.mp4

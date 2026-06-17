@@ -1,0 +1,50 @@
+name: 🐞 Rapport de bug
+description: Signaler un comportement incorrect du bot
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de ton rapport ! ⚠️ Pour une **faille de sécurité**, n'utilise pas
+        ce formulaire — voir [SECURITY.md](../blob/master/SECURITY.md).
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Que se passe-t-il ? Qu'attendais-tu à la place ?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes de reproduction
+      description: Commande / bouton utilisé, dans l'ordre.
+      placeholder: |
+        1. /start
+        2. Bouton « 📤 Envoyer »
+        3. …
+    validations:
+      required: true
+  - type: input
+    id: chain
+    attributes:
+      label: Chaîne concernée
+      description: ETH, BTC, SOL, TRX, etc. (si applicable)
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / message d'erreur
+      description: Colle le message d'erreur. **N'inclus jamais de clé privée, seed ou token.**
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Sortie de `git rev-parse --short HEAD` si connue.
+    validations:
+      required: false

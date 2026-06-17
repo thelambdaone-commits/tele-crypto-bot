@@ -1,0 +1,24 @@
+version: 2
+updates:
+  # npm dependencies. Minor/patch bumps are grouped into a single PR to cut
+  # noise; majors come as individual PRs to review carefully.
+  # NOTE: the Solana stack carries transitive advisories that must NOT be
+  # force-fixed (`npm audit fix --force` can pull breaking versions) — review
+  # major bumps by hand. See CLAUDE.md.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Keep GitHub Actions (CI workflow) pinned actions up to date.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3

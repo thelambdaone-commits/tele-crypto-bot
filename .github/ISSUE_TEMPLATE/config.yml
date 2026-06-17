@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Faille de sécurité
+    url: https://github.com/thelambdaone-commits/telegram-crypto-bot-v1/security/advisories/new
+    about: Signale les vulnérabilités en privé via GitHub Security Advisories — jamais en issue publique.

@@ -1,0 +1,37 @@
+name: ✨ Demande de fonctionnalité
+description: Proposer une amélioration ou une nouvelle fonctionnalité
+title: "[Feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problème / besoin
+      description: Quel manque ou quelle gêne motive cette demande ?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution proposée
+      description: Décris le comportement souhaité.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Domaine
+      options:
+        - Nouvelle blockchain / token
+        - Commande ou bouton
+        - UI / texte
+        - Sécurité
+        - Autre
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives envisagées
+    validations:
+      required: false
