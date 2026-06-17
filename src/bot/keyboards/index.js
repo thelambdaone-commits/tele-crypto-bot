@@ -12,7 +12,7 @@ export function mainReplyKeyboard() {
   return Markup.keyboard([
     ['💰 Mes Wallets', '➕ Nouveau'],
     ['📥 Recevoir', '📤 Envoyer'],
-    ['💵 Soldes', '📊 Prix'],
+    ['💵 Soldes', '📊 Cours'],
     ['🔎 Analyser', '❓ Aide'],
   ]).resize();
 }
@@ -31,7 +31,7 @@ export function mainMenuKeyboard() {
     ],
     [
       Markup.button.callback('💵 Soldes', CALLBACKS.VIEW_BALANCES),
-      Markup.button.callback('📊 Prix', CALLBACKS.PRICES_EUR),
+      Markup.button.callback('📊 Cours', CALLBACKS.PRICES_EUR),
     ],
     [
       Markup.button.callback('🔎 Analyser', CALLBACKS.ANALYZE_ADDRESS),
