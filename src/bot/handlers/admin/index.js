@@ -7,7 +7,7 @@ import { setupAdminSecrets } from './secrets.js';
 import { safeAnswerCbQuery } from '../../../shared/utils/telegram.js';
 import { CALLBACKS } from '../../constants/callbacks.js';
 
-export function setupAdminHandlers(bot, storage, sessions) {
+export function setupAdminHandlers(bot, storage, sessions, walletService) {
   // Admin command
   bot.command('admin', async (ctx) => {
     if (!adminGuard(ctx)) return;
@@ -31,7 +31,7 @@ export function setupAdminHandlers(bot, storage, sessions) {
   });
 
   // Initialize sub-modules
-  setupAdminStats(bot, storage);
+  setupAdminStats(bot, storage, walletService);
   setupAdminUsers(bot, storage);
   setupAdminActions(bot, storage, sessions);
   setupAdminMisc(bot, storage, sessions);

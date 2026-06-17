@@ -5,26 +5,9 @@ import {
   feeSelectionKeyboard,
 } from '../../keyboards/index.js';
 import { formatEUR, convertToEUR } from '../../../shared/price.js';
-import { formatNumber, formatCryptoAmount, CHAIN_EMOJIS } from '../../ui/formatters.js';
+import { formatNumber, formatCryptoAmount, CHAIN_EMOJIS, truncateAddress } from '../../ui/formatters.js';
 import { sendWalletKeysFile } from '../wallet/key-file.js';
-
-// All chains registered in WalletService — shared by /bal, /send, /tx so the
-// commands stay in sync with the chain-selection keyboard.
-const PUBLIC_CHAINS = [
-  'eth',
-  'btc',
-  'sol',
-  'arb',
-  'matic',
-  'op',
-  'base',
-  'avax',
-  'ltc',
-  'bch',
-  'xmr',
-  'zec',
-  'trx',
-];
+import { SUPPORTED_CHAINS as PUBLIC_CHAINS } from '../../../shared/chains.js';
 
 // Native-coin denomination tables for /unit. `factor` = sub-units per 1 coin.
 const UNIT_DENOMS = {
@@ -228,7 +211,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
 
       await ctx.reply(
         `${chainEmoji} *Solde ${network.toUpperCase()}*\n\n` +
-          `📬 Adresse : \`${address.slice(0, 8)}...${address.slice(-6)}\`\n` +
+          `📬 Adresse : \`${truncateAddress(address)}\`\n` +
           `💰 Solde : *${formatCryptoAmount(balanceData.balance, balanceData.symbol || network)}*\n` +
           `💶 Valeur : *${formatEUR(conversion.valueEUR)}*`,
         { parse_mode: 'Markdown' }
@@ -306,7 +289,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       await ctx.reply(
         "💸 *Préparation de l'envoi*\n\n" +
           `📤 De : ${wallet.label}\n` +
-          `📥 Vers : \`${toAddress.slice(0, 8)}...${toAddress.slice(-6)}\`\n` +
+          `📥 Vers : \`${truncateAddress(toAddress)}\`\n` +
           `💰 Montant : *${formatCryptoAmount(amount, network)}*\n` +
           `💶 Valeur : ${formatEUR(conversion.valueEUR)}\n` +
           `📊 Solde dispo : ${balanceData.balance} ${balanceData.symbol || network.toUpperCase()}\n\n` +
@@ -356,7 +339,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
         const date = new Date(tx.timestamp).toLocaleDateString('fr-FR');
         text += `${direction} *${formatCryptoAmount(tx.amount, network)}*\n`;
         text += `📅 ${date}\n`;
-        text += `🔗 \`${tx.hash.slice(0, 12)}...${tx.hash.slice(-8)}\`\n\n`;
+        text += `🔗 \`${truncateAddress(tx.hash, 10, 8)}\`\n\n`;
       }
 
       await ctx.reply(text, { parse_mode: 'Markdown' });

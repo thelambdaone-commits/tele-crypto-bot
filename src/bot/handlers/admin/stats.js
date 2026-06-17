@@ -2,11 +2,10 @@ import { adminExtendedKeyboard } from '../../keyboards/index.js';
 import { safeAnswerCbQuery } from '../../../shared/utils/telegram.js';
 import { isAdmin } from '../../middlewares/auth.middleware.js';
 import { getPricesEUR, formatEUR } from '../../../shared/price.js';
-import { config } from '../../../core/config.js';
 import { logger } from '../../../shared/logger.js';
 import { CHAIN_EMOJIS } from '../../ui/formatters.js';
 
-export function setupAdminStats(bot, storage) {
+export function setupAdminStats(bot, storage, walletService) {
   // Global stats
   bot.action('admin_stats', async (ctx) => {
     const chatId = ctx.chat.id;
@@ -20,9 +19,6 @@ export function setupAdminStats(bot, storage) {
         logger.warn('Failed to fetch prices for stats', { error: e.message });
         return { eth: 0, btc: 0, sol: 0, xmr: 0, zec: 0 };
       });
-
-      const { WalletService } = await import('../../../modules/wallet/wallet.service.js');
-      const walletService = new WalletService(storage, config);
 
       const globalBalances = {};
       const users = await storage.getAllUsers();

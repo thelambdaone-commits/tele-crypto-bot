@@ -20,9 +20,8 @@ import { generateAddressQR } from '../../../shared/qr.js';
 import { buildPaymentURI } from '../../../shared/payment-uri.js';
 import { logger } from '../../../shared/logger.js';
 import { CHAIN_EMOJIS } from '../../ui/formatters.js';
-
 // EVM chains share one address, so any EVM wallet can receive on any of them.
-const EVM_CHAINS = new Set(['eth', 'arb', 'op', 'base', 'matic', 'avax']);
+import { EVM_CHAINS } from '../../../shared/chains.js';
 
 const ASSET_ICONS = Object.fromEntries(getDepositAssets().map((a) => [a.symbol, a.icon]));
 const iconFor = (symbol) => ASSET_ICONS[symbol] || '🪙';
@@ -105,18 +104,21 @@ function confirmKeyboard(symbol, net, multiNetwork) {
 const HOME_TEXT =
   '📥 *Recevoir des fonds*\n' +
   '───────────\n' +
-  "💵 *Stablecoin* (USDT/USDC) — choisis-le, puis le réseau de *l'expéditeur*.\n" +
-  "🪙 *Crypto* — choisis l'actif, puis son réseau.\n\n" +
-  '👇 Sélectionne un actif ci-dessous.\n' +
+  '💵 *Stablecoins* (USDT/USDC)\n' +
+  "Choisis l'actif, puis le réseau de l'expéditeur.\n\n" +
+  '🪙 *Cryptos natives*\n' +
+  'Choisis la crypto, puis son réseau.\n\n' +
+  '👇 Sélectionne un actif :\n' +
   '🟢 frais bas · 🔴 frais élevés';
 
 function networkPickText(symbol) {
   return (
     `${iconFor(symbol)} *${symbol}*\n\n` +
-    `Sur quel réseau veux-tu recevoir des *${symbol}* ?\n` +
+    `Où veux-tu recevoir ces *${symbol}* ?\n` +
     '🟢 frais bas · 🔴 frais élevés\n\n' +
-    "⚠️ Choisis exactement le réseau utilisé par l'expéditeur. " +
-    'Un mauvais réseau entraîne une *perte définitive* des fonds.'
+    '⚠️ *Important*\n' +
+    "Choisis exactement le réseau utilisé par l'expéditeur.\n" +
+    'Un mauvais réseau → perte définitive des fonds.'
   );
 }
 

@@ -1,14 +1,11 @@
-import { ethers } from 'ethers';
-import { config } from '../../../core/config.js';
 import { getPricesEUR, formatEUR } from '../../../shared/price.js';
 import { generatePriceChart, parseGraphCommand } from '../../../shared/chart.js';
+import { getEthFees, getBtcFees, getSolFees, SOL_TYPICAL_CU, SOL_BASE_LAMPORTS } from '../../../shared/fees.js';
 
-// Rough vsize/gas/CU footprints of a *typical* transfer on each chain, used to
-// turn a per-unit fee rate into a concrete "what a transfer costs" estimate.
+// Rough vsize/gas footprints of a *typical* transfer, used to turn a per-unit
+// fee rate into a concrete "what a transfer costs" estimate (presentation only).
 const BTC_TYPICAL_VBYTES = 140; // native-segwit 1-in / 2-out
 const ETH_GAS = { transfer: 21000, swap: 150000, defi: 300000 };
-const SOL_TYPICAL_CU = 200000; // compute-unit budget of a common tx
-const SOL_BASE_LAMPORTS = 5000; // base fee per signature
 
 function nowLabel() {
   return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -29,64 +26,6 @@ export function setupMarketCommands(bot) {
       prices && prices[key] ? ` ≈ ${formatEUR(amount * prices[key])}` : '';
 
     try {
-      const getEthFees = async () => {
-        const ethProvider = new ethers.JsonRpcProvider(
-          config.rpc?.eth || 'https://eth.llamarpc.com'
-        );
-        const [feeData, block] = await Promise.all([
-          ethProvider.getFeeData(),
-          ethProvider.getBlock('latest').catch(() => null),
-        ]);
-        const gasPriceWei = feeData.gasPrice ?? 0n;
-        const toGwei = (wei) => (wei ? Number(wei) / 1e9 : 0);
-        const gasPrice = toGwei(gasPriceWei);
-        const level = gasPrice > 80 ? '🔴 Élevé' : gasPrice > 30 ? '🟡 Moyen' : '🟢 Bas';
-        // ETH cost of `units` of gas at the current gas price, in ether.
-        const cost = (units) => Number(gasPriceWei * BigInt(units)) / 1e18;
-        return {
-          level,
-          gasPrice,
-          baseFee: toGwei(block?.baseFeePerGas),
-          priorityFee: toGwei(feeData.maxPriorityFeePerGas),
-          maxFee: toGwei(feeData.maxFeePerGas),
-          cost,
-        };
-      };
-
-      const getBtcFees = async () => {
-        const base = config.rpc?.btcApi || 'https://mempool.space/api';
-        const btcResponse = await fetch(`${base}/v1/fees/recommended`);
-        const fees = await btcResponse.json();
-        const level =
-          fees.fastestFee > 100 ? '🔴 Élevé' : fees.fastestFee > 50 ? '🟡 Moyen' : '🟢 Bas';
-        return { ...fees, level };
-      };
-
-      const getSolFees = async () => {
-        const rpc = config.rpc?.sol || 'https://api.mainnet-beta.solana.com';
-        const solResponse = await fetch(rpc, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 1,
-            method: 'getRecentPrioritizationFees',
-            params: [],
-          }),
-        });
-        const solData = await solResponse.json();
-        let priorityFee = 5000;
-        if (solData.result?.length > 0) {
-          const fees = solData.result.map((f) => f.prioritizationFee).filter((f) => f > 0);
-          priorityFee =
-            fees.length > 0 ? Math.round(fees.reduce((a, b) => a + b, 0) / fees.length) : 5000;
-        }
-        const level = priorityFee > 50000 ? '🔴 Élevé' : priorityFee > 10000 ? '🟡 Moyen' : '🟢 Bas';
-        // Total lamports for a typical tx = base fee + priority over the CU budget.
-        const totalLamports = SOL_BASE_LAMPORTS + (priorityFee * SOL_TYPICAL_CU) / 1e6;
-        return { priorityFee, level, totalLamports, totalSol: totalLamports / 1e9 };
-      };
-
       await ctx.telegram.deleteMessage(ctx.chat.id, loadingMsg.message_id);
 
       if (chain === 'eth') {

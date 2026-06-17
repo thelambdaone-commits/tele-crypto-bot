@@ -6,6 +6,7 @@ import {
 import { detectChain } from '../../../shared/address-detector.js';
 import { convertToEUR, formatEUR } from '../../../shared/price.js';
 import { getTokenExplorerUrl } from '../../../shared/explorer.js';
+import { SUPPORTED_CHAINS } from '../../../shared/chains.js';
 import { handleSendError } from './helpers.js';
 
 // EVM addresses (0x…) are identical across all EVM networks, so an analyzed
@@ -70,8 +71,7 @@ export function setupSendTextInput(bot, storage, walletService, sessions) {
       let validationChain = data.selectedChain;
 
       // Si selectedChain n'est pas une blockchain connue (ex: "DECIMALS"), forcer "sol"
-      const validChains = ['eth', 'btc', 'ltc', 'bch', 'sol', 'arb', 'matic', 'op', 'base', 'xmr', 'zec'];
-      if (!validChains.includes(validationChain)) {
+      if (!SUPPORTED_CHAINS.includes(validationChain)) {
         validationChain = 'sol';
       }
 

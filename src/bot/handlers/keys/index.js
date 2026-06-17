@@ -10,7 +10,7 @@ import { MESSAGES, EMOJIS } from '../../messages/index.js';
 import { isAdmin } from '../../middlewares/auth.middleware.js';
 import { logger } from '../../../shared/logger.js';
 import { generateAddressQR } from '../../../shared/qr.js';
-import { CHAIN_EMOJIS } from '../../ui/formatters.js';
+import { CHAIN_EMOJIS, truncateAddress } from '../../ui/formatters.js';
 import { Markup } from 'telegraf';
 
 export function setupKeysHandlers(bot, storage, walletService) {
@@ -274,7 +274,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
       const chainSymbol = wallet.chain.toUpperCase();
 
       let text = `${chainEmoji} *Historique — ${wallet.label}*\n`;
-      text += `\`${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}\`\n\n`;
+      text += `\`${truncateAddress(wallet.address)}\`\n\n`;
 
       for (const tx of txHistory) {
         // Direction emoji and label
@@ -291,7 +291,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
         const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
         // Short hash
-        const shortHash = `${tx.hash.slice(0, 6)}...${tx.hash.slice(-4)}`;
+        const shortHash = truncateAddress(tx.hash, 10, 8);
 
         // One line per info - clean format
         text += `${directionEmoji} *${directionLabel}* · ${amountDisplay}\n`;

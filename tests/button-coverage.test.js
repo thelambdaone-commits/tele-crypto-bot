@@ -27,7 +27,6 @@ import {
   mainReplyKeyboard,
   mainMenuKeyboard,
   cancelKeyboard,
-  adminKeyboard,
   adminExtendedKeyboard,
   adminUserKeyboard,
   adminCancelKeyboard,
@@ -154,7 +153,6 @@ function allInlineKeyboards() {
   return [
     ['mainMenuKeyboard', mainMenuKeyboard()],
     ['cancelKeyboard', cancelKeyboard()],
-    ['adminKeyboard', adminKeyboard()],
     ['adminExtendedKeyboard', adminExtendedKeyboard()],
     ['adminUserKeyboard', adminUserKeyboard(123456)],
     ['adminCancelKeyboard', adminCancelKeyboard()],

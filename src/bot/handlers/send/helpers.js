@@ -1,5 +1,6 @@
 import { convertToEUR, formatEUR } from '../../../shared/price.js';
 import { EMOJIS } from '../../messages/index.js';
+import { truncateAddress } from '../../ui/formatters.js';
 import { logger } from '../../../shared/logger.js';
 import { ERROR_CODES } from '../../../shared/errors.js';
 
@@ -50,8 +51,8 @@ export async function formatTxDetails(data, feeLevel) {
   }
 
   const details =
-    "🏁 *Details de l'envoi*\n\n" +
-    `📮 Vers: \`${data.toAddress.slice(0, 10)}...${data.toAddress.slice(-8)}\`\n\n` +
+    "🏁 *Détails de l'envoi*\n\n" +
+    `📮 Vers : \`${truncateAddress(data.toAddress)}\`\n\n` +
     `${EMOJIS.money} Montant: *${data.amount.toFixed(6)} ${displaySymbol}* (${formatEUR(amountEUR.valueEUR)})\n` +
     `⛽ Frais: *${Number(feeAmount).toFixed(8)} ${nativeSymbol}* (${formatEUR(feeEUR.valueEUR)})\n` +
     `💎 Total: ${totalDisplay}`;

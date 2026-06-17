@@ -6,86 +6,46 @@
 import { sectionTitle, separator } from './formatters.js';
 
 /**
- * Texte d'aide principal du bot
- * @returns {string}
- */
-export function getHelpText() {
-  return `
-🎮 *Aide du Bot Slash*
-
-${sectionTitle('🔐', 'WALLETS')}
-\`/wallet\` — 👛 Affiche tes wallets
-\`/gen <réseau>\` — 🆕 Génère un wallet (\`/gen\` pour la liste)
-\`/recevoir\` — 📥 Adresse de dépôt + QR (par actif/réseau)
-\`/bal <réseau> <adresse>\` — 💰 Vérifie un solde
-
-${sectionTitle('💸', 'TRANSACTIONS')}
-\`/send <réseau> <adresse> <montant>\` — 📤 Envoie
-\`/tx <réseau> <adresse>\` — 📜 Historique
-
-${sectionTitle('📊', 'INFOS MARCHÉ')}
-\`/price\` — 💹 Prix des cryptos
-\`/gas [eth|btc|sol]\` — ⛽ Frais de transaction (détail par chaîne)
-\`/graph <token> [7|30|90|365]\` — 📈 Graphique des prix (défaut 365)
-\`/unit <montant> <unité>\` — 🔢 Conversion d'unités
-
-${sectionTitle('🆘', 'GÉNÉRAL')}
-\`/start\` — 🚀 Menu principal
-\`/menu\` — 🏠 Affiche le menu principal et accède rapidement à toutes les fonctionnalités
-\`/chains\` — 🔗 Blockchains supportées
-\`/id\` — 🆔 Ton ChatID / UserID
-\`/help\` — ❓ Cette aide
-\`/learn\` — 📚 Leçon : Coin vs Token
-
-💡 Utilise les boutons pour naviguer !
-  `.trim();
-}
-
-/**
  * Texte d'aide complet pour /help
  * @returns {string}
  */
 export function getFullHelpText() {
   return `
-🎮 *Bienvenue dans l'aide du Bot !*
+🎮 *Aide du Bot*
 
 ${sectionTitle('🔐', 'WALLETS')}
 \`/wallet\` — 👛 Affiche tes wallets
-\`/gen <réseau>\` — 🆕 Génère un nouveau wallet (\`/gen\` pour la liste)
-\`/recevoir\` — 📥 Adresse de dépôt + QR (par actif/réseau)
-\`/bal <réseau> <adresse>\` — 💰 Vérifie un solde
+\`/gen <réseau>\` — 🆕 Générer un wallet (\`/gen\` pour la liste)
+\`/receive\` — 📥 Adresse + QR (par actif/réseau)
+\`/bal <réseau> <adresse>\` — 💰 Vérifier un solde
 
 ${sectionTitle('💸', 'TRANSACTIONS')}
-\`/send <réseau> <adresse> <montant>\` — 📤 Envoie des cryptos
+\`/send <réseau> <adresse> <montant>\` — 📤 Envoyer des cryptos
 \`/tx <réseau> <adresse> [limite]\` — 📜 Historique des transactions
 
 ${sectionTitle('📊', 'INFOS MARCHÉ')}
 \`/price\` — 💹 Prix en EUR
-\`/gas [eth|btc|sol]\` — ⛽ Frais de transaction (détail par chaîne)
-\`/graph <token> [7|30|90|365]\` — 📈 Graphique des prix (défaut 365)
+\`/gas [eth|btc|sol]\` — ⛽ Frais de transaction
+\`/graph <token> [7|30|90|365]\` — 📈 Graphique (défaut 365j)
 
 ${sectionTitle('🔢', "CONVERSION D'UNITÉS")}
-\`/unit <montant> <unité>\` — Convertit les unités crypto
+\`/unit <montant> <unité>\` — Convertir les unités crypto
+BTC ↔ satoshi · ETH ↔ gwei/wei · SOL ↔ lamport
+XMR ↔ piconero · ZEC ↔ zatoshi · TRX ↔ sun
 
-*Unités supportées :*
-• BTC ↔ satoshi · LTC ↔ litoshi · BCH ↔ satoshi
-• ETH ↔ gwei ↔ wei (EVM)
-• SOL ↔ lamport · XMR ↔ piconero
-• ZEC ↔ zatoshi · TRX ↔ sun
-
-_Ex: /unit 1 btc → 100 000 000 satoshis_
+_Ex : /unit 1 btc → 100 000 000 satoshis_
 
 ${sectionTitle('📚', 'ÉDUCATION')}
-\`/learn\` — 📖 Leçon : Coin vs Token
+\`/learn\` — 📖 Coin vs Token
 
 ${sectionTitle('🆘', 'GÉNÉRAL')}
 \`/start\` — 🚀 Démarrer
-\`/menu\` — 🏠 Affiche le menu principal et accède rapidement à toutes les fonctionnalités
+\`/menu\` — 🏠 Menu principal
 \`/chains\` — 🔗 Blockchains supportées
 \`/id\` — 🆔 Ton ChatID / UserID
 \`/help\` — ❓ Cette aide
 
-💡 *Astuce :* Utilise les boutons du menu pour une navigation plus facile !
+💡 *Astuce :* Utilise les boutons du menu pour naviguer plus facilement
   `.trim();
 }
 
