@@ -11,42 +11,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import fs from 'node:fs/promises';
 import { logger } from './logger.js';
+import { LOGO_SYMBOL, NETWORK_LABEL } from './chains.js';
 
-// Native coin whose logo sits in the center. EVM L2s (arb/op/base) use ETH
-// since their native/gas asset is ETH.
-const LOGO_SYMBOL = {
-  eth: 'eth',
-  arb: 'eth',
-  op: 'eth',
-  base: 'eth',
-  btc: 'btc',
-  ltc: 'ltc',
-  bch: 'bch',
-  sol: 'sol',
-  matic: 'matic',
-  avax: 'avax',
-  xmr: 'xmr',
-  zec: 'zec',
-  trx: 'trx',
-};
-
-// Network name drawn small under the logo so EVM chains sharing the ETH logo
-// (Ethereum/Arbitrum/Optimism/Base) can't be confused with each other.
-const NETWORK_LABEL = {
-  eth: 'Ethereum',
-  arb: 'Arbitrum',
-  op: 'Optimism',
-  base: 'Base',
-  matic: 'Polygon',
-  avax: 'Avalanche',
-  btc: 'Bitcoin',
-  ltc: 'Litecoin',
-  bch: 'Bitcoin Cash',
-  sol: 'Solana',
-  xmr: 'Monero',
-  zec: 'Zcash',
-  trx: 'Tron',
-};
+// LOGO_SYMBOL (EVM L2s reuse the ETH logo) and NETWORK_LABEL are derived from
+// the single CHAIN_REGISTRY — imported at the top of this file.
 
 const ICON_CDN = (sym) =>
   `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${sym}.png`;
