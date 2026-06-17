@@ -18,7 +18,7 @@ npm start
 
 | Module | Description |
 | ------ |-------------|
-| 🪙 Multi-chain | Ethereum, Polygon, Solana, Bitcoin, Litecoin, BCH, Arbitrum, Optimism, Base, Avalanche, Monero, Zcash |
+| 🪙 Multi-chain | Ethereum, Polygon, Solana, Bitcoin, Litecoin, BCH, Arbitrum, Optimism, Base, Avalanche, Monero, Zcash, Tron |
 | 📷 QR Code | QR d'adresse avec logo de la crypto et nom du réseau au centre |
 | 💳 Wallets | Creation, import (cle privee / seed) et derivation depuis une seed existante |
 | 💸 Transferts | Estimation dynamique des frais, envoi de tokens (USDC/USDT) |

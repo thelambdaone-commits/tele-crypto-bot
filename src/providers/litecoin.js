@@ -148,6 +148,45 @@ export class LitecoinChain extends BaseProvider {
     };
   }
 
+  async getTransactionHistory(address, limit = 5) {
+    // litecoinspace.org is a mempool.space-compatible API — same schema as the
+    // Bitcoin provider (vin/vout/scriptpubkey_address/value/status.block_time).
+    const apis = [...new Set([this.apiUrl, 'https://litecoinspace.org/api'])];
+
+    for (const api of apis) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        const response = await fetch(`${api}/address/${address}/txs`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (!response.ok) throw new Error(`API responded with status ${response.status}`);
+
+        const data = await response.json();
+        if (!Array.isArray(data)) return [];
+
+        return data.slice(0, limit).map((tx) => {
+          const isOut = tx.vin?.some((vin) => vin.prevout?.scriptpubkey_address === address);
+          let amount = 0;
+          for (const vout of tx.vout || []) {
+            if (isOut && vout.scriptpubkey_address !== address) amount += vout.value;
+            else if (!isOut && vout.scriptpubkey_address === address) amount += vout.value;
+          }
+          return {
+            hash: tx.txid,
+            type: isOut ? 'out' : 'in',
+            amount: (amount / 1e8).toFixed(8),
+            timestamp: (tx.status?.block_time || Date.now() / 1000) * 1000,
+          };
+        });
+      } catch {
+        continue;
+      }
+    }
+    return [];
+  }
+
   async getUtxos(address) {
     const apis = [...new Set([this.apiUrl, 'https://litecoinspace.org/api'])];
 

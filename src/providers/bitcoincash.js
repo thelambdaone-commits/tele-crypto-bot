@@ -266,6 +266,55 @@ export class BitcoinCashChain extends BaseProvider {
     return Buffer.from(num.reverse()).toString('hex');
   }
 
+  async getTransactionHistory(address, limit = 5) {
+    // Haskoin returns cashaddr in inputs/outputs while our wallets use legacy
+    // addresses — normalise both sides to legacy before comparing.
+    const toLegacy = (a) => {
+      const s = String(a || '').replace(/^bitcoincash:/i, '');
+      if (/^[qp][ac-hj-np-z02-9]{41}$/i.test(s)) {
+        try {
+          return this.cashAddrToLegacy(s);
+        } catch {
+          return s;
+        }
+      }
+      return s;
+    };
+
+    try {
+      const target = toLegacy(address);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(
+        `https://api.haskoin.com/bch/address/${address}/transactions/full?limit=${limit}`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timeout);
+      if (!response.ok) return [];
+
+      const data = await response.json();
+      if (!Array.isArray(data)) return [];
+
+      return data.map((tx) => {
+        const isOut = (tx.inputs || []).some((input) => toLegacy(input.address) === target);
+        let amount = 0;
+        for (const output of tx.outputs || []) {
+          const to = toLegacy(output.address);
+          if (isOut && to !== target) amount += output.value;
+          else if (!isOut && to === target) amount += output.value;
+        }
+        return {
+          hash: tx.txid,
+          type: isOut ? 'out' : 'in',
+          amount: (amount / 1e8).toFixed(8),
+          timestamp: (tx.time || Date.now() / 1000) * 1000,
+        };
+      });
+    } catch {
+      return [];
+    }
+  }
+
   async getUtxos(address) {
     try {
       let lookupAddress = address;

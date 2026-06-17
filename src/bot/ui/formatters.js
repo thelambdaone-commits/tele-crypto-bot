@@ -56,21 +56,6 @@ export const CHAIN_EMOJIS = {
 };
 
 /**
- * Nom de la chaîne
- */
-export const CHAIN_NAMES = {
-  eth: 'Ethereum',
-  btc: 'Bitcoin',
-  sol: 'Solana',
-  arb: 'Arbitrum',
-  matic: 'Polygon',
-  op: 'Optimism',
-  base: 'Base',
-  ltc: 'Litecoin',
-  bch: 'Bitcoin Cash',
-};
-
-/**
  * Formate un nombre avec la locale française
  * @param {number} amount
  * @param {number} minDecimals

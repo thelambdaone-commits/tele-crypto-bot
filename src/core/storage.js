@@ -231,7 +231,7 @@ export class StorageService {
       const encryptedMnemonic = wallet.mnemonic ? encrypt(wallet.mnemonic, userKey) : null;
 
       const walletData = {
-        id: `${wallet.chain}-${Date.now()}`,
+        id: `${wallet.chain}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
         chain: wallet.chain,
         address: wallet.address,
         encryptedPrivateKey,

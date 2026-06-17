@@ -12,6 +12,10 @@ data/*
 !data/
 !data/.gitkeep
 
+# Session state — never commit (plaintext sessions.json also blocks boot)
+sessions.json
+sessions.enc
+
 # Logs
 logs/
 *.log
@@ -48,3 +52,4 @@ crypto-bot.zip
 
 # Output logs
 output.log
+.gitagent/

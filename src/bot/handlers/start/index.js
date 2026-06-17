@@ -166,7 +166,7 @@ export function setupStartHandler(bot, storage, walletService) {
             `🎬 *Bienvenue ${escapeMarkdown(userName)} !*`,
             separator(),
             'Ton portefeuille crypto multi-chaînes, simple et sécurisé.',
-            'Regarde cette intro rapide — je prépare tes wallets pendant ce temps 👇',
+            'Regarde cette intro rapide, et pendant ce temps, je prépare tes wallets ↓',
           ].join('\n')
         );
 
