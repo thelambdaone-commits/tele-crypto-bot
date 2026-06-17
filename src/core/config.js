@@ -47,6 +47,10 @@ export const config = {
   dataPath,
   rateLimit: Number.parseInt(process.env.RATE_LIMIT || '30'),
   sessionTimeout: Number.parseInt(process.env.SESSION_TIMEOUT || '5'),
+  // Max length for any inbound text message. No legitimate input (addresses
+  // ~106 chars max, 24-word seeds ~200 chars, amounts) gets close to this;
+  // anything larger is a broken/flood message and is dropped early.
+  maxMessageLength: Number.parseInt(process.env.MAX_MESSAGE_LENGTH || '512'),
 
   rpc: {
     eth: vault.get('ethRpc') || process.env.ETH_RPC_URL || 'https://eth.llamarpc.com',

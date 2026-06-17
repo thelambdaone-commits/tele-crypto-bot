@@ -15,7 +15,11 @@ import { WalletService } from '../../modules/wallet/wallet.service.js';
 import { config, torProxyUrl } from '../../core/config.js';
 import { initTorProxy } from '../../shared/tor-proxy.js';
 import { DepositMonitor } from '../../core/monitor.js';
-import { globalRateLimit, cleanupLimiters } from '../middlewares/security.middleware.js';
+import {
+  globalRateLimit,
+  messageLengthGuard,
+  cleanupLimiters,
+} from '../middlewares/security.middleware.js';
 import { dedupUpdates, cleanupDedup } from '../middlewares/dedup.middleware.js';
 import { adminGuard } from '../middlewares/auth.middleware.js';
 import { adminExtendedKeyboard } from '../keyboards/index.js';
@@ -50,6 +54,9 @@ export async function setupHandlers(bot, storage) {
   // Drop duplicate/redelivered updates and debounce rapid button taps first,
   // so a flood never reaches profile sync, rate limiting, or handlers.
   bot.use(dedupUpdates);
+
+  // Reject oversized text (broken/flood messages) before any processing.
+  bot.use(messageLengthGuard);
 
   // Global middleware
   bot.use(async (ctx, next) => {

@@ -29,7 +29,7 @@ export function setupAdminSecrets(bot, storage, sessions) {
       buttons.push([Markup.button.callback('🗑 Supprimer un secret', 'admin_secret_delete')]);
     }
 
-    buttons.push([Markup.button.callback('⬅️ Retour', 'admin_panel')]);
+    buttons.push([Markup.button.callback('↩️ Retour', 'admin_panel')]);
 
     await safeEditMessage(ctx, text, {
       parse_mode: 'Markdown',
@@ -58,7 +58,7 @@ export function setupAdminSecrets(bot, storage, sessions) {
     const buttons = secrets.map(({ key }) => [
       Markup.button.callback(`🗑 ${key}`, `admin_secret_del_${key}`)
     ]);
-    buttons.push([Markup.button.callback('⬅️ Retour', 'admin_secrets')]);
+    buttons.push([Markup.button.callback('↩️ Retour', 'admin_secrets')]);
 
     await safeEditMessage(ctx, 'Choisissez le secret à *SUPPRIMER* :', {
       parse_mode: 'Markdown',
@@ -88,7 +88,7 @@ export function setupAdminSecrets(bot, storage, sessions) {
 
     const buttons = [[Markup.button.callback('➕ Ajouter/Modifier', 'admin_secret_set')]];
     if (secrets.length > 0) buttons.push([Markup.button.callback('🗑 Supprimer un secret', 'admin_secret_delete')]);
-    buttons.push([Markup.button.callback('⬅️ Retour', 'admin_panel')]);
+    buttons.push([Markup.button.callback('↩️ Retour', 'admin_panel')]);
 
     await ctx.reply(text, {
       parse_mode: 'Markdown',

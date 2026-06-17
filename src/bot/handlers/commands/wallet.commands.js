@@ -8,6 +8,60 @@ import { formatEUR, convertToEUR } from '../../../shared/price.js';
 import { formatNumber, formatCryptoAmount, CHAIN_EMOJIS } from '../../ui/formatters.js';
 import { sendWalletKeysFile } from '../wallet/key-file.js';
 
+// All chains registered in WalletService — shared by /bal, /send, /tx so the
+// commands stay in sync with the chain-selection keyboard.
+const PUBLIC_CHAINS = [
+  'eth',
+  'btc',
+  'sol',
+  'arb',
+  'matic',
+  'op',
+  'base',
+  'avax',
+  'ltc',
+  'bch',
+  'xmr',
+  'zec',
+  'trx',
+];
+
+// Native-coin denomination tables for /unit. `factor` = sub-units per 1 coin.
+const UNIT_DENOMS = {
+  btc: { emoji: '₿', units: [['BTC', 1], ['satoshi', 1e8]] },
+  ltc: { emoji: 'Ł', units: [['LTC', 1], ['litoshi', 1e8]] },
+  bch: { emoji: '🅑', units: [['BCH', 1], ['satoshi', 1e8]] },
+  eth: { emoji: 'Ξ', units: [['ETH', 1], ['gwei', 1e9], ['wei', 1e18]] },
+  sol: { emoji: '◎', units: [['SOL', 1], ['lamport', 1e9]] },
+  xmr: { emoji: 'ɱ', units: [['XMR', 1], ['piconero', 1e12]] },
+  zec: { emoji: 'Ⓩ', units: [['ZEC', 1], ['zatoshi', 1e8]] },
+  trx: { emoji: '🟥', units: [['TRX', 1], ['sun', 1e6]] },
+};
+
+// Any accepted input unit (singular, lower-case) → { coin, factor }.
+const UNIT_MAP = {
+  btc: { coin: 'btc', factor: 1 },
+  satoshi: { coin: 'btc', factor: 1e8 },
+  sat: { coin: 'btc', factor: 1e8 },
+  ltc: { coin: 'ltc', factor: 1 },
+  litoshi: { coin: 'ltc', factor: 1e8 },
+  bch: { coin: 'bch', factor: 1 },
+  eth: { coin: 'eth', factor: 1 },
+  gwei: { coin: 'eth', factor: 1e9 },
+  wei: { coin: 'eth', factor: 1e18 },
+  sol: { coin: 'sol', factor: 1 },
+  lamport: { coin: 'sol', factor: 1e9 },
+  xmr: { coin: 'xmr', factor: 1 },
+  piconero: { coin: 'xmr', factor: 1e12 },
+  atomic: { coin: 'xmr', factor: 1e12 },
+  zec: { coin: 'zec', factor: 1 },
+  zatoshi: { coin: 'zec', factor: 1e8 },
+  trx: { coin: 'trx', factor: 1 },
+  sun: { coin: 'trx', factor: 1e6 },
+};
+
+const UNIT_LIST_LABEL = 'btc, sat, ltc, litoshi, bch, eth, gwei, wei, sol, lamport, xmr, piconero, zec, zatoshi, trx, sun';
+
 export function setupWalletCommands(bot, storage, walletService, sessions) {
   // 👛 /wallet - Affiche la liste des wallets
   bot.command('wallet', async (ctx) => {
@@ -155,10 +209,9 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
 
     const network = args[0].toLowerCase();
     const address = args[1];
-    const supportedBal = ['eth', 'btc', 'sol', 'arb', 'matic', 'op', 'base', 'ltc', 'bch', 'xmr', 'zec'];
 
-    if (!supportedBal.includes(network)) {
-      return ctx.reply(`❌ Réseau non supporté ! Choisissez parmi : \`${supportedBal.join(', ')}\``, {
+    if (!PUBLIC_CHAINS.includes(network)) {
+      return ctx.reply(`❌ Réseau non supporté ! Choisissez parmi : \`${PUBLIC_CHAINS.join(', ')}\``, {
         parse_mode: 'Markdown',
       });
     }
@@ -206,11 +259,10 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
     const network = args[0].toLowerCase();
     const toAddress = args[1];
     const amount = Number.parseFloat(args[2].replace(',', '.'));
-    const supportedSend = ['eth', 'btc', 'sol', 'arb', 'matic', 'op', 'base', 'ltc', 'bch', 'xmr', 'zec'];
 
-    if (!supportedSend.includes(network)) {
+    if (!PUBLIC_CHAINS.includes(network)) {
       return ctx.reply(
-        `❌ Réseau non supporté ! Choisis parmi : \`${supportedSend.join(', ')}\``,
+        `❌ Réseau non supporté ! Choisis parmi : \`${PUBLIC_CHAINS.join(', ')}\``,
         {
           parse_mode: 'Markdown',
         }
@@ -281,10 +333,9 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
     const network = args[0].toLowerCase();
     const address = args[1];
     const limit = Math.min(Number.parseInt(args[2]) || 5, 20);
-    const supportedTx = ['eth', 'btc', 'sol', 'arb', 'matic', 'op', 'base', 'avax', 'ltc', 'bch', 'xmr', 'zec'];
 
-    if (!supportedTx.includes(network)) {
-      return ctx.reply(`❌ Réseau non supporté ! Choisissez parmi : \`${supportedTx.join(', ')}\``, {
+    if (!PUBLIC_CHAINS.includes(network)) {
+      return ctx.reply(`❌ Réseau non supporté ! Choisissez parmi : \`${PUBLIC_CHAINS.join(', ')}\``, {
         parse_mode: 'Markdown',
       });
     }
@@ -323,7 +374,10 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
 
     if (args.length < 2) {
       return ctx.reply(
-        "🔢 *Conversion d'Unités Crypto*\n\n" + 'Utilisation : `/unit <montant> <unité>`',
+        "🔢 *Conversion d'Unités Crypto*\n\n" +
+          'Utilisation : `/unit <montant> <unité>`\n\n' +
+          `*Unités :* ${UNIT_LIST_LABEL}\n` +
+          '_Exemples :_ `/unit 0.5 eth` · `/unit 1 btc` · `/unit 1 xmr`',
         { parse_mode: 'Markdown' }
       );
     }
@@ -331,27 +385,35 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
     const amount = Number.parseFloat(args[0].replace(',', '.'));
     const unit = args[1].toLowerCase().replace(/s$/, '');
 
-    if (Number.isNaN(amount)) {
-      return ctx.reply('❌ Montant invalide !');
+    if (Number.isNaN(amount) || amount < 0) {
+      return ctx.reply('❌ Montant invalide ! Entre un nombre positif.');
     }
 
-    let result = '';
-    if (unit === 'btc') {
-      result = `₿ *${formatNumber(amount)} BTC* = *${formatNumber(amount * 100_000_000, 0, 0)} satoshis*`;
-    } else if (unit === 'satoshi' || unit === 'sat') {
-      result = `₿ *${formatNumber(amount, 0, 0)} satoshis* = *${formatNumber(amount / 100_000_000, 8, 8)} BTC*`;
-    } else if (unit === 'eth') {
-      result = `Ξ *${formatNumber(amount)} ETH* = *${formatNumber(amount * 1_000_000_000, 0, 0)} gwei*`;
-    } else if (unit === 'gwei') {
-      result = `Ξ *${formatNumber(amount, 0, 0)} gwei* = *${formatNumber(amount / 1_000_000_000, 9, 9)} ETH*`;
-    } else if (unit === 'sol') {
-      result = `◎ *${formatNumber(amount)} SOL* = *${formatNumber(amount * 1_000_000_000, 0, 0)} lamports*`;
-    } else if (unit === 'lamport') {
-      result = `◎ *${formatNumber(amount, 0, 0)} lamports* = *${formatNumber(amount / 1_000_000_000, 9, 9)} SOL*`;
-    } else {
-      return ctx.reply('❌ Unité non reconnue ! (btc, sat, eth, gwei, sol, lamport)');
+    const entry = UNIT_MAP[unit];
+    if (!entry) {
+      return ctx.reply(`❌ Unité non reconnue !\n\nUnités : ${UNIT_LIST_LABEL}`);
     }
 
-    await ctx.reply(`🔢 *Conversion*\n\n${result}`, { parse_mode: 'Markdown' });
+    // Convert input → coin amount, then render every denomination of that coin.
+    const coinAmount = amount / entry.factor;
+    const def = UNIT_DENOMS[entry.coin];
+
+    const lines = def.units.map(([name, factor]) => {
+      let valStr;
+      if (name === 'wei') {
+        // 10^18 overflows JS safe integers: go ETH→gwei (safe) then ×10^9 exact.
+        valStr = (BigInt(Math.round(coinAmount * 1e9)) * 1_000_000_000n).toLocaleString('fr-FR');
+      } else if (factor === 1) {
+        valStr = formatNumber(coinAmount, 0, 8); // the coin amount itself
+      } else {
+        valStr = formatNumber(coinAmount * factor, 0, 0); // integer sub-units
+      }
+      return `• *${valStr}* ${name}`;
+    });
+
+    await ctx.reply(
+      `${def.emoji} *Conversion ${entry.coin.toUpperCase()}*\n\n${lines.join('\n')}`,
+      { parse_mode: 'Markdown' }
+    );
   });
 }

@@ -1,5 +1,6 @@
 import { convertToEUR, formatEUR, getPricesEUR } from '../../shared/price.js';
 import { getAllTokensForChain } from '../../core/tokens.config.js';
+import { formatNumber, separator } from './formatters.js';
 
 export async function getWalletBalanceEUR(walletService, chatId, wallet) {
   const balance = await walletService.getBalance(chatId, wallet.id);
@@ -61,20 +62,22 @@ export async function buildBalancesText(walletService, storage, chatId) {
     }
 
     totalEUR += valueEUR;
-    text += `Solde: ${balance.balance} ${balance.symbol || wallet.chain.toUpperCase()}`;
+    // Localise the decimal separator (fr-FR) and cap to 8 decimals without
+    // forcing trailing zeros, so "0" stays "0" and BTC keeps its precision.
+    text += `Solde: ${formatNumber(Number(balance.balance), 0, 8)} ${balance.symbol || wallet.chain.toUpperCase()}`;
     if (valueEUR > 0) text += ` ≈ ${formatEUR(valueEUR)}`;
     text += '\n';
 
     for (const t of tokens) {
       totalEUR += t.valueEUR;
-      text += `   • ${t.num} ${t.symbol}`;
+      text += `   • ${formatNumber(t.num, 0, 8)} ${t.symbol}`;
       if (t.valueEUR > 0) text += ` ≈ ${formatEUR(t.valueEUR)}`;
       text += '\n';
     }
     text += '\n';
   }
 
-  text += '━━━━━━━━━━━━\n';
+  text += `${separator()}\n`;
   text += `💶 *Total :* ${formatEUR(totalEUR)}`;
   return text;
 }

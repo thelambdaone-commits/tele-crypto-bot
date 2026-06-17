@@ -20,7 +20,7 @@ export function createPaginator(bot, options = {}) {
     const key = `${ctx.chat.id}:${msgId}`;
     const record = pages.get(key);
     if (!record) {
-      await ctx.answerCbQuery('Page expiree.').catch(() => {});
+      await ctx.answerCbQuery('Page expirée.').catch(() => {});
       return;
     }
     if (record.page > 0) {
@@ -36,7 +36,7 @@ export function createPaginator(bot, options = {}) {
     const key = `${ctx.chat.id}:${msgId}`;
     const record = pages.get(key);
     if (!record) {
-      await ctx.answerCbQuery('Page expiree.').catch(() => {});
+      await ctx.answerCbQuery('Page expirée.').catch(() => {});
       return;
     }
     const totalPages = Math.ceil(record.items.length / record.pageSize);

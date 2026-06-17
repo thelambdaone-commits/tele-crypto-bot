@@ -6,8 +6,9 @@ import { COINGECKO_API, COIN_IDS, fetchWithFallback, COINGECKO_API_KEY } from '.
 
 const width = 800;
 const height = 400;
-const GRAPH_USAGE = 'Usage : /graph btc 7|30|90|365|all';
-const SUPPORTED_PERIODS = new Set(['7', '30', '90', '365', 'all']);
+const GRAPH_USAGE = 'Usage : /graph <token> [7|30|90|365] (défaut : 365)';
+const SUPPORTED_PERIODS = new Set(['7', '30', '90', '365']);
+const DEFAULT_PERIOD = 365;
 const PRICE_HISTORY_CACHE_TTL = 5 * 60 * 1000;
 const PRICE_HISTORY_STALE_TTL = 60 * 60 * 1000;
 
@@ -377,13 +378,12 @@ export async function generatePriceChart(chain, days) {
 export function parsePeriod(period) {
   const normalizedPeriod = period?.toLowerCase();
   if (!SUPPORTED_PERIODS.has(normalizedPeriod)) return null;
-  if (normalizedPeriod === 'all') return 'max';
   return Number(normalizedPeriod);
 }
 
 export function parseGraphCommand(text) {
   const args = text.trim().split(/\s+/).slice(1);
-  if (args.length !== 2) {
+  if (args.length < 1 || args.length > 2) {
     return { ok: false, error: GRAPH_USAGE };
   }
 
@@ -396,7 +396,8 @@ export function parseGraphCommand(text) {
     };
   }
 
-  const days = parsePeriod(period);
+  // `/graph eth` (no period) defaults to one year.
+  const days = period === undefined ? DEFAULT_PERIOD : parsePeriod(period);
   if (!days) {
     return { ok: false, error: GRAPH_USAGE };
   }

@@ -15,7 +15,7 @@ export const BOT_COMMANDS = [
   { command: 'bal', description: '💰 Vérifier un solde' },
   { command: 'tx', description: '📜 Historique des transactions' },
   { command: 'price', description: '💹 Prix des cryptos en EUR' },
-  { command: 'gas', description: '⛽ Prix du gas Ethereum' },
+  { command: 'gas', description: '⛽ Frais de transaction (ETH/BTC/SOL)' },
   { command: 'graph', description: '📈 Graphique des prix' },
   { command: 'unit', description: '🔢 Conversion d’unités' },
   { command: 'chains', description: '🔗 Blockchains supportées' },

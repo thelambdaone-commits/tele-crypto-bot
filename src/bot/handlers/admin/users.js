@@ -28,7 +28,7 @@ export function setupAdminUsers(bot, storage) {
 
     // Section Utilisateurs
     text += `👥 *UTILISATEURS* (${users.length})\n`;
-    text += '━━━━━━━━━━━━\n';
+    text += '───────────\n';
 
     for (const user of users.slice(0, 15)) {
       const displayName = user.username ? `@${user.username}` : escapeMarkdown(user.firstName);
@@ -45,7 +45,7 @@ export function setupAdminUsers(bot, storage) {
     // Section Groupes
     if (groups.length > 0) {
       text += `\n\n🏢 *GROUPES* (${groups.length})\n`;
-      text += '━━━━━━━━━━━━\n';
+      text += '───────────\n';
 
       for (const group of groups.slice(0, 10)) {
         const displayName = group.username
@@ -64,7 +64,7 @@ export function setupAdminUsers(bot, storage) {
 
     // Résumé
     const totalWallets = allEntities.reduce((sum, e) => sum + e.walletCount, 0);
-    text += '\n━━━━━━━━━━━━\n';
+    text += '\n───────────\n';
     text += `📈 *Total :* ${users.length} users • ${groups.length} groupes • ${totalWallets} wallets`;
 
     try {

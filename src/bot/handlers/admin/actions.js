@@ -111,6 +111,8 @@ export function setupAdminActions(bot, storage, sessions) {
     text += '🚦 *Global :*\n';
     text += `🔹 Actifs : ${securityStats.global.activeUsers}\n`;
     text += `🚫 Bloqués : ${securityStats.global.blacklistedUsers}\n\n`;
+    text += '⚡ *Anti-burst :*\n';
+    text += `🔹 Actifs : ${securityStats.burst.activeUsers}\n\n`;
     text += '🔐 *Actions Sensibles :*\n';
     text += `🔹 Actifs : ${securityStats.sensitive.activeUsers}\n\n`;
     text += '💸 *Transactions :*\n';
@@ -187,6 +189,7 @@ export function setupAdminActions(bot, storage, sessions) {
     sessions.setState(chatId, 'ADMIN_ENTER_BAN_ID');
     ctx.editMessageText('🚫 *Bannir un utilisateur*\n\nEntre le Chat ID à bannir :', {
       parse_mode: 'Markdown',
+      ...adminCancelKeyboard(),
     });
   });
 
@@ -198,6 +201,7 @@ export function setupAdminActions(bot, storage, sessions) {
     sessions.setState(chatId, 'ADMIN_ENTER_UNBAN_ID');
     ctx.editMessageText('✅ *Débannir un utilisateur*\n\nEntre le Chat ID à débannir :', {
       parse_mode: 'Markdown',
+      ...adminCancelKeyboard(),
     });
   });
 

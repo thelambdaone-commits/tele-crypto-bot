@@ -7,14 +7,29 @@ import { logger } from '../../shared/logger.js';
 // Different rate limiters for different action types
 const limiters = {
   global: new RateLimiter(config.rateLimit || 30, 60000),
+  // Anti-burst: catches rapid-fire floods that stay under the per-minute cap
+  // (e.g. 10 messages in 2s). In-memory only — not persisted.
+  burst: new RateLimiter(10, 10000),
   sensitive: new RateLimiter(5, 60000), // 5 per minute for sensitive actions
   transaction: new RateLimiter(3, 60000), // 3 transactions per minute
 };
 
+// Distinct vault keys per limiter. Persisting only the limiters whose
+// blacklist is meaningful across restarts; `burst` is transient (in-memory).
+// Previously every limiter shared one key, so sensitive/transaction clobbered
+// the global blacklist on save.
+const VAULT_KEYS = {
+  global: '_rateLimiter',
+  sensitive: '_rateLimiter_sensitive',
+  transaction: '_rateLimiter_transaction',
+};
+
 export function initRateLimiters(vault) {
-  for (const limiter of Object.values(limiters)) {
+  for (const [name, limiter] of Object.entries(limiters)) {
+    const vaultKey = VAULT_KEYS[name];
+    if (!vaultKey) continue; // burst stays in-memory
     limiter.vault = vault;
-    limiter.vaultKey = '_rateLimiter';
+    limiter.vaultKey = vaultKey;
     limiter._loadFromVault();
   }
 }
@@ -70,11 +85,31 @@ function shouldNotify(chatId, now = Date.now()) {
 }
 
 /**
+ * Notify all configured admins once when a user is auto-blacklisted by the
+ * rate limiter. Fires only on the `blacklist_auto` transition (subsequent
+ * blocked updates report `blacklist`), so one flooder = one alert.
+ */
+function notifyAdminsAutoBlacklist(ctx, chatId) {
+  logger.warn('User auto-blacklisted (flood detected)', { chatId });
+  const text =
+    '🚨 *Auto-blacklist*\n\n' +
+    `Utilisateur \`${chatId}\` bloqué automatiquement (flood détecté).\n` +
+    'Débanne-le via le panel /admin si nécessaire.';
+  for (const adminId of config.adminChatId) {
+    ctx.telegram?.sendMessage(adminId, text, { parse_mode: 'Markdown' }).catch(() => {});
+  }
+}
+
+/**
  * Security middleware for global rate limiting.
  *
  * When blocked we drop the update silently and notify the user at most once
  * per cooldown window. Replying to every blocked update under a flood would
  * burn Telegram API quota and amplify the attack.
+ *
+ * The per-minute `global` limiter is checked first so its counter keeps
+ * accumulating (and can auto-blacklist + alert) even when the short-window
+ * `burst` guard is dropping the rapid-fire messages.
  */
 export function globalRateLimit(ctx, next) {
   const chatId = ctx.chat?.id;
@@ -86,13 +121,55 @@ export function globalRateLimit(ctx, next) {
   const check = limiters.global.isAllowed(chatId);
 
   if (!check.allowed) {
-    // Blacklisted users get no reply at all — silent drop.
-    if (check.reason === 'blacklist' || check.reason === 'blacklist_auto') {
+    // First crossing into auto-blacklist: alert admins, then silent drop.
+    if (check.reason === 'blacklist_auto') {
+      notifyAdminsAutoBlacklist(ctx, chatId);
+      return;
+    }
+    // Already-blacklisted users get no reply at all — silent drop.
+    if (check.reason === 'blacklist') {
       return;
     }
     if (shouldNotify(chatId)) {
-      ctx.reply('Trop de requetes. Reessayez dans quelques instants.').catch(() => {});
+      ctx.reply('Trop de requêtes. Réessayez dans quelques instants.').catch(() => {});
     }
+    return;
+  }
+
+  // Short-window anti-burst guard. In-memory; sustained abuse still escalates
+  // via the global limiter above.
+  const burst = limiters.burst.isAllowed(chatId);
+  if (!burst.allowed) {
+    if (shouldNotify(chatId)) {
+      ctx.reply('Trop de messages trop vite. Ralentis un instant.').catch(() => {});
+    }
+    return;
+  }
+
+  return next();
+}
+
+/**
+ * Drop oversized text messages early (anti-flood / broken-input guard).
+ *
+ * No legitimate input to this bot approaches `config.maxMessageLength`
+ * (longest is a 24-word seed, ~200 chars). Oversized messages are the
+ * "1000 random chars" flood pattern, so we swallow them silently — replying
+ * would amplify the flood. Admins bypass. Logged for monitoring.
+ */
+export function messageLengthGuard(ctx, next) {
+  const text = ctx.message?.text;
+  if (typeof text !== 'string') return next();
+
+  if (isAdmin(ctx)) return next();
+
+  if (text.length > config.maxMessageLength) {
+    logger.warn('Oversized message dropped', {
+      chatId: ctx.chat?.id,
+      userId: ctx.from?.id,
+      length: text.length,
+      limit: config.maxMessageLength,
+    });
     return;
   }
 
@@ -163,6 +240,7 @@ export function isValidAddressFormat(address) {
 export function getRateLimitStats() {
   return {
     global: limiters.global.getStats(),
+    burst: limiters.burst.getStats(),
     sensitive: limiters.sensitive.getStats(),
     transaction: limiters.transaction.getStats(),
   };
@@ -187,6 +265,7 @@ export function unblacklistUser(chatId) {
  */
 export function cleanupLimiters() {
   limiters.global.cleanup();
+  limiters.burst.cleanup();
   limiters.sensitive.cleanup();
   limiters.transaction.cleanup();
 

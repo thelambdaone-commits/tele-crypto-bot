@@ -25,8 +25,8 @@ ${sectionTitle('💸', 'TRANSACTIONS')}
 
 ${sectionTitle('📊', 'INFOS MARCHÉ')}
 \`/price\` — 💹 Prix des cryptos
-\`/gas\` — ⛽ Prix du gas ETH
-\`/graph <token> 7|30|90|365|all\` — 📈 Graphique des prix
+\`/gas [eth|btc|sol]\` — ⛽ Frais de transaction (détail par chaîne)
+\`/graph <token> [7|30|90|365]\` — 📈 Graphique des prix (défaut 365)
 \`/unit <montant> <unité>\` — 🔢 Conversion d'unités
 
 ${sectionTitle('🆘', 'GÉNÉRAL')}
@@ -61,18 +61,19 @@ ${sectionTitle('💸', 'TRANSACTIONS')}
 
 ${sectionTitle('📊', 'INFOS MARCHÉ')}
 \`/price\` — 💹 Prix en EUR
-\`/gas\` — ⛽ Prix du gas Ethereum
-\`/graph <token> 7|30|90|365|all\` — 📈 Graphique des prix
+\`/gas [eth|btc|sol]\` — ⛽ Frais de transaction (détail par chaîne)
+\`/graph <token> [7|30|90|365]\` — 📈 Graphique des prix (défaut 365)
 
 ${sectionTitle('🔢', "CONVERSION D'UNITÉS")}
 \`/unit <montant> <unité>\` — Convertit les unités crypto
 
 *Unités supportées :*
-• BTC ↔ satoshi (1 BTC = 100M sat)
-• ETH ↔ gwei ↔ wei (1 ETH = 1G gwei)
-• SOL ↔ lamport (1 SOL = 1G lamports)
+• BTC ↔ satoshi · LTC ↔ litoshi · BCH ↔ satoshi
+• ETH ↔ gwei ↔ wei (EVM)
+• SOL ↔ lamport · XMR ↔ piconero
+• ZEC ↔ zatoshi · TRX ↔ sun
 
-_Ex: /unit 1 btc → 100000000 satoshis_
+_Ex: /unit 1 btc → 100 000 000 satoshis_
 
 ${sectionTitle('📚', 'ÉDUCATION')}
 \`/learn\` — 📖 Leçon : Coin vs Token

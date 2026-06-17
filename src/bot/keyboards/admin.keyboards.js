@@ -4,7 +4,7 @@ import { CALLBACKS, dynamicCallback } from '../constants/callbacks.js';
 export function adminKeyboard() {
   return Markup.inlineKeyboard([
     [Markup.button.callback('📊 Statistiques', CALLBACKS.ADMIN_STATS)],
-    [Markup.button.callback('🔒 Securite', CALLBACKS.ADMIN_SECURITY)],
+    [Markup.button.callback('🔒 Sécurité', CALLBACKS.ADMIN_SECURITY)],
     [Markup.button.callback('⚙️ Panel Admin', CALLBACKS.ADMIN_PANEL)],
     [Markup.button.callback('❌ Fermer', CALLBACKS.CLOSE_MENU)],
   ]);
@@ -14,7 +14,7 @@ export function adminExtendedKeyboard() {
   return Markup.inlineKeyboard([
     [
       Markup.button.callback('📊 Statistiques', CALLBACKS.ADMIN_STATS),
-      Markup.button.callback('🔒 Securite', CALLBACKS.ADMIN_SECURITY),
+      Markup.button.callback('🔒 Sécurité', CALLBACKS.ADMIN_SECURITY),
     ],
     [
       Markup.button.callback('👥 Liste Users', CALLBACKS.ADMIN_LIST_USERS),
@@ -34,7 +34,7 @@ export function adminExtendedKeyboard() {
 
 export function adminUserKeyboard(targetUserId) {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('🔑 Voir Cles', dynamicCallback.adminUserKeys(targetUserId))],
+    [Markup.button.callback('🔑 Voir Clés', dynamicCallback.adminUserKeys(targetUserId))],
     [Markup.button.callback('↩️ Retour Panel Admin', CALLBACKS.ADMIN_PANEL)],
   ]);
 }

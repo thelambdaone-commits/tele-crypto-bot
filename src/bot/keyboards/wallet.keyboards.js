@@ -15,13 +15,20 @@ export function walletListKeyboard(wallets, prefix = 'wallet_') {
 }
 
 export function walletActionsKeyboard(walletId) {
+  // 2-column grid: more compact on mobile than a single tall column.
   return Markup.inlineKeyboard([
-    [Markup.button.callback('📋 Copier Adresse', `copy_addr_${walletId}`)],
-    [Markup.button.callback('📷 QR Code', `qr_addr_${walletId}`)],
-    [Markup.button.callback('🌱 Voir Seed Phrase', `view_seed_${walletId}`)],
-    [Markup.button.callback('🔑 Voir Clé Privée', `view_privkey_${walletId}`)],
-    [Markup.button.callback('📜 Historique', `wallet_history_${walletId}`)],
-    [Markup.button.callback('🗑 Supprimer', `delete_wallet_${walletId}`)],
+    [
+      Markup.button.callback('📋 Copier', `copy_addr_${walletId}`),
+      Markup.button.callback('📷 QR', `qr_addr_${walletId}`),
+    ],
+    [
+      Markup.button.callback('🌱 Seed', `view_seed_${walletId}`),
+      Markup.button.callback('🔑 Clé privée', `view_privkey_${walletId}`),
+    ],
+    [
+      Markup.button.callback('📜 Historique', `wallet_history_${walletId}`),
+      Markup.button.callback('🗑 Supprimer', `delete_wallet_${walletId}`),
+    ],
     [Markup.button.callback('↩️ Retour', CALLBACKS.VIEW_KEYS)],
   ]);
 }
@@ -46,7 +53,7 @@ export function walletCreationMethodKeyboard(chain) {
     [Markup.button.callback('🌱 Dériver depuis une seed existante', `derive_seed_${chain}`)],
     [Markup.button.callback('🔑 Importer une Clé Privée', `import_key_${chain}`)],
     [Markup.button.callback('🔐 Importer une Seed Phrase', `import_seed_${chain}`)],
-    [Markup.button.callback('🔙 Retour', CALLBACKS.CREATE_WALLET)],
+    [Markup.button.callback('↩️ Retour', CALLBACKS.CREATE_WALLET)],
   ]);
 }
 

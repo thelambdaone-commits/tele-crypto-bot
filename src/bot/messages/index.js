@@ -43,9 +43,9 @@ export { fr } from './fr.js';
 export const MESSAGES = {
   welcome: (name) => t('fr', 'start.welcome', name),
   walletGenerated: t('fr', 'wallet.generated'),
-  walletCreated: '🎉 Wallet Cree',
+  walletCreated: '🎉 Wallet Créé',
   noWallets: t('fr', 'wallet.noWallets'),
-  walletDeleted: '🗑️ Wallet supprime',
+  walletDeleted: '🗑️ Wallet supprimé',
   enterAddress: t('fr', 'send.enterAddress'),
   enterAmount: t('fr', 'send.enterAmount'),
   txSent: t('fr', 'send.sent'),

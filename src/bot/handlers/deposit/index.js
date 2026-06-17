@@ -73,14 +73,12 @@ function assetsKeyboard() {
   const btn = (a) => Markup.button.callback(`${a.icon} ${a.symbol}`, `dep_a_${a.symbol}`);
 
   const rows = [];
-  // Stablecoins first — that's the common, error-prone deposit we want to ease.
-  if (stables.length) {
-    rows.push([Markup.button.callback('━━ 🏦 Stablecoins ━━', 'dep_noop')]);
-    rows.push(...chunk2(stables.map(btn)));
-  }
-  rows.push([Markup.button.callback('━━ 🪙 Cryptos ━━', 'dep_noop')]);
+  // Stablecoins first (common, error-prone deposit), then the rest. No header
+  // rows — they looked like tappable buttons. The row break between the two
+  // groups gives a subtle visual separation on its own.
+  rows.push(...chunk2(stables.map(btn)));
   rows.push(...chunk2(coins.map(btn)));
-  rows.push([Markup.button.callback('🔙 Menu', CALLBACKS.BACK_TO_MENU)]);
+  rows.push([Markup.button.callback('↩️ Menu', CALLBACKS.BACK_TO_MENU)]);
   return Markup.inlineKeyboard(rows);
 }
 
@@ -91,23 +89,25 @@ function networksKeyboard(symbol, networks) {
     const text = `${fee ? fee + ' ' : ''}${sym}${netLabel(n)}${n.bridged ? ' • bridged' : ''}`;
     return [Markup.button.callback(text, `dep_n_${symbol}_${n.chain}`)];
   });
-  rows.push([Markup.button.callback('🔙 Retour', CALLBACKS.DEPOSIT)]);
+  rows.push([Markup.button.callback('↩️ Retour', CALLBACKS.DEPOSIT)]);
   return Markup.inlineKeyboard(rows);
 }
 
 function confirmKeyboard(symbol, net, multiNetwork) {
   return Markup.inlineKeyboard([
     [Markup.button.callback('✅ Continuer', `dep_s_${symbol}_${net.chain}`)],
-    [Markup.button.callback('🔙 Retour', multiNetwork ? `dep_a_${symbol}` : CALLBACKS.DEPOSIT)],
+    [Markup.button.callback('↩️ Retour', multiNetwork ? `dep_a_${symbol}` : CALLBACKS.DEPOSIT)],
   ]);
 }
 
 // ── Texts (French) ───────────────────────────────────────────────────────────
 
 const HOME_TEXT =
-  '📥 *Recevoir des fonds*\n\n' +
-  '💵 *Stablecoin (USDT/USDC)* : choisis-le, puis sélectionne le réseau de *l\'expéditeur*.\n' +
-  '🪙 *Crypto* : choisis l\'actif, puis le réseau.\n\n' +
+  '📥 *Recevoir des fonds*\n' +
+  '───────────\n' +
+  "💵 *Stablecoin* (USDT/USDC) — choisis-le, puis le réseau de *l'expéditeur*.\n" +
+  "🪙 *Crypto* — choisis l'actif, puis son réseau.\n\n" +
+  '👇 Sélectionne un actif ci-dessous.\n' +
   '🟢 frais bas · 🔴 frais élevés';
 
 function networkPickText(symbol) {
@@ -180,17 +180,16 @@ async function showConfirmation(ctx, symbol, net, multiNetwork) {
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
 export function setupDepositHandlers(bot, storage) {
-  // Non-interactive section headers in the asset picker.
-  bot.action('dep_noop', (ctx) => safeAnswerCbQuery(ctx));
-
   bot.action(CALLBACKS.DEPOSIT, async (ctx) => {
     await safeAnswerCbQuery(ctx);
     await renderHome(ctx);
   });
 
-  bot.command('recevoir', async (ctx) => {
+  const openReceive = async (ctx) => {
     await ctx.reply(HOME_TEXT, { parse_mode: 'Markdown', ...assetsKeyboard() });
-  });
+  };
+  bot.command('recevoir', openReceive);
+  bot.command('receive', openReceive); // English alias
 
   bot.hears('📥 Recevoir', async (ctx) => {
     await ctx.reply(HOME_TEXT, { parse_mode: 'Markdown', ...assetsKeyboard() });
@@ -242,7 +241,7 @@ export function setupDepositHandlers(bot, storage) {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
           [Markup.button.callback('➕ Nouveau', CALLBACKS.CREATE_WALLET)],
-          [Markup.button.callback('🔙 Retour', CALLBACKS.DEPOSIT)],
+          [Markup.button.callback('↩️ Retour', CALLBACKS.DEPOSIT)],
         ]),
       });
     }
@@ -255,7 +254,7 @@ export function setupDepositHandlers(bot, storage) {
     }
 
     const backKb = Markup.inlineKeyboard([
-      [Markup.button.callback('🔙 Recevoir autre chose', CALLBACKS.DEPOSIT)],
+      [Markup.button.callback('↩️ Recevoir autre chose', CALLBACKS.DEPOSIT)],
     ]);
 
     // For tokens, encode the contract/mint so the sender's wallet pre-selects

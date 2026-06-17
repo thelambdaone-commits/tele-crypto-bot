@@ -116,12 +116,12 @@ export function setupWalletCreate(bot, storage, walletService, sessions) {
           'Tokens: USDC, USDT\n\n',
       };
 
-      let message = '🎉 *Wallet Cree avec succes !*\n\n';
+      let message = '🎉 *Wallet créé avec succès !*\n\n';
 
       if (['matic', 'op', 'base', 'arb'].includes(chain)) {
         message += l2Info[chain];
-        message += '✅ Ce wallet utilise la meme adresse Ethereum.\n';
-        message += 'Vous pouvez utiliser votre cle privee ETH ici.\n\n';
+        message += '✅ Ce wallet utilise la même adresse Ethereum.\n';
+        message += 'Tu peux utiliser ta clé privée ETH ici.\n\n';
       }
 
       message +=
@@ -223,7 +223,7 @@ export function setupWalletCreate(bot, storage, walletService, sessions) {
     const buttons = sources.map((w) => [
       Markup.button.callback(`🌱 ${w.chain.toUpperCase()} - ${w.label}`, `derive_from_${w.id}`),
     ]);
-    buttons.push([Markup.button.callback('🔙 Retour', `chain_${chain}`)]);
+    buttons.push([Markup.button.callback('↩️ Retour', `chain_${chain}`)]);
 
     ctx.editMessageText(
       `🌱 *Dériver un wallet ${chain.toUpperCase()}*\n\n` +

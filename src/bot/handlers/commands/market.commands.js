@@ -3,36 +3,68 @@ import { config } from '../../../core/config.js';
 import { getPricesEUR, formatEUR } from '../../../shared/price.js';
 import { generatePriceChart, parseGraphCommand } from '../../../shared/chart.js';
 
+// Rough vsize/gas/CU footprints of a *typical* transfer on each chain, used to
+// turn a per-unit fee rate into a concrete "what a transfer costs" estimate.
+const BTC_TYPICAL_VBYTES = 140; // native-segwit 1-in / 2-out
+const ETH_GAS = { transfer: 21000, swap: 150000, defi: 300000 };
+const SOL_TYPICAL_CU = 200000; // compute-unit budget of a common tx
+const SOL_BASE_LAMPORTS = 5000; // base fee per signature
+
+function nowLabel() {
+  return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
 export function setupMarketCommands(bot) {
-  // ⛽ /gas - Prix du gas / frais de transaction
+  // ⛽ /gas - Prix du gas / frais de transaction (multi-chaînes)
   bot.command('gas', async (ctx) => {
     const args = ctx.message.text.split(' ').slice(1);
     const chain = args[0]?.toLowerCase();
 
     const loadingMsg = await ctx.reply('⛽ Récupération des frais de transaction...');
 
-    try {
+    // EUR price table is best-effort: fees are still shown without it.
+    const prices = await getPricesEUR().catch(() => null);
+    // Append " ≈ €x.xx" only when we have a price for that asset.
+    const eur = (key, amount) =>
+      prices && prices[key] ? ` ≈ ${formatEUR(amount * prices[key])}` : '';
 
+    try {
       const getEthFees = async () => {
         const ethProvider = new ethers.JsonRpcProvider(
           config.rpc?.eth || 'https://eth.llamarpc.com'
         );
-        const feeData = await ethProvider.getFeeData();
-        const gasPrice = feeData.gasPrice ? Number(feeData.gasPrice) / 1e9 : 0;
-        let level = gasPrice > 80 ? '🔴 Élevé' : gasPrice > 30 ? '🟡 Moyen' : '🟢 Bas';
-        return { gasPrice, level };
+        const [feeData, block] = await Promise.all([
+          ethProvider.getFeeData(),
+          ethProvider.getBlock('latest').catch(() => null),
+        ]);
+        const gasPriceWei = feeData.gasPrice ?? 0n;
+        const toGwei = (wei) => (wei ? Number(wei) / 1e9 : 0);
+        const gasPrice = toGwei(gasPriceWei);
+        const level = gasPrice > 80 ? '🔴 Élevé' : gasPrice > 30 ? '🟡 Moyen' : '🟢 Bas';
+        // ETH cost of `units` of gas at the current gas price, in ether.
+        const cost = (units) => Number(gasPriceWei * BigInt(units)) / 1e18;
+        return {
+          level,
+          gasPrice,
+          baseFee: toGwei(block?.baseFeePerGas),
+          priorityFee: toGwei(feeData.maxPriorityFeePerGas),
+          maxFee: toGwei(feeData.maxFeePerGas),
+          cost,
+        };
       };
 
       const getBtcFees = async () => {
-        const btcResponse = await fetch('https://mempool.space/api/v1/fees/recommended');
+        const base = config.rpc?.btcApi || 'https://mempool.space/api';
+        const btcResponse = await fetch(`${base}/v1/fees/recommended`);
         const fees = await btcResponse.json();
-        let level =
+        const level =
           fees.fastestFee > 100 ? '🔴 Élevé' : fees.fastestFee > 50 ? '🟡 Moyen' : '🟢 Bas';
         return { ...fees, level };
       };
 
       const getSolFees = async () => {
-        const solResponse = await fetch('https://api.mainnet-beta.solana.com', {
+        const rpc = config.rpc?.sol || 'https://api.mainnet-beta.solana.com';
+        const solResponse = await fetch(rpc, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -49,24 +81,49 @@ export function setupMarketCommands(bot) {
           priorityFee =
             fees.length > 0 ? Math.round(fees.reduce((a, b) => a + b, 0) / fees.length) : 5000;
         }
-        let level = priorityFee > 50000 ? '🔴 Élevé' : priorityFee > 10000 ? '🟡 Moyen' : '🟢 Bas';
-        return { priorityFee, level };
+        const level = priorityFee > 50000 ? '🔴 Élevé' : priorityFee > 10000 ? '🟡 Moyen' : '🟢 Bas';
+        // Total lamports for a typical tx = base fee + priority over the CU budget.
+        const totalLamports = SOL_BASE_LAMPORTS + (priorityFee * SOL_TYPICAL_CU) / 1e6;
+        return { priorityFee, level, totalLamports, totalSol: totalLamports / 1e9 };
       };
 
       await ctx.telegram.deleteMessage(ctx.chat.id, loadingMsg.message_id);
 
       if (chain === 'eth') {
         const eth = await getEthFees();
+        const t = eth.cost(ETH_GAS.transfer);
+        const s = eth.cost(ETH_GAS.swap);
+        const d = eth.cost(ETH_GAS.defi);
         return ctx.reply(
-          `Ξ *Frais Ethereum* ${eth.level}\n\n💨 Gas Price : *${eth.gasPrice.toFixed(2)} Gwei*`,
+          `Ξ *Frais Ethereum* ${eth.level}\n\n` +
+            `💨 Gas Price : *${eth.gasPrice.toFixed(2)} Gwei*\n` +
+            `🎯 Base Fee : *${eth.baseFee.toFixed(2)} Gwei*\n` +
+            `🏷 Pourboire (priority) : *${eth.priorityFee.toFixed(2)} Gwei*\n` +
+            `📈 Max Fee : *${eth.maxFee.toFixed(2)} Gwei*\n\n` +
+            '📤 *Coûts estimés :*\n' +
+            `   • Transfert ETH (21k) : ~${t.toFixed(7)} ETH${eur('eth', t)}\n` +
+            `   • Swap (~150k) : ~${s.toFixed(6)} ETH${eur('eth', s)}\n` +
+            `   • DeFi complexe (~300k) : ~${d.toFixed(6)} ETH${eur('eth', d)}\n\n` +
+            `🕒 Mis à jour à ${nowLabel()}`,
           { parse_mode: 'Markdown' }
         );
       }
 
       if (chain === 'btc') {
         const btc = await getBtcFees();
+        const fast = btc.fastestFee * BTC_TYPICAL_VBYTES;
+        const eco = btc.economyFee * BTC_TYPICAL_VBYTES;
         return ctx.reply(
-          `₿ *Frais Bitcoin* ${btc.level}\n\n⚡ Rapide : *${btc.fastestFee} sat/vB*\n🕐 Moyen : *${btc.halfHourFee} sat/vB*`,
+          `₿ *Frais Bitcoin* ${btc.level}\n\n` +
+            `⚡ Rapide (~10 min) : *${btc.fastestFee} sat/vB*\n` +
+            `🕐 ~30 min : *${btc.halfHourFee} sat/vB*\n` +
+            `🕑 ~1 h : *${btc.hourFee} sat/vB*\n` +
+            `🐢 Économique : *${btc.economyFee} sat/vB*\n` +
+            `🧊 Minimum : *${btc.minimumFee} sat/vB*\n\n` +
+            `📤 *Transfert typique (~${BTC_TYPICAL_VBYTES} vB) :*\n` +
+            `   • Rapide : ~${fast.toLocaleString('fr-FR')} sat${eur('btc', fast / 1e8)}\n` +
+            `   • Économique : ~${eco.toLocaleString('fr-FR')} sat${eur('btc', eco / 1e8)}\n\n` +
+            `🕒 Mis à jour à ${nowLabel()}`,
           { parse_mode: 'Markdown' }
         );
       }
@@ -74,26 +131,59 @@ export function setupMarketCommands(bot) {
       if (chain === 'sol') {
         const sol = await getSolFees();
         return ctx.reply(
-          `◎ *Frais Solana* ${sol.level}\n\n💎 Priority Fee : *${sol.priorityFee.toLocaleString()} µ◎*`,
+          `◎ *Frais Solana* ${sol.level}\n\n` +
+            `🧱 Frais de base : *${SOL_BASE_LAMPORTS.toLocaleString('fr-FR')} lamports* (0.000005 ◎ / signature)\n` +
+            `💎 Priority Fee (moy.) : *${sol.priorityFee.toLocaleString('fr-FR')} µ◎/CU*\n\n` +
+            `📤 *Transfert estimé (~${SOL_TYPICAL_CU.toLocaleString('fr-FR')} CU) :*\n` +
+            `   • Base + priority : ~${sol.totalSol.toFixed(7)} SOL${eur('sol', sol.totalSol)}\n\n` +
+            'ℹ️ 1 ◎ = 1 000 000 000 lamports · µ◎ = micro-lamport/CU\n' +
+            `🕒 Mis à jour à ${nowLabel()}`,
           { parse_mode: 'Markdown' }
         );
       }
 
-      // Show all
+      // Summary across all chains.
       const [eth, btc, sol] = await Promise.all([
-        getEthFees().catch(() => ({ gasPrice: 0, level: '❓' })),
-        getBtcFees().catch(() => ({ fastestFee: 0, level: '❓' })),
-        getSolFees().catch(() => ({ priorityFee: 0, level: '❓' })),
+        getEthFees().catch(() => null),
+        getBtcFees().catch(() => null),
+        getSolFees().catch(() => null),
       ]);
 
-      await ctx.reply(
-        '⛽ *Frais de Transaction*\n\n' +
-          `Ξ *Ethereum* ${eth.level} : *${eth.gasPrice.toFixed(1)} Gwei*\n` +
-          `₿ *Bitcoin* ${btc.level} : *${btc.fastestFee} sat/vB*\n` +
-          `◎ *Solana* ${sol.level} : *${sol.priorityFee.toLocaleString()} µ◎*\n\n` +
-          '_Utilise_ `/gas eth|btc|sol` _pour plus de détails_',
-        { parse_mode: 'Markdown' }
-      );
+      let text = '⛽ *Frais de Transaction*\n\n';
+
+      if (eth) {
+        const t = eth.cost(ETH_GAS.transfer);
+        text +=
+          `Ξ *Ethereum* ${eth.level}\n` +
+          `   💨 Gas : *${eth.gasPrice.toFixed(2)} Gwei*\n` +
+          `   📤 Transfert : ~${t.toFixed(7)} ETH${eur('eth', t)}\n\n`;
+      } else {
+        text += 'Ξ *Ethereum* ❓ indisponible\n\n';
+      }
+
+      if (btc) {
+        const fast = btc.fastestFee * BTC_TYPICAL_VBYTES;
+        text +=
+          `₿ *Bitcoin* ${btc.level}\n` +
+          `   ⚡ Rapide : *${btc.fastestFee} sat/vB* · 🐢 Éco : *${btc.economyFee}*\n` +
+          `   📤 Transfert : ~${fast.toLocaleString('fr-FR')} sat${eur('btc', fast / 1e8)}\n\n`;
+      } else {
+        text += '₿ *Bitcoin* ❓ indisponible\n\n';
+      }
+
+      if (sol) {
+        text +=
+          `◎ *Solana* ${sol.level}\n` +
+          `   💎 Priority : *${sol.priorityFee.toLocaleString('fr-FR')} µ◎/CU*\n` +
+          `   📤 Transfert : ~${sol.totalSol.toFixed(7)} SOL${eur('sol', sol.totalSol)}\n\n`;
+      } else {
+        text += '◎ *Solana* ❓ indisponible\n\n';
+      }
+
+      text +=
+        `🕒 Mis à jour à ${nowLabel()}\n` + '_Détails :_ `/gas eth` · `/gas btc` · `/gas sol`';
+
+      await ctx.reply(text, { parse_mode: 'Markdown' });
     } catch (error) {
       try {
         await ctx.telegram.deleteMessage(ctx.chat.id, loadingMsg.message_id);

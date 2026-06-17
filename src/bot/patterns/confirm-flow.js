@@ -12,7 +12,7 @@ export function registerConfirmActions(bot) {
     const id = ctx.match[1];
     const record = pending.get(id);
     if (!record) {
-      await ctx.answerCbQuery('Action expiree.').catch(() => {});
+      await ctx.answerCbQuery('Action expirée.').catch(() => {});
       return;
     }
     clearTimeout(record.timeoutId);
@@ -24,7 +24,7 @@ export function registerConfirmActions(bot) {
     const id = ctx.match[1];
     const record = pending.get(id);
     if (!record) {
-      await ctx.answerCbQuery('Action expiree.').catch(() => {});
+      await ctx.answerCbQuery('Action expirée.').catch(() => {});
       return;
     }
     clearTimeout(record.timeoutId);
@@ -76,7 +76,7 @@ export async function confirmFlow(ctx, options) {
     pending.delete(id);
     try {
       if (ctx.callbackQuery?.message) {
-        await ctx.editMessageText('⏱️ Action annulee (delai depasse).');
+        await ctx.editMessageText('⏱️ Action annulée (délai dépassé).');
       }
     } catch {
       /* message may already be gone */
