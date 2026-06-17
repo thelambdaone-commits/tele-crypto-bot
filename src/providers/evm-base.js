@@ -214,6 +214,29 @@ export class EvmBaseProvider extends BaseProvider {
     return await this.sendNative(wallet, toAddress, amount, feeLevel);
   }
 
+  /**
+   * Sign and broadcast a raw transaction (arbitrary to/data/value). Used by the
+   * swap module to send aggregator router calldata and ERC-20 approvals — the
+   * caller owns the calldata's correctness. Not used by the transfer flow.
+   */
+  async sendRaw(privateKey, { to, data = '0x', value = 0n, gasLimit } = {}) {
+    if (!to) throw new Error('sendRaw: missing "to"');
+    const provider = this.getProvider();
+    const wallet = new ethers.Wallet(privateKey, provider);
+    const txRequest = { to, data, value: BigInt(value || 0) };
+    if (gasLimit) txRequest.gasLimit = BigInt(gasLimit);
+
+    const tx = await withTimeout(wallet.sendTransaction(txRequest), 30000);
+    const receipt = await withTimeout(tx.wait(), 120000);
+    return {
+      hash: tx.hash,
+      from: wallet.address,
+      to,
+      blockNumber: receipt.blockNumber,
+      status: receipt.status === 1 ? 'success' : 'failed',
+    };
+  }
+
   async sendNative(wallet, toAddress, amount, feeLevel = 'average') {
     const fees = await this.estimateFees(wallet.address, toAddress, amount);
     const feeData = fees[feeLevel];
