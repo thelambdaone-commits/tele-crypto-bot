@@ -63,7 +63,7 @@ export function setupAdminStats(bot, storage, walletService) {
 
       let text = '📊 <b>Statistiques Globales</b>\n\n';
       text += `👥 Utilisateurs : <b>${stats.userCount}</b>\n`;
-      text += `👛 Wallets : <b>${stats.totalWallets}</b>\n`;
+      text += `💰 Wallets : <b>${stats.totalWallets}</b>\n`;
       text += `🔄 Transactions : <b>${stats.totalTransactions}</b>\n\n`;
 
       text += '⛓ <b>Par blockchain :</b>\n';

@@ -34,7 +34,7 @@ export function setupAdminUsers(bot, storage) {
       const displayName = user.username
         ? `@${escapeHtml(user.username)}`
         : escapeHtml(user.firstName);
-      const walletEmoji = user.walletCount > 0 ? '👛' : '📭';
+      const walletEmoji = user.walletCount > 0 ? '💰' : '📭';
       text += `\n👤 <b>${displayName}</b>\n`;
       text += `   🆔 <code>${user.chatId}</code>\n`;
       text += `   ${walletEmoji} ${user.walletCount} wallet${user.walletCount > 1 ? 's' : ''} • 📅 ${new Date(user.createdAt).toLocaleDateString('fr-FR')}\n`;
@@ -53,7 +53,7 @@ export function setupAdminUsers(bot, storage) {
         const displayName = group.username
           ? `@${escapeHtml(group.username)}`
           : escapeHtml(group.firstName || 'Groupe sans nom');
-        const walletEmoji = group.walletCount > 0 ? '👛' : '📭';
+        const walletEmoji = group.walletCount > 0 ? '💰' : '📭';
         text += `\n💬 <b>${displayName}</b>\n`;
         text += `   🆔 <code>${group.chatId}</code>\n`;
         text += `   ${walletEmoji} ${group.walletCount} wallet${group.walletCount > 1 ? 's' : ''} • 📅 ${new Date(group.createdAt).toLocaleDateString('fr-FR')}\n`;

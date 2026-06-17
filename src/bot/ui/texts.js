@@ -14,7 +14,7 @@ export function getFullHelpText() {
 🎮 <b>Aide du Bot</b>
 
 ${sectionTitle('🔐', 'WALLETS')}
-<code>/wallet</code> — 👛 Affiche tes wallets
+<code>/wallet</code> — 💰 Afficher mes wallets
 <code>/gen &lt;réseau&gt;</code> — 🆕 Générer un wallet (<code>/gen</code> pour la liste)
 <code>/receive</code> — 📥 Adresse + QR (par actif/réseau)
 <code>/bal &lt;réseau&gt; &lt;adresse&gt;</code> — 💰 Vérifier un solde

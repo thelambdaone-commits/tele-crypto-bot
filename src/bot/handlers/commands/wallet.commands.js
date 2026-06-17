@@ -47,7 +47,7 @@ const UNIT_MAP = {
 const UNIT_LIST_LABEL = 'btc, sat, ltc, litoshi, bch, eth, gwei, wei, sol, lamport, xmr, piconero, zec, zatoshi, trx, sun';
 
 export function setupWalletCommands(bot, storage, walletService, sessions) {
-  // 👛 /wallet - Affiche la liste des wallets
+  // 💰 /wallet - Affiche la liste des wallets
   bot.command('wallet', async (ctx) => {
     const chatId = ctx.chat.id;
     const wallets = await storage.getWallets(chatId);
@@ -60,7 +60,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       );
     }
 
-    let text = '👛 <b>Tes Wallets</b>\n\n';
+    let text = '💰 <b>Tes Wallets</b>\n\n';
 
     for (const wallet of wallets) {
       const chainEmoji = CHAIN_EMOJIS[wallet.chain] || '💎';

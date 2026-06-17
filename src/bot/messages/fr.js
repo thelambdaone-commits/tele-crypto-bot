@@ -26,7 +26,7 @@ export const fr = {
     created: (chain, label) => `🎉 Wallet ${chain.toUpperCase()} créé : ${label}`,
     generated: '✨ Ton wallet a été créé avec succès !',
     deleted: (label) => `🗑️ Wallet "${label}" supprimé.`,
-    list: '👛 Mes Wallets',
+    list: '💰 Mes Wallets',
     noWallets: "🔍 Aucun wallet pour le moment. Utilise 'Nouveau Wallet' pour en créer un.",
     newWallet: '🆕 Nouveau Wallet',
     myKeys: '🔐 Mes Clés',

@@ -161,7 +161,11 @@ export async function generateAddressQR(address, chain, options = {}) {
   const pastilleLogo = options.pastilleSymbol
     ? await loadLogo(LOGO_SYMBOL[options.pastilleSymbol] || options.pastilleSymbol)
     : null;
-  const label = options.label || NETWORK_LABEL[chain] || chain.toUpperCase();
+  // An explicit empty label hides the text (token deposits rely on the
+  // pastille); otherwise fall back to the network name.
+  const label =
+    options.label !== undefined ? options.label : NETWORK_LABEL[chain] || chain.toUpperCase();
+  const hasLabel = Boolean(label);
   const center = dim / 2;
 
   const logoSide = Math.round(dim * 0.17);
@@ -169,7 +173,7 @@ export async function generateAddressQR(address, chain, options = {}) {
   ctx.font = `600 ${fontSize}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const textW = ctx.measureText(label).width;
+  const textW = hasLabel ? ctx.measureText(label).width : 0;
 
   const gap = Math.round(cell * 0.45);
   const padX = Math.round(cell * 1.3);
@@ -177,7 +181,7 @@ export async function generateAddressQR(address, chain, options = {}) {
   const padBottom = Math.round(cell * 0.8);
 
   const contentW = Math.max(logo ? logoSide : 0, textW);
-  const contentH = (logo ? logoSide + gap : 0) + fontSize;
+  const contentH = (logo ? logoSide : 0) + (hasLabel ? (logo ? gap : 0) + fontSize : 0);
   const badgeW = contentW + padX * 2;
   const badgeH = contentH + padTop + padBottom;
   const badgeR = Math.round(Math.min(badgeW, badgeH) * 0.18);
@@ -214,10 +218,12 @@ export async function generateAddressQR(address, chain, options = {}) {
       );
       ctx.restore();
     }
-    cursorY += logoSide + gap;
+    cursorY += logoSide + (hasLabel ? gap : 0);
   }
-  ctx.fillStyle = FOREGROUND;
-  ctx.fillText(label, center, cursorY + fontSize / 2);
+  if (hasLabel) {
+    ctx.fillStyle = FOREGROUND;
+    ctx.fillText(label, center, cursorY + fontSize / 2);
+  }
 
   return canvas.toBuffer('image/png');
 }

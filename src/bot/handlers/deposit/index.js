@@ -277,7 +277,7 @@ export function setupDepositHandlers(bot, storage) {
     if (!net.isNative) {
       qrOptions.logoSymbol = symbol.toLowerCase();
       qrOptions.pastilleSymbol = chain; // small network badge on the token logo
-      qrOptions.label = `${symbol} · ${net.chainName}`;
+      qrOptions.label = ''; // no "USDT · Ethereum" text — the pastille shows the network
     }
 
     try {
