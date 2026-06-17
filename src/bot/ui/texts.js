@@ -15,7 +15,8 @@ export function getHelpText() {
 
 ${sectionTitle('🔐', 'WALLETS')}
 \`/wallet\` — 👛 Affiche tes wallets
-\`/gen btc|eth|sol\` — 🆕 Génère un wallet
+\`/gen <réseau>\` — 🆕 Génère un wallet (\`/gen\` pour la liste)
+\`/recevoir\` — 📥 Adresse de dépôt + QR (par actif/réseau)
 \`/bal <réseau> <adresse>\` — 💰 Vérifie un solde
 
 ${sectionTitle('💸', 'TRANSACTIONS')}
@@ -30,7 +31,9 @@ ${sectionTitle('📊', 'INFOS MARCHÉ')}
 
 ${sectionTitle('🆘', 'GÉNÉRAL')}
 \`/start\` — 🚀 Menu principal
-\`/menu\` — 🏠 Menu interactif (boutons inline)
+\`/menu\` — 🏠 Affiche le menu principal et accède rapidement à toutes les fonctionnalités
+\`/chains\` — 🔗 Blockchains supportées
+\`/id\` — 🆔 Ton ChatID / UserID
 \`/help\` — ❓ Cette aide
 \`/learn\` — 📚 Leçon : Coin vs Token
 
@@ -48,7 +51,8 @@ export function getFullHelpText() {
 
 ${sectionTitle('🔐', 'WALLETS')}
 \`/wallet\` — 👛 Affiche tes wallets
-\`/gen btc|eth|sol\` — 🆕 Génère un nouveau wallet
+\`/gen <réseau>\` — 🆕 Génère un nouveau wallet (\`/gen\` pour la liste)
+\`/recevoir\` — 📥 Adresse de dépôt + QR (par actif/réseau)
 \`/bal <réseau> <adresse>\` — 💰 Vérifie un solde
 
 ${sectionTitle('💸', 'TRANSACTIONS')}
@@ -56,7 +60,7 @@ ${sectionTitle('💸', 'TRANSACTIONS')}
 \`/tx <réseau> <adresse> [limite]\` — 📜 Historique des transactions
 
 ${sectionTitle('📊', 'INFOS MARCHÉ')}
-\`/price btc|eth|sol\` — 💹 Prix actuel en EUR
+\`/price\` — 💹 Prix en EUR
 \`/gas\` — ⛽ Prix du gas Ethereum
 \`/graph <token> 7|30|90|365|all\` — 📈 Graphique des prix
 
@@ -75,7 +79,9 @@ ${sectionTitle('📚', 'ÉDUCATION')}
 
 ${sectionTitle('🆘', 'GÉNÉRAL')}
 \`/start\` — 🚀 Démarrer
-\`/menu\` — 🏠 Menu interactif (boutons inline)
+\`/menu\` — 🏠 Affiche le menu principal et accède rapidement à toutes les fonctionnalités
+\`/chains\` — 🔗 Blockchains supportées
+\`/id\` — 🆔 Ton ChatID / UserID
 \`/help\` — ❓ Cette aide
 
 💡 *Astuce :* Utilise les boutons du menu pour une navigation plus facile !

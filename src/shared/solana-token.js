@@ -65,6 +65,20 @@ export function createAssociatedTokenAccountInstruction(payer, associatedAccount
   );
 }
 
+// Decimals-checked SPL transfer (safer than createTransferInstruction: the
+// instruction fails if the mint/decimals don't match, preventing wrong-amount
+// or wrong-token sends).
+export function createTransferCheckedInstruction(source, mint, destination, owner, amount, decimals) {
+  return splToken.createTransferCheckedInstruction(
+    source,
+    mint,
+    destination,
+    owner,
+    amount,
+    decimals
+  );
+}
+
 export async function createMint(
   connection,
   payer,

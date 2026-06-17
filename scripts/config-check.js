@@ -1,8 +1,5 @@
 import { config } from '../src/core/config.js';
 
-const WARN = '\x1b[33m%s\x1b[0m';
-const OK = '\x1b[32m%s\x1b[0m';
-const ERR = '\x1b[31m%s\x1b[0m';
 const BOLD = '\x1b[1m%s\x1b[0m';
 
 const checks = [];
@@ -42,16 +39,13 @@ check('BASE_RPC_URL', config.rpc.base || 'using vault', 'ok');
 check('BTC_API_URL', config.rpc.btcApi, 'ok');
 check('LTC_API_URL', config.rpc.ltcApi, 'ok');
 check('BCH_API_URL', config.rpc.bchApi, 'ok');
-check('STAKING_SOL_RPC_URL', config.rpc.stakingSol || 'not set', config.rpc.stakingSol ? 'ok' : 'warn', 'Staking Solana may be unavailable');
+check('AVAX_RPC_URL', config.rpc.avax || 'using vault', 'ok');
+check('XMR_DAEMON_URL', config.rpc.xmrDaemon, 'ok');
+check('ZEC_API_URL', config.rpc.zecApi, 'ok');
 check('COINGECKO_API_KEY', process.env.COINGECKO_API_KEY || 'not set', process.env.COINGECKO_API_KEY ? 'ok' : 'warn', 'EUR price conversion may be rate-limited');
-check('POLYMARKET_FEED_ENABLED', String(config.polymarket.feedEnabled), 'ok');
-if (config.polymarket.feedEnabled && !config.polymarket.alertChatId) {
-  check('POLYMARKET_ALERT_CHAT_ID', 'not set', 'warn', 'Feed enabled but no alert chat configured');
-}
+check('TOR_PROXY_URL', process.env.TOR_PROXY_URL || 'not set', 'ok');
 check('Session timeout', `${config.sessionTimeout} min`, 'ok');
 check('Rate limit', `${config.rateLimit} req/min`, 'ok');
 check('Data path', config.dataPath, 'ok');
-check('Polymarket host', config.polymarket.host, 'ok');
-check('Polymarket chainId', config.polymarket.chainId, 'ok');
 
 display();

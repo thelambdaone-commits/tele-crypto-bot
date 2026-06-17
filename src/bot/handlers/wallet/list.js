@@ -39,7 +39,7 @@ export function setupWalletList(bot, storage, walletService) {
 
   // Click on specific wallet -> show details with balance
   // WalletIds have format: chain-timestamp (e.g., sol-1737339000000)
-  bot.action(/^wallet_((eth|btc|sol|arb|matic|op|base|ltc|bch|doge)-\d+)$/, async (ctx) => {
+  bot.action(/^wallet_([a-z]+-\d+)$/, async (ctx) => {
     const walletId = ctx.match[1];
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
@@ -61,6 +61,9 @@ export function setupWalletList(bot, storage, walletService) {
       matic: '🟣',
       op: '🔵',
       base: '🟦',
+      avax: '🔺',
+      xmr: '🔒',
+      zec: '🛡️',
     };
     const chainEmoji = chainEmojis[wallet.chain] || '💎';
 

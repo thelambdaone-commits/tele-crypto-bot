@@ -38,6 +38,21 @@ export function detectChain(address) {
   // Bitcoin Cash legacy: 1 and 3 (can overlap with BTC)
   // We check BCH after BTC to prioritize BTC for ambiguous cases
 
+  // Zcash: Transparent t1 or t3 addresses
+  if (/^t[13][a-km-zA-HJ-NP-Z1-9]{33}$/.test(address)) {
+    return 'zec';
+  }
+
+  // Monero: Standard (4...) or subaddress (8...), 95 chars
+  if (/^[48][A-Za-z0-9]{94}$/.test(address)) {
+    return 'xmr';
+  }
+
+  // Monero integrated address: 106 chars
+  if (/^[48][A-Za-z0-9]{105}$/.test(address)) {
+    return 'xmr';
+  }
+
   // Solana: Base58, 32-44 chars
   if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) {
     return 'sol';

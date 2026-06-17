@@ -1,10 +1,13 @@
 import { ECPairFactory } from 'ecpair';
 import * as tinysecp from 'tiny-secp256k1';
 import * as bitcoin from 'bitcoinjs-lib';
+import * as bip39 from 'bip39';
+import BIP32Factory from 'bip32';
 
 import { BaseProvider } from './base.provider.js';
 
 const ECPair = ECPairFactory(tinysecp);
+const bip32 = BIP32Factory(tinysecp);
 
 const LTC_NETWORK = {
   messagePrefix: '\x18Bitcoin Signed Message:\n',
@@ -51,6 +54,29 @@ export class LitecoinChain extends BaseProvider {
       address: address,
       privateKey: keyPair.toWIF(),
       publicKey: keyPair.publicKey.toString('hex'),
+    };
+  }
+
+  async importFromSeed(seedPhrase) {
+    if (!bip39.validateMnemonic(seedPhrase)) {
+      throw new Error('Invalid seed phrase');
+    }
+
+    const seed = await bip39.mnemonicToSeed(seedPhrase);
+    const root = bip32.fromSeed(seed, this.network);
+    // BIP84 native SegWit path for Litecoin (coin type 2).
+    const child = root.derivePath("m/84'/2'/0'/0/0");
+
+    const { address } = bitcoin.payments.p2wpkh({
+      pubkey: child.publicKey,
+      network: this.network,
+    });
+
+    return {
+      address,
+      privateKey: child.toWIF(),
+      publicKey: child.publicKey.toString('hex'),
+      mnemonic: seedPhrase,
     };
   }
 

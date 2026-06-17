@@ -1,11 +1,14 @@
 import { ECPairFactory } from 'ecpair';
 import * as tinysecp from 'tiny-secp256k1';
 import * as bitcoin from 'bitcoinjs-lib';
+import * as bip39 from 'bip39';
+import BIP32Factory from 'bip32';
 
 import { BaseProvider } from './base.provider.js';
 import { TransactionError, ERROR_CODES } from '../shared/errors.js';
 
 const ECPair = ECPairFactory(tinysecp);
+const bip32 = BIP32Factory(tinysecp);
 const CASHADDR_CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 
 const BCH_NETWORK = {
@@ -150,6 +153,29 @@ export class BitcoinCashChain extends BaseProvider {
       address: address,
       privateKey: keyPair.toWIF(),
       publicKey: keyPair.publicKey.toString('hex'),
+    };
+  }
+
+  async importFromSeed(seedPhrase) {
+    if (!bip39.validateMnemonic(seedPhrase)) {
+      throw new Error('Invalid seed phrase');
+    }
+
+    const seed = await bip39.mnemonicToSeed(seedPhrase);
+    const root = bip32.fromSeed(seed, this.network);
+    // BIP44 path for Bitcoin Cash (coin type 145).
+    const child = root.derivePath("m/44'/145'/0'/0/0");
+
+    const { address } = bitcoin.payments.p2pkh({
+      pubkey: child.publicKey,
+      network: this.network,
+    });
+
+    return {
+      address,
+      privateKey: child.toWIF(),
+      publicKey: child.publicKey.toString('hex'),
+      mnemonic: seedPhrase,
     };
   }
 

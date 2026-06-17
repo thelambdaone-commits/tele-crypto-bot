@@ -4,10 +4,14 @@ const ADDRESS_EXPLORERS = {
   op:    (addr) => `https://optimism.io/address/${addr}`,
   base:  (addr) => `https://basescan.org/address/${addr}`,
   matic: (addr) => `https://polygonscan.com/address/${addr}`,
+  avax:  (addr) => `https://snowtrace.io/address/${addr}`,
   sol:   (addr) => `https://solscan.io/account/${addr}`,
   ltc:   (addr) => `https://mempool.space/litecoin/address/${addr}`,
   bch:   (addr) => `https://blockchain.com/bch/address/${addr}`,
   btc:   (addr) => `https://blockchain.com/btc/address/${addr}`,
+  xmr:   (addr) => `https://xmrchain.net/address/${addr}`,
+  zec:   (addr) => `https://zcashblockexplorer.com/address/${addr}`,
+  trx:   (addr) => `https://tronscan.org/#/address/${addr}`,
 };
 
 const EXPLORER_NAMES = {
@@ -16,10 +20,14 @@ const EXPLORER_NAMES = {
   op:    'Optimism Explorer',
   base:  'BaseScan',
   matic: 'PolygonScan',
+  avax:  'Snowtrace',
   sol:   'Solscan',
   ltc:   'Mempool Space',
   bch:   'Blockchain.com',
   btc:   'Blockchain.com',
+  xmr:   'XMRchain',
+  zec:   'Zcash Block Explorer',
+  trx:   'Tronscan',
 };
 
 const TOKEN_EXPLORERS = {
@@ -29,6 +37,8 @@ const TOKEN_EXPLORERS = {
   op:  (addr) => `https://optimism.io/token/${addr}`,
   base:(addr) => `https://basescan.org/token/${addr}`,
   matic:(addr) => `https://polygonscan.com/token/${addr}`,
+  avax:(addr) => `https://snowtrace.io/token/${addr}`,
+  trx: (addr) => `https://tronscan.org/#/token20/${addr}`,
 };
 
 export function getAddressExplorerUrl(chain, address) {

@@ -1,6 +1,6 @@
 # 🤖 Crypto Bot - Telegram Multi-Chain Wallet Manager
 
-Bot Telegram modulaire pour gerer des wallets crypto multi-chain, suivre les soldes, envoyer des fonds, utiliser les modules Solana, et connecter des wallets Ethereum/Polygon a Polymarket.
+Bot Telegram modulaire pour gerer des wallets crypto multi-chain : creation/import/derivation, suivi des soldes, envoi de fonds, analyse d'adresses (scan multi-EVM) et prix en EUR.
 
 ## ⚡ Pour Commencer
 
@@ -18,35 +18,29 @@ npm start
 
 | Module | Description |
 | ------ |-------------|
-| 🪙 Multi-chain | Ethereum, Polygon, Solana, Bitcoin, Litecoin, BCH, Arbitrum, Optimism, Base |
-| 💳 Wallets | Creation et import avec labels auto |
-| 💸 Transferts | Estimation dynamique des frais |
-| 🔐 Staking | SOL via Jito et Marinade |
-| 🧹 Dust Keeper | Analyse/nettoyage petits soldes Solana |
-| 🎨 Tokens SPL | Creation de tokens et NFTs |
-| 💵 Prix EUR | CoinGecko integre |
-| 🆘 Aide | Boutons Cours EUR et Help dans le menu principal |
-| 🔍 Detection | Reconnaissance automatique d'adresse publique |
-| 👮 Admin | Panel, logs audit, rate limiting, stockage chiffre |
-| 🎯 Polymarket | Wallets ETH/Polygon, credentials CLOB, switch sessions, historique trades |
+| 🪙 Multi-chain | Ethereum, Polygon, Solana, Bitcoin, Litecoin, BCH, Arbitrum, Optimism, Base, Avalanche, Monero, Zcash |
+| 📷 QR Code | QR d'adresse avec logo de la crypto et nom du réseau au centre |
+| 💳 Wallets | Creation, import (cle privee / seed) et derivation depuis une seed existante |
+| 💸 Transferts | Estimation dynamique des frais, envoi de tokens (USDC/USDT) |
+| 🔍 Analyse | Detection auto d'adresse + scan multi-EVM (solde, tokens, historique, valeur EUR) |
+| 💵 Prix EUR | CoinGecko integre (`/price`, `/gas`, `/graph`) |
+| 🔐 Privacy | Monero & Zcash via Tor (optionnel) |
+| 👮 Admin | Panel, logs audit, rate limiting, stockage chiffre, secrets RPC |
 
 ## 🏗️ Architecture
 
 ```
 src/
 ├── bot/                 # Interface Telegram: handlers, keyboards, textes, middlewares
-│   └── handlers/
-│       └── polymarket/  # UI et flow Polymarket
-├── clob/                # Client Polymarket CLOB, Data API, credentials, markets
-├── core/                # Config, stockage, monitor
-├── modules/             # Services metier: wallet, staking, tokens, NFTs, dust
-├── providers/           # Adaptateurs blockchain
-├── shared/              # Logger, chiffrement, prix, securite
+├── core/                # Config, stockage chiffre, sessions, monitor
+├── modules/             # Services metier: wallet
+├── providers/           # Adaptateurs blockchain (un par chaine)
+├── shared/              # Logger, chiffrement, prix, QR, securite
 ├── bootstrap.js         # Initialisation et verification au demarrage
 └── index.js             # Point d'entree
 ```
 
-Le bot garde les integrations separees par module. La logique Polymarket ne depend pas des handlers generiques hors points d'entree Telegram, et le code CLOB/Data API reste dans `src/clob/`.
+Le bot garde la couche Telegram (`bot/`) sans logique blockchain : elle delegue aux services de `modules/` et aux `providers/`.
 
 ## 📋 Prérequis
 
@@ -91,7 +85,6 @@ Editez ensuite `.env` avec vos valeurs reelles.
 | `ADMIN_CHAT_ID` | — | IDs de chats autorises (separes par virgules) |
 | `SESSION_TIMEOUT` | `5` | Timeout de session en minutes |
 | `RATE_LIMIT` | `30` | Requetes par minute |
-| `STAKING_SOL_RPC_URL` | — | RPC Solana dedie aux operations de staking (override) |
 | `DAILY_LIMIT_SOL` | — | Limite journaliere en SOL (circuit breaker) |
 | `DAILY_LIMIT_ETH` | — | Limite journaliere en ETH (circuit breaker) |
 | `DAILY_LIMIT_USD` | — | Limite journaliere en USD (circuit breaker) |
@@ -109,6 +102,22 @@ Editez ensuite `.env` avec vos valeurs reelles.
 | `BCH_API_URL` | `https://api.blockchain.info/bch` |
 | `OPTIMISM_RPC_URL` | `https://mainnet.optimism.io` |
 | `BASE_RPC_URL` | `https://mainnet.base.org` |
+| `AVAX_RPC_URL` | `https://api.avax.network/ext/bc/C/rpc` |
+
+</details>
+
+<details>
+<summary><b>Privacy coins (Monero / Zcash) & Tor</b> (optionnel)</summary>
+
+| Variable | Defaut | Description |
+| --- | --- | --- |
+| `XMR_DAEMON_URL` | `http://node.moneroworld.com:18089` | Daemon Monero (lecture) |
+| `XMR_WALLET_RPC_URL` | — | Wallet RPC Monero (requis pour envoyer) |
+| `XMR_WALLET_RPC_AUTH` | — | Auth `user:pass` du wallet RPC Monero |
+| `ZEC_API_URL` | `https://api.zcha.in/v2/mainnet` | API Zcash (lecture) |
+| `ZEC_RPC_URL` | — | Node RPC Zcash (requis pour envoyer) |
+| `ZEC_RPC_AUTH` | — | Auth du node RPC Zcash |
+| `TOR_PROXY_URL` | — | Proxy SOCKS5 (ex. `socks5://127.0.0.1:9050`) pour router les privacy coins |
 
 </details>
 
@@ -122,19 +131,6 @@ Editez ensuite `.env` avec vos valeurs reelles.
 | `COINGECKO_API_KEY_HEADER` | `x-cg-demo-api-key` | Header d'authentification |
 
 </details>
-
-### Variables Polymarket
-
-| Variable | Defaut | Description |
-| --- | --- | --- |
-| `POLYMARKET_HOST` | `https://clob.polymarket.com` | Endpoint CLOB |
-| `POLYMARKET_CHAIN_ID` | `137` | Chain ID Polygon |
-| `POLYMARKET_FEED_ENABLED` | `false` | Active/desactive le feed |
-| `POLYMARKET_FEED_INTERVAL` | `60000` | Intervalle du feed (ms) |
-| `POLYMARKET_ALERT_CHAT_ID` | — | Chat cible pour les alertes |
-| `POLYFILL_RS_ENV_PATH` | — | Chemin d'export .env pour polymarket-copy-trade |
-
-Les API keys Polymarket ne sont pas placees dans `.env`. Elles sont derivees automatiquement depuis le wallet quand possible, ou saisies dans Telegram en fallback, puis stockees chiffrees.
 
 ## 🚀 Lancement
 
@@ -155,10 +151,7 @@ npm run dev
 
 ```bash
 npm test
-npm run test:clob
 npm run precheck
-npm run check:polymarket
-npm run check:polymarket-history
 npm run lint
 npm run lint:fix
 npm run format
@@ -166,54 +159,23 @@ npm run config:check
 npm run ci
 ```
 
-### Polymarket dans Telegram
+### Commandes Telegram
 
-| Commande / action | Role |
+| Commande | Role |
 | --- | --- |
-| Bouton `➕ Plus d'actions` puis `🎯 Polymarket`, ou `/poly` | Ouvre le menu Polymarket |
-| `/polyconnect` ou bouton connexion | Choisit un wallet ETH/Polygon ou genere un nouveau wallet |
-| Bouton Historique | Affiche les trades Polymarket via Data API |
-| Bouton Changer wallet | Switch entre les credentials Polymarket sauvegardes |
-| Bouton Deconnecter | Desactive la session active sans supprimer les credentials sauvegardes |
-| `/cancel` | Annule un flow Polymarket en cours |
-
-## 🎯 Polymarket
-
-Le flow Polymarket fonctionne ainsi :
-
-1. L'utilisateur ouvre Polymarket.
-2. Le bot propose les wallets ETH/Polygon existants ou la generation d'un nouveau wallet.
-3. Si un nouveau wallet est genere, il est cree via le service wallet, sauvegarde, puis place en session pour la connexion.
-4. Le bot tente de deriver automatiquement les credentials CLOB avec `@polymarket/clob-client`.
-5. Si la derivation echoue, le bot bascule sur une saisie manuelle API Key / Secret / Passphrase.
-6. Les credentials sont stockes chiffres et rattaches au wallet.
-7. L'historique utilise la Data API Polymarket et resout le proxy wallet quand necessaire.
-
-Le bot peut conserver plusieurs credentials Polymarket par utilisateur et changer le wallet actif sans supprimer les sessions precedentes.
+| `/wallet`, `/gen <reseau>` | Lister / generer un wallet |
+| `/bal <reseau> <adresse>`, `/tx <reseau> <adresse>` | Solde / historique d'une adresse |
+| `/send <reseau> <adresse> <montant>` | Envoyer des fonds |
+| `/price`, `/gas`, `/graph <token> <periode>`, `/unit` | Infos marche |
+| `/menu`, `/help`, `/chains`, `/learn` | Navigation et aide |
 
 ## 🔒 Securite
 
-- Les private keys, mnemonic et credentials Polymarket sont stockes chiffres avec `MASTER_ENCRYPTION_KEY`.
+- Les private keys et mnemonic sont stockes chiffres avec `MASTER_ENCRYPTION_KEY`.
 - Les handlers ne renvoient pas les secrets en clair dans Telegram.
 - Les logs d'audit evitent les valeurs sensibles.
 - `.env` ne doit jamais etre committe.
 - `npm audit` peut signaler des vulnerabilites transitives dans la stack Solana actuelle. Ne lancez pas `npm audit fix --force` sans review, car npm peut proposer des versions incompatibles ou regressives.
-
-## 🔧 Diagnostic
-
-### Verifier l'etat Polymarket local
-
-```bash
-npm run check:polymarket
-```
-
-### Verifier l'historique via Polymarket Data API
-
-```bash
-npm run check:polymarket-history
-```
-
-Ces scripts listent les wallets/credentials sauvegardes et les resultats d'historique sans exposer les private keys ni les secrets CLOB.
 
 ## 📝 Notes Production
 

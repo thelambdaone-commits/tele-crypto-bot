@@ -24,29 +24,25 @@ async function assertStorage() {
   const chatId = 999001;
 
   await storage.init();
-  await storage.addPolymarketCredentials(
-    chatId,
-    '0x'.padEnd(66, '1'),
-    '0x0000000000000000000000000000000000000001',
-    'api-key',
-    'api-secret',
-    'api-passphrase',
-    Date.now().toString()
-  );
+  const saved = await storage.addWallet(chatId, {
+    chain: 'eth',
+    label: 'Precheck',
+    address: '0x0000000000000000000000000000000000000001',
+    privateKey: '0x'.padEnd(66, '1'),
+    mnemonic: 'test test test test test test test test test test test junk',
+  });
 
-  const creds = await storage.getPolymarketCredentials(chatId);
-  if (!creds || creds.apiKey !== 'api-key') {
+  const wallet = await storage.getWalletWithKey(chatId, saved.id);
+  if (!wallet || wallet.address !== saved.address || !wallet.privateKey) {
     throw new Error('Storage chiffré indisponible ou illisible');
   }
 }
 
 async function assertCriticalImports() {
   await Promise.all([
-    import('../src/clob/client.js'),
-    import('../src/clob/credentials.js'),
-    import('../src/clob/markets.js'),
-    import('../src/bot/handlers/polymarket/index.js'),
     import('../src/modules/wallet/wallet.service.js'),
+    import('../src/bot/handlers/index.js'),
+    import('../src/shared/qr.js'),
   ]);
 }
 
@@ -57,10 +53,11 @@ async function main() {
 
   console.log('✅ Precheck OK');
   console.log(`Data path: ${config.dataPath}`);
-  console.log(`Polymarket chainId: ${config.polymarket.chainId}`);
 }
 
-main().catch((error) => {
-  console.error(`❌ Precheck failed: ${error.message}`);
-  process.exitCode = 1;
-});
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(`❌ Precheck failed: ${error.message}`);
+    process.exit(1);
+  });

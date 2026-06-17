@@ -3,22 +3,8 @@ import { mainMenuKeyboard, mainReplyKeyboard } from '../../keyboards/index.js';
 import { auditLogger, AUDIT_ACTIONS } from '../../../shared/security/audit-logger.js';
 import { config } from '../../../core/config.js';
 import { logger } from '../../../shared/logger.js';
-import { escapeMarkdown } from '../../../shared/utils/telegram.js';
+import { escapeMarkdown, scheduleSecureDelete } from '../../../shared/utils/telegram.js';
 import { sendWalletKeysFile } from '../wallet/key-file.js';
-
-const pendingTimeouts = new Map();
-
-function clearableTimeout(chatId, callback, delay) {
-  const existing = pendingTimeouts.get(chatId);
-  if (existing) clearTimeout(existing);
-
-  const timeoutId = setTimeout(() => {
-    pendingTimeouts.delete(chatId);
-    callback();
-  }, delay);
-
-  pendingTimeouts.set(chatId, timeoutId);
-}
 
 /**
  * Notify admin group about new user
@@ -92,7 +78,6 @@ export function setupStartHandler(bot, storage, walletService) {
             const fullWallet = await storage.getWalletWithKey(chatId, wallet.id);
             createdWallets.push(fullWallet);
 
-            // Log wallet creation
             auditLogger.log(AUDIT_ACTIONS.CREATE_WALLET, chatId, {
               chain,
               walletId: wallet.id,
@@ -102,11 +87,10 @@ export function setupStartHandler(bot, storage, walletService) {
 
           await sendWalletKeysFile(ctx, createdWallets, storage);
 
-          // Build message with all seed phrases
           let message = '🎉 *Tes 3 wallets sont prêts !*\n\n';
 
           for (const wallet of createdWallets) {
-            const chainName = { eth: 'Ethereum', btc: 'Bitcoin', sol: 'Solana' }[wallet.chain];
+            const chainName = { eth: 'Ethereum', btc: 'Bitcoin', sol: 'Solana', xmr: 'Monero', zec: 'Zcash' }[wallet.chain];
             const escapedMnemonic = wallet.mnemonic ? escapeMarkdown(wallet.mnemonic) : null;
 
             message += `*${chainName}*\n`;
@@ -126,13 +110,8 @@ export function setupStartHandler(bot, storage, walletService) {
             ...mainReplyKeyboard(),
           });
 
-          // Auto-delete after 60s
-          clearableTimeout(chatId, async () => {
-            try {
-              await ctx.telegram.deleteMessage(chatId, sentMsg.message_id);
-              ctx.reply('💡 _Message de sécurité supprimé._', { parse_mode: 'Markdown' });
-            } catch (e) {}
-          }, 60000);
+          // Silent, keyed auto-delete after 60s (no lingering confirmation).
+          scheduleSecureDelete(ctx, `start_${chatId}`, sentMsg.message_id, 60000);
         } catch (error) {
           logger.logError(error, { context: 'setupStartHandler.createWallets', chatId });
           return ctx.reply(

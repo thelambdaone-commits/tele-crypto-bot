@@ -57,10 +57,15 @@ export async function getPricesEUR(force = false) {
         bch: data['bitcoin-cash']?.eur || 0,
         usdc: data['usd-coin']?.eur || 0,
         usdt: data.tether?.eur || 0,
+        dai: data.dai?.eur || 0,
+        wbtc: data['wrapped-bitcoin']?.eur || 0,
         matic: data['polygon-ecosystem-token']?.eur || 0,
         op: data.optimism?.eur || 0,
         base: data.ethereum?.eur || 0,
-        jitosol: data['jito-staked-sol']?.eur || 0,
+        avax: data['avalanche-2']?.eur || 0,
+        trx: data.tron?.eur || 0,
+        xmr: data.monero?.eur || 0,
+        zec: data.zcash?.eur || 0,
       },
       lastUpdate: now,
     };
@@ -71,7 +76,7 @@ export async function getPricesEUR(force = false) {
     if (Object.keys(priceCache.prices).length > 0) {
       return priceCache.prices;
     }
-    return { eth: 0, btc: 0, sol: 0, ltc: 0, bch: 0, usdc: 0, usdt: 0, matic: 0, op: 0, base: 0 };
+    return { eth: 0, btc: 0, sol: 0, ltc: 0, bch: 0, usdc: 0, usdt: 0, matic: 0, op: 0, base: 0, xmr: 0, zec: 0 };
   }
 }
 
@@ -132,18 +137,25 @@ export function formatCryptoPricesEUR(prices, date = new Date()) {
     '💹 Prix crypto\n\n' +
     '🏛️ L1 / Mainnets\n' +
     `🟠 Bitcoin (BTC) : ${formatEUR(prices.btc)}\n` +
+    `₿ Wrapped BTC (WBTC) : ${formatEUR(prices.wbtc || 0)}\n` +
     `🔷 Ethereum (ETH) : ${formatEUR(prices.eth)}\n` +
-    `🟣 Solana (SOL) : ${formatEUR(prices.sol)}\n\n` +
+    `🟣 Solana (SOL) : ${formatEUR(prices.sol)}\n` +
+    `🔺 Avalanche (AVAX) : ${formatEUR(prices.avax || 0)}\n` +
+    `🟥 Tron (TRX) : ${formatEUR(prices.trx || 0)}\n\n` +
     '⚡ L2 / Scaling\n' +
     `🟦 ETH on Base : ${formatEUR(prices.base)}\n` +
+    `🔴 ETH on Arbitrum : ${formatEUR(prices.eth)}\n` +
     `🔵 Optimism (OP) : ${formatEUR(prices.op || 0)}\n` +
     `🟣 Polygon (POL) : ${formatEUR(prices.matic || 0)}\n\n` +
     '🏦 Stablecoins\n' +
     `💵 USD Coin (USDC) : ${formatEUR(prices.usdc)}\n` +
-    `💵 Tether (USDT) : ${formatEUR(prices.usdt)}\n\n` +
+    `💵 Tether (USDT) : ${formatEUR(prices.usdt)}\n` +
+    `💵 Dai (DAI) : ${formatEUR(prices.dai || 0)}\n\n` +
     '🪙 Legacy / Forks\n' +
     `◈ Litecoin (LTC) : ${formatEUR(prices.ltc)}\n` +
-    `₿ Bitcoin Cash (BCH) : ${formatEUR(prices.bch)}\n\n` +
+    `₿ Bitcoin Cash (BCH) : ${formatEUR(prices.bch)}\n` +
+    `🔒 Monero (XMR) : ${formatEUR(prices.xmr || 0)}\n` +
+    `🛡️ Zcash (ZEC) : ${formatEUR(prices.zec || 0)}\n\n` +
     `🕒 Mis à jour en temps réel le ${formatPriceUpdateDate(date)}`
   );
 }

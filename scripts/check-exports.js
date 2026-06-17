@@ -1,10 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { config } from '../src/core/config.js';
 import { decrypt } from '../src/shared/encryption.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function checkExports() {
   const dataPath = config.dataPath;

@@ -33,7 +33,7 @@ export function setupInfoCommands(bot) {
   bot.command('chains', async (ctx) => {
     await ctx.reply(
       '🔗 *Blockchains supportées*\n\n' +
-        '• L1 : BTC, ETH, SOL, LTC, BCH\n' +
+        '• L1 : BTC, ETH, SOL, TRX, AVAX, LTC, BCH, XMR, ZEC\n' +
         '• L2 : Arbitrum, Polygon, Optimism, Base',
       { parse_mode: 'Markdown' }
     );

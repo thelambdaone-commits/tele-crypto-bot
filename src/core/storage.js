@@ -2,7 +2,6 @@ import crypto from 'node:crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { decrypt, encrypt, deriveUserKey } from '../shared/encryption.js';
-import { PolymarketCredentialsService } from './polymarket-credentials.js';
 import { SecretVault } from './secret-vault.js';
 import { logger } from '../shared/logger.js';
 
@@ -17,7 +16,6 @@ export class StorageService {
     this.masterKey = masterKey;
     this.locks = new Map();
     this.statsPath = path.join(dataPath, '_stats.enc');
-    this.polymarket = new PolymarketCredentialsService(this);
     this.secrets = new SecretVault(dataPath, masterKey);
     this.cache = new Map();
     this.cacheTTL = options.cacheTtl || 60000; // 60 seconds default
@@ -33,6 +31,7 @@ export class StorageService {
         logger.error('Maintenance failed:', e.message);
       });
     }, 5 * 60 * 1000);
+    this._maintenanceInterval.unref();
   }
 
   async stop() {
@@ -457,54 +456,6 @@ export class StorageService {
     });
   }
 
-  // JitoSOL Unstake Tracking
-  async addUnstakeRequest(chatId, request) {
-    return this._withLock(chatId, async () => {
-      const data = await this.loadUserData(chatId);
-      data.unstakeRequests = data.unstakeRequests || [];
-      const newRequest = {
-        id: `unstake-${Date.now()}`,
-        type: request.type || 'jitosol',
-        amount: request.amount,
-        walletId: request.walletId,
-        walletAddress: request.walletAddress,
-        createdAt: new Date().toISOString(),
-        estimatedAvailableAt: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(), // 3 days default
-        status: 'pending',
-        ...request,
-      };
-      data.unstakeRequests.push(newRequest);
-      await this.saveUserData(chatId, data);
-      return newRequest;
-    });
-  }
-
-  async getUnstakeRequests(chatId) {
-    const data = await this.loadUserData(chatId);
-    return data.unstakeRequests || [];
-  }
-
-  async removeUnstakeRequest(chatId, requestId) {
-    return this._withLock(chatId, async () => {
-      const data = await this.loadUserData(chatId);
-      data.unstakeRequests = (data.unstakeRequests || []).filter((r) => r.id !== requestId);
-      await this.saveUserData(chatId, data);
-    });
-  }
-
-  async updateUnstakeRequest(chatId, requestId, updates) {
-    return this._withLock(chatId, async () => {
-      const data = await this.loadUserData(chatId);
-      const index = (data.unstakeRequests || []).findIndex((r) => r.id === requestId);
-      if (index !== -1) {
-        data.unstakeRequests[index] = { ...data.unstakeRequests[index], ...updates };
-        await this.saveUserData(chatId, data);
-        return data.unstakeRequests[index];
-      }
-      return null;
-    });
-  }
-
   async loadStats() {
     try {
       const encryptedData = await fs.readFile(this.statsPath, 'utf8');
@@ -651,46 +602,5 @@ export class StorageService {
     }
 
     return wallets;
-  }
-
-  // Polymarket Credentials - Delegated to PolymarketCredentialsService
-  async addPolymarketCredentials(...args) {
-    return this.polymarket.save(...args);
-  }
-
-  async getPolymarketCredentials(...args) {
-    return this.polymarket.getActive(...args);
-  }
-
-  async getPolymarketCredentialsList(...args) {
-    return this.polymarket.list(...args);
-  }
-
-  async getPolymarketCredentialsById(...args) {
-    return this.polymarket.getById(...args);
-  }
-
-  async setActivePolymarketCredentials(...args) {
-    return this.polymarket.setActive(...args);
-  }
-
-  async deletePolymarketCredentials(...args) {
-    return this.polymarket.delete(...args);
-  }
-
-  // Legacy for alerts if needed
-  async updatePolymarketAlerts(chatId, enabled) {
-    return this._withLock(chatId, async () => {
-      const data = await this.loadUserData(chatId);
-      if (data.pmCredentials) {
-        data.pmCredentials.alertsEnabled = enabled;
-      }
-      this.polymarket._normalizeCredentials(data);
-      const active = data.pmCredentialsList.find((creds) => creds.id === data.activePmCredentialId);
-      if (active) {
-        active.alertsEnabled = enabled;
-      }
-      await this.saveUserData(chatId, data);
-    });
   }
 }

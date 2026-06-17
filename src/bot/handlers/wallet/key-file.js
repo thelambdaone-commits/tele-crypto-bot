@@ -87,24 +87,3 @@ export async function sendWalletKeysFile(ctx, wallets, storage = null, options =
 
   return sendTextDocument(ctx, content, filename);
 }
-
-export function buildPolymarketCredentialsText(credentials) {
-  const lines = [
-    `POLYMARKET_API_KEY=${normalizeSecret(credentials.apiKey)}`,
-    `POLYMARKET_API_SECRET=${normalizeSecret(credentials.apiSecret)}`,
-    `POLYMARKET_API_PASSPHRASE=${normalizeSecret(credentials.apiPassphrase)}`,
-  ];
-
-  return `${lines.join('\n')}\n`;
-}
-
-export async function sendPolymarketCredentialsFile(ctx, credentials, storage = null) {
-  const content = buildPolymarketCredentialsText(credentials);
-  const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
-  const filename =
-    storage && chatId
-      ? await storage.getNextKeysFilename(chatId, 'polymarket', 'credentials')
-      : 'credentials-polymarket.txt';
-
-  return sendTextDocument(ctx, content, filename);
-}

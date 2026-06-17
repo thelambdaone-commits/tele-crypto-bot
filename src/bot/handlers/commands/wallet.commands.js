@@ -17,7 +17,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
     if (wallets.length === 0) {
       return ctx.reply(
         "😅 *Oups !* Tu n'as pas encore de wallet.\n\n" +
-          '💡 Utilise `/gen eth`, `/gen btc` ou `/gen sol` pour en créer un !',
+          '💡 Utilise `/gen eth`, `/gen btc`, `/gen xmr` ou `/gen zec` pour en créer un !',
         { parse_mode: 'Markdown', ...mainMenuKeyboard() }
       );
     }
@@ -70,14 +70,17 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
           '• `/gen matic` — Polygon 🟣\n' +
           '• `/gen op` — Optimism 🔵\n' +
           '• `/gen base` — Base 🟦\n' +
+          '• `/gen avax` — Avalanche 🔺\n' +
           '• `/gen ltc` — Litecoin 🪙\n' +
-          '• `/gen bch` — Bitcoin Cash 🟢',
+          '• `/gen bch` — Bitcoin Cash 🟢\n' +
+          '• `/gen xmr` — Monero 🔒\n' +
+          '• `/gen zec` — Zcash 🛡️',
         { parse_mode: 'Markdown' }
       );
     }
 
     const chain = args[0].toLowerCase();
-    const supportedChains = ['eth', 'btc', 'sol', 'arb', 'matic', 'op', 'base', 'ltc', 'bch'];
+    const supportedChains = ['eth', 'btc', 'sol', 'arb', 'matic', 'op', 'base', 'avax', 'ltc', 'bch', 'xmr', 'zec'];
     if (!supportedChains.includes(chain)) {
       return ctx.reply(
         '❌ *Réseau non supporté !*\n\n' + `Choisis parmi : \`${supportedChains.join(', ')}\``,
@@ -95,8 +98,11 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       matic: 'Polygon 🟣',
       op: 'Optimism 🔵',
       base: 'Base 🟦',
+      avax: 'Avalanche 🔺',
       ltc: 'Litecoin 🪙',
       bch: 'Bitcoin Cash 🟢',
+      xmr: 'Monero 🔒',
+      zec: 'Zcash 🛡️',
     };
     const loadingMsg = await ctx.reply(`⏳ Génération de ton wallet ${chainNames[chain]}...`);
 
@@ -159,7 +165,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
 
     const network = args[0].toLowerCase();
     const address = args[1];
-    const supportedBal = ['eth', 'btc', 'sol', 'arb', 'matic', 'op', 'base', 'ltc', 'bch'];
+    const supportedBal = ['eth', 'btc', 'sol', 'arb', 'matic', 'op', 'base', 'ltc', 'bch', 'xmr', 'zec'];
 
     if (!supportedBal.includes(network)) {
       return ctx.reply(`❌ Réseau non supporté ! Choisissez parmi : \`${supportedBal.join(', ')}\``, {
@@ -174,7 +180,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       const conversion = await convertToEUR(network, Number.parseFloat(balanceData.balance));
 
       const chainEmoji =
-        { eth: '🔷', btc: '🟠', sol: '🟣', matic: '🟣', op: '🔵', base: '🟦' }[network] || '💎';
+        { eth: '🔷', btc: '🟠', sol: '🟣', matic: '🟣', op: '🔵', base: '🟦', xmr: '🔒', zec: '🛡️' }[network] || '💎';
 
       await ctx.telegram.deleteMessage(ctx.chat.id, loadingMsg.message_id);
 
@@ -211,7 +217,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
     const network = args[0].toLowerCase();
     const toAddress = args[1];
     const amount = Number.parseFloat(args[2].replace(',', '.'));
-    const supportedSend = ['eth', 'btc', 'sol', 'arb', 'matic', 'op', 'base', 'ltc', 'bch'];
+    const supportedSend = ['eth', 'btc', 'sol', 'arb', 'matic', 'op', 'base', 'ltc', 'bch', 'xmr', 'zec'];
 
     if (!supportedSend.includes(network)) {
       return ctx.reply(
@@ -286,7 +292,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
     const network = args[0].toLowerCase();
     const address = args[1];
     const limit = Math.min(Number.parseInt(args[2]) || 5, 20);
-    const supportedTx = ['eth', 'btc', 'sol', 'arb', 'matic', 'op', 'base', 'ltc', 'bch'];
+    const supportedTx = ['eth', 'btc', 'sol', 'arb', 'matic', 'op', 'base', 'avax', 'ltc', 'bch', 'xmr', 'zec'];
 
     if (!supportedTx.includes(network)) {
       return ctx.reply(`❌ Réseau non supporté ! Choisissez parmi : \`${supportedTx.join(', ')}\``, {

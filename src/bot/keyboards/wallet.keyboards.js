@@ -12,6 +12,9 @@ export function walletListKeyboard(wallets, prefix = 'wallet_') {
     matic: '🟣',
     op: '🔵',
     base: '🟦',
+    avax: '🔺',
+    xmr: '🔒',
+    zec: '🛡️',
   };
   const buttons = wallets.map((w) => [
     Markup.button.callback(
@@ -26,6 +29,7 @@ export function walletListKeyboard(wallets, prefix = 'wallet_') {
 export function walletActionsKeyboard(walletId) {
   return Markup.inlineKeyboard([
     [Markup.button.callback('📋 Copier Adresse', `copy_addr_${walletId}`)],
+    [Markup.button.callback('📷 QR Code', `qr_addr_${walletId}`)],
     [Markup.button.callback('🌱 Voir Seed Phrase', `view_seed_${walletId}`)],
     [Markup.button.callback('🔑 Voir Clé Privée', `view_privkey_${walletId}`)],
     [Markup.button.callback('📜 Historique', `wallet_history_${walletId}`)],
@@ -51,6 +55,7 @@ export function corruptedWalletKeyboard(walletId) {
 export function walletCreationMethodKeyboard(chain) {
   return Markup.inlineKeyboard([
     [Markup.button.callback('🆕 Générer Nouveau Wallet', `generate_${chain}`)],
+    [Markup.button.callback('🌱 Dériver depuis une seed existante', `derive_seed_${chain}`)],
     [Markup.button.callback('🔑 Importer une Clé Privée', `import_key_${chain}`)],
     [Markup.button.callback('🔐 Importer une Seed Phrase', `import_seed_${chain}`)],
     [Markup.button.callback('🔙 Retour', CALLBACKS.CREATE_WALLET)],
@@ -75,7 +80,15 @@ export function chainSelectionKeyboard(actionPrefix = 'chain_') {
       Markup.button.callback('🟣 Polygon', `${actionPrefix}matic`),
       Markup.button.callback('🔵 Optimism', `${actionPrefix}op`),
     ],
-    [Markup.button.callback('🟦 Base', `${actionPrefix}base`)],
+    [
+      Markup.button.callback('🟦 Base', `${actionPrefix}base`),
+      Markup.button.callback('🔺 Avalanche', `${actionPrefix}avax`),
+    ],
+    [
+      Markup.button.callback('🟥 Tron', `${actionPrefix}trx`),
+      Markup.button.callback('🔒 Monero', `${actionPrefix}xmr`),
+    ],
+    [Markup.button.callback('🛡️ Zcash', `${actionPrefix}zec`)],
     [Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)],
   ]);
 }

@@ -3,12 +3,11 @@ import { adminGuard } from '../../middlewares/auth.middleware.js';
 import { setupAdminStats } from './stats.js';
 import { setupAdminUsers } from './users.js';
 import { setupAdminActions, setupAdminMisc } from './actions.js';
-import { setupAdminDust } from './dust.js';
 import { setupAdminSecrets } from './secrets.js';
 import { safeAnswerCbQuery } from '../../../shared/utils/telegram.js';
 import { CALLBACKS } from '../../constants/callbacks.js';
 
-export function setupAdminHandlers(bot, storage, sessions, walletService) {
+export function setupAdminHandlers(bot, storage, sessions) {
   // Admin command
   bot.command('admin', async (ctx) => {
     if (!adminGuard(ctx)) return;
@@ -36,6 +35,5 @@ export function setupAdminHandlers(bot, storage, sessions, walletService) {
   setupAdminUsers(bot, storage);
   setupAdminActions(bot, storage, sessions);
   setupAdminMisc(bot, storage, sessions);
-  setupAdminDust(bot, storage, walletService);
   setupAdminSecrets(bot, storage, sessions);
 }

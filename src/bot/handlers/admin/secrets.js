@@ -43,7 +43,7 @@ export function setupAdminSecrets(bot, storage, sessions) {
     if (!adminGuard(ctx)) return;
 
     sessions.setState(ctx.chat.id, 'AWAITING_SECRET_KEY');
-    await safeEditMessage(ctx, 'Entrez le *NOM* du secret à définir (ex: `stakingRpc`) :', {
+    await safeEditMessage(ctx, 'Entrez le *NOM* du secret à définir (ex: `avaxRpc`, `solRpc`) :', {
       parse_mode: 'Markdown',
       ...adminCancelKeyboard(),
     });
@@ -127,7 +127,7 @@ export function setupAdminSecrets(bot, storage, sessions) {
         });
         
         // Trigger a reload or info about restart if needed
-        if (key === 'stakingRpc') {
+        if (key.toLowerCase().includes('rpc')) {
           await ctx.reply('⚠️ Note: Le bot devra peut-être être redémarré pour appliquer certains changements de RPC.');
         }
       } catch (error) {

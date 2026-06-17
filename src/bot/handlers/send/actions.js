@@ -5,10 +5,13 @@ import {
   confirmationKeyboard,
   mainMenuKeyboard,
   tokenSelectionKeyboard,
+  chainHasTokens,
+  addressAnalyzedKeyboard,
 } from '../../keyboards/index.js';
-import { safeAnswerCbQuery } from '../../utils.js';
+import { safeAnswerCbQuery, safeEditMessage } from '../../utils.js';
 import { auditLogger, AUDIT_ACTIONS } from '../../../shared/security/audit-logger.js';
 import { convertToEUR, formatEUR } from '../../../shared/price.js';
+import { formatCryptoAmount } from '../../ui/formatters.js';
 import { MESSAGES, EMOJIS } from '../../messages/index.js';
 import { formatTxDetails, handleSendError } from './helpers.js';
 
@@ -51,14 +54,15 @@ export function setupSendActions(bot, storage, walletService, sessions) {
 
     sessions.setData(chatId, { selectedWalletId: walletId, selectedChain: wallet.chain });
 
-    // If Arbitrum, show token selection
-    if (wallet.chain === 'arb') {
+    // Any chain that has tokens (USDC/USDT/…) offers a token choice; native-only
+    // chains (BTC, LTC, XMR, …) go straight to the address step.
+    if (chainHasTokens(wallet.chain)) {
       ctx.editMessageText(`🚀 *Envoi depuis ${wallet.label}*\n\nSélectionne le token à envoyer :`, {
         parse_mode: 'Markdown',
         ...tokenSelectionKeyboard(wallet.chain),
       });
     } else {
-      // Other chains: go directly to address
+      // Native-only chains: go directly to address
       sessions.setState(chatId, 'ENTER_ADDRESS');
       const cancelKeyboard = Markup.inlineKeyboard([
         [Markup.button.callback('❌ Annuler', 'cancel')],
@@ -80,7 +84,6 @@ export function setupSendActions(bot, storage, walletService, sessions) {
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
 
-    const data = sessions.getData(chatId);
     sessions.updateData(chatId, {
       selectedChain: chain,
       selectedToken: token === 'native' ? null : token,
@@ -139,6 +142,69 @@ export function setupSendActions(bot, storage, walletService, sessions) {
         ...walletListKeyboard(matchingWallets, 'send_analyzed_from_'),
       }
     );
+  });
+
+  // Back from history view: restore the analysis page in place.
+  // Registered BEFORE the regex below so "analyze_history_back" isn't captured as a chain.
+  bot.action('analyze_history_back', async (ctx) => {
+    const chatId = ctx.chat.id;
+    await safeAnswerCbQuery(ctx);
+
+    const data = sessions.getData(chatId);
+    if (!data?.analyzedMessage) {
+      return safeEditMessage(ctx, '⚠️ Analyse expirée. Réanalyse une adresse.', mainMenuKeyboard());
+    }
+
+    await safeEditMessage(ctx, data.analyzedMessage, {
+      parse_mode: 'Markdown',
+      ...addressAnalyzedKeyboard(data.analyzedChain, data.analyzedAddress),
+    });
+  });
+
+  // Transaction history for an analyzed address - replaces the analysis page in place
+  bot.action(/^analyze_history_(.+)$/, async (ctx) => {
+    const chain = ctx.match[1];
+    const chatId = ctx.chat.id;
+    await safeAnswerCbQuery(ctx);
+
+    const sessionData = sessions.getData(chatId);
+    const address = sessionData?.analyzedAddress;
+
+    const backKeyboard = Markup.inlineKeyboard([
+      [Markup.button.callback('↩️ Retour', 'analyze_history_back')],
+    ]);
+
+    if (!address) {
+      return safeEditMessage(ctx, '⚠️ Adresse non trouvée. Réanalyse une adresse.', mainMenuKeyboard());
+    }
+
+    await safeEditMessage(ctx, '🔍 Recherche des transactions...', { parse_mode: 'Markdown' });
+    try {
+      const txHistory = await walletService.getTransactionHistory(chain, address, 5);
+
+      if (!txHistory || txHistory.length === 0) {
+        return safeEditMessage(ctx, '📜 Aucune transaction trouvée.', {
+          parse_mode: 'Markdown',
+          ...backKeyboard,
+        });
+      }
+
+      let text = `📜 *${txHistory.length} dernières transactions (${chain.toUpperCase()})*\n\n`;
+      for (const tx of txHistory) {
+        const direction = tx.type === 'in' ? '📥' : '📤';
+        const date = new Date(tx.timestamp).toLocaleDateString('fr-FR');
+        text += `${direction} *${formatCryptoAmount(tx.amount, chain)}*\n`;
+        text += `📅 ${date}\n`;
+        text += `🔗 \`${tx.hash.slice(0, 12)}...${tx.hash.slice(-8)}\`\n\n`;
+      }
+
+      await safeEditMessage(ctx, text, { parse_mode: 'Markdown', ...backKeyboard });
+    } catch (error) {
+      await safeEditMessage(ctx, `❌ Impossible de récupérer l'historique : ${error.message}`, {
+        parse_mode: 'Markdown',
+        ...backKeyboard,
+      });
+    }
   });
 
   // Select quick amount (All or 50%)
@@ -333,6 +399,10 @@ export function setupSendActions(bot, storage, walletService, sessions) {
         hashUrl = `https://mempool.space/litecoin/tx/${result.hash}`;
       } else if (chain === 'bch') {
         hashUrl = `https://blockchain.com/bch/tx/${result.hash}`;
+      } else if (chain === 'xmr') {
+        hashUrl = `https://xmrchain.net/tx/${result.hash}`;
+      } else if (chain === 'zec') {
+        hashUrl = `https://zcashblockexplorer.com/tx/${result.hash}`;
       } else {
         hashUrl = `https://blockchain.com/btc/tx/${result.hash}`;
       }

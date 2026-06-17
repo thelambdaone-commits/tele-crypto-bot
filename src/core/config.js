@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
-import { dirname, resolve, join } from 'path';
+import { dirname, resolve } from 'path';
 import { SecretVault } from './secret-vault.js';
 
 dotenv.config();
@@ -48,18 +48,6 @@ export const config = {
   rateLimit: Number.parseInt(process.env.RATE_LIMIT || '30'),
   sessionTimeout: Number.parseInt(process.env.SESSION_TIMEOUT || '5'),
 
-  polymarket: {
-    host: process.env.POLYMARKET_HOST || 'https://clob.polymarket.com',
-    chainId: Number(process.env.POLYMARKET_CHAIN_ID || '137'),
-    feedInterval: Number(process.env.POLYMARKET_FEED_INTERVAL || '60000'),
-    feedEnabled: process.env.POLYMARKET_FEED_ENABLED === 'true',
-    alertChatId: process.env.POLYMARKET_ALERT_CHAT_ID
-      ? Number(process.env.POLYMARKET_ALERT_CHAT_ID)
-      : null,
-    // Hardcoded path to avoid leak and simplify config
-    polyfillEnvPath: join(dataPath, 'polymarket-copy-trade', 'runtime.env'),
-  },
-
   rpc: {
     eth: vault.get('ethRpc') || process.env.ETH_RPC_URL || 'https://eth.llamarpc.com',
     sol: vault.get('solRpc') || process.env.SOL_RPC_URL,
@@ -71,20 +59,23 @@ export const config = {
     matic: vault.get('maticRpc') || process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com',
     op: vault.get('opRpc') || process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io',
     base: vault.get('baseRpc') || process.env.BASE_RPC_URL || 'https://mainnet.base.org',
-    // Preference for vault-stored secret
-    stakingSol: vault.get('stakingRpc') || process.env.STAKING_SOL_RPC_URL,
+    avax: vault.get('avaxRpc') || process.env.AVAX_RPC_URL || 'https://api.avax.network/ext/bc/C/rpc',
+    xmrDaemon: vault.get('xmrDaemon') || process.env.XMR_DAEMON_URL || 'http://node.moneroworld.com:18089',
+    xmrWalletRpc: vault.get('xmrWalletRpc') || process.env.XMR_WALLET_RPC_URL || '',
+    xmrWalletAuth: vault.get('xmrWalletAuth') || process.env.XMR_WALLET_RPC_AUTH || '',
+    zecApi: vault.get('zecApi') || process.env.ZEC_API_URL || 'https://api.zcha.in/v2/mainnet',
+    zecRpc: vault.get('zecRpc') || process.env.ZEC_RPC_URL || '',
+    zecRpcAuth: vault.get('zecRpcAuth') || process.env.ZEC_RPC_AUTH || '',
+    trx: vault.get('tronRpc') || process.env.TRON_API_URL || 'https://api.trongrid.io',
+    tronApiKey: vault.get('tronApiKey') || process.env.TRON_API_KEY || '',
   },
 };
+
+export const torProxyUrl = process.env.TOR_PROXY_URL || '';
 
 // Validate required config
 if (!process.env.COINGECKO_API_KEY) {
   console.warn('[CONFIG] COINGECKO_API_KEY not set — EUR price conversion will use free tier (rate-limited)');
-}
-if (config.polymarket.feedEnabled && !config.polymarket.alertChatId) {
-  console.warn('[CONFIG] POLYMARKET_FEED_ENABLED=true but POLYMARKET_ALERT_CHAT_ID not set — alerts disabled');
-}
-if (!config.rpc.stakingSol) {
-  console.warn('[CONFIG] STAKING_SOL_RPC_URL not set — staking may be unavailable');
 }
 if (!config.botToken) {
   throw new Error('BOT_TOKEN est requis');

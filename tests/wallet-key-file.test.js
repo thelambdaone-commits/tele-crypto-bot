@@ -1,9 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildPolymarketCredentialsText,
   buildWalletKeysText,
-  sendPolymarketCredentialsFile,
   sendWalletKeysFile,
 } from '../src/bot/handlers/wallet/key-file.js';
 
@@ -87,50 +85,4 @@ test('sendWalletKeysFile supports scoped filenames', async () => {
     { protect_content: true },
     { protect_content: true },
   ]);
-});
-
-test('buildPolymarketCredentialsText formats only CLOB credentials', () => {
-  const text = buildPolymarketCredentialsText({
-    apiKey: ' key ',
-    apiSecret: ' secret ',
-    apiPassphrase: ' passphrase ',
-    privateKey: 'must-not-leak-here',
-  });
-
-  assert.equal(
-    text,
-    'POLYMARKET_API_KEY=key\n' +
-      'POLYMARKET_API_SECRET=secret\n' +
-      'POLYMARKET_API_PASSPHRASE=passphrase\n'
-  );
-});
-
-test('sendPolymarketCredentialsFile uses scoped credentials filenames', async () => {
-  const filenames = [];
-  const options = [];
-  const ctx = {
-    chat: { id: 42 },
-    replyWithDocument: async (document, extra) => {
-      filenames.push(document.filename);
-      options.push(extra);
-    },
-  };
-  const storage = {
-    counter: 0,
-    async getNextKeysFilename(_chatId, scope, prefix) {
-      assert.equal(scope, 'polymarket');
-      assert.equal(prefix, 'credentials');
-      this.counter += 1;
-      return this.counter === 1
-        ? 'credentials-polymarket.txt'
-        : `credentials-polymarket${this.counter}.txt`;
-    },
-  };
-  const credentials = { apiKey: 'key', apiSecret: 'secret', apiPassphrase: 'pass' };
-
-  await sendPolymarketCredentialsFile(ctx, credentials, storage);
-  await sendPolymarketCredentialsFile(ctx, credentials, storage);
-
-  assert.deepEqual(filenames, ['credentials-polymarket.txt', 'credentials-polymarket2.txt']);
-  assert.deepEqual(options, [{ protect_content: true }, { protect_content: true }]);
 });

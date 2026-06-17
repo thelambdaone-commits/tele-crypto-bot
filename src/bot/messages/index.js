@@ -67,6 +67,7 @@ export const MESSAGES = {
 
 export const EMOJIS = {
   wallet: '👛',
+  chain: '⛓️',
   send: '📤',
   receive: '📥',
   key: '🔑',

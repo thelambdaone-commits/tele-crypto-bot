@@ -50,7 +50,7 @@ export function setupBalanceHandlers(bot, storage, walletService) {
     });
   });
 
-  bot.hears('📊 Cours EUR', async (ctx) => {
+  bot.hears(['📊 Cours EUR', '📊 Prix'], async (ctx) => {
     try {
       clearPriceCache();
       const prices = await getPricesEUR(true);

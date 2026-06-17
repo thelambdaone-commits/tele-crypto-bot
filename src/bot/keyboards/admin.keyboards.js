@@ -20,10 +20,7 @@ export function adminExtendedKeyboard() {
       Markup.button.callback('👥 Liste Users', CALLBACKS.ADMIN_LIST_USERS),
       Markup.button.callback('🔍 Voir User', CALLBACKS.ADMIN_VIEW_USER),
     ],
-    [
-      Markup.button.callback('🧹 Dust Global', CALLBACKS.ADMIN_DUST),
-      Markup.button.callback('📜 Logs Audit', CALLBACKS.ADMIN_LOGS),
-    ],
+    [Markup.button.callback('📜 Logs Audit', CALLBACKS.ADMIN_LOGS)],
     [
       Markup.button.callback('🔐 Secrets', CALLBACKS.ADMIN_SECRETS),
       Markup.button.callback('📢 Broadcast', CALLBACKS.ADMIN_BROADCAST),

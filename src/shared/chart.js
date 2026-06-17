@@ -30,18 +30,29 @@ const priceHistoryInflight = new Map();
 
 const COINGECKO_IDS = COIN_IDS;
 
+// One entry per token id in COIN_IDS. Keep these in sync — a missing entry no
+// longer crashes (see DEFAULT_COLOR below), it just falls back to a neutral hue.
 const CHAIN_COLORS = {
-  btc: { line: '#f7931a', fill: 'rgba(247, 147, 26, 0.2)' },
-  eth: { line: '#627eea', fill: 'rgba(98, 126, 234, 0.2)' },
-  sol: { line: '#9945ff', fill: 'rgba(153, 69, 255, 0.2)' },
-  base: { line: '#0052ff', fill: 'rgba(0, 82, 255, 0.2)' },
-  op: { line: '#ff0420', fill: 'rgba(255, 4, 32, 0.2)' },
-  pol: { line: '#8247e5', fill: 'rgba(130, 71, 229, 0.2)' },
-  usdc: { line: '#2775ca', fill: 'rgba(39, 117, 202, 0.2)' },
-  usdt: { line: '#26a17b', fill: 'rgba(38, 161, 123, 0.2)' },
-  ltc: { line: '#bfbbbb', fill: 'rgba(191, 187, 187, 0.2)' },
-  bch: { line: '#8bc34a', fill: 'rgba(139, 195, 74, 0.2)' },
+  btc: { line: '#f7931a' },
+  eth: { line: '#627eea' },
+  sol: { line: '#9945ff' },
+  base: { line: '#0052ff' },
+  op: { line: '#ff0420' },
+  matic: { line: '#8247e5' },
+  pol: { line: '#8247e5' },
+  avax: { line: '#e84142' },
+  usdc: { line: '#2775ca' },
+  usdt: { line: '#26a17b' },
+  dai: { line: '#f5ac37' },
+  wbtc: { line: '#f09242' },
+  ltc: { line: '#bfbbbb' },
+  bch: { line: '#8bc34a' },
+  xmr: { line: '#ff6600' },
+  zec: { line: '#f4b728' },
+  trx: { line: '#eb0029' },
 };
+
+const DEFAULT_COLOR = { line: '#22d3ee' };
 
 const CHAIN_NAMES = {
   btc: 'Bitcoin',
@@ -49,12 +60,27 @@ const CHAIN_NAMES = {
   sol: 'Solana',
   base: 'Base (ETH)',
   op: 'Optimism',
+  matic: 'Polygon',
   pol: 'Polygon',
+  avax: 'Avalanche',
   usdc: 'USD Coin',
   usdt: 'Tether',
+  dai: 'Dai',
+  wbtc: 'Wrapped BTC',
   ltc: 'Litecoin',
   bch: 'Bitcoin Cash',
+  xmr: 'Monero',
+  zec: 'Zcash',
+  trx: 'Tron',
 };
+
+/** Parse a `#rrggbb` string into [r, g, b]. */
+function hexToRgb(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return [247, 147, 26];
+  const int = parseInt(m[1], 16);
+  return [(int >> 16) & 255, (int >> 8) & 255, int & 255];
+}
 
 const SUPPORTED_TOKENS_LABEL = Object.keys(COINGECKO_IDS).join(', ');
 
@@ -121,9 +147,9 @@ function resolveCoinInfo(symbol) {
 
   return {
     id: COINGECKO_IDS[normalizedSymbol],
-    name: CHAIN_NAMES[normalizedSymbol],
+    name: CHAIN_NAMES[normalizedSymbol] || normalizedSymbol.toUpperCase(),
     symbol: normalizedSymbol,
-    color: CHAIN_COLORS[normalizedSymbol],
+    color: CHAIN_COLORS[normalizedSymbol] || DEFAULT_COLOR,
   };
 }
 
@@ -261,14 +287,15 @@ export async function generatePriceChart(chain, days) {
           data: prices,
           borderColor: coinInfo.color.line,
           backgroundColor: (context) => {
+            const [r, g, b] = hexToRgb(coinInfo.color.line);
             const { chart } = context;
             const { ctx, chartArea } = chart;
-            if (!chartArea) return 'rgba(247, 147, 26, 0.22)';
+            if (!chartArea) return `rgba(${r}, ${g}, ${b}, 0.22)`;
 
             const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-            gradient.addColorStop(0, 'rgba(247, 147, 26, 0.42)');
-            gradient.addColorStop(0.7, 'rgba(247, 147, 26, 0.12)');
-            gradient.addColorStop(1, 'rgba(247, 147, 26, 0)');
+            gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.42)`);
+            gradient.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, 0.12)`);
+            gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
             return gradient;
           },
           fill: true,

@@ -1,6 +1,7 @@
 import { Markup } from 'telegraf';
 import { CALLBACKS } from '../constants/callbacks.js';
 import { getAddressExplorerUrl, getExplorerName } from '../../shared/explorer.js';
+import { getAllTokensForChain, getNativeSymbol } from '../../core/tokens.config.js';
 
 export function feeSelectionKeyboard(recommendedLevel = 'slow') {
   return Markup.inlineKeyboard([
@@ -29,22 +30,25 @@ export function confirmationKeyboard() {
   ]);
 }
 
+// Generic token picker driven by the single token registry: the native coin
+// plus every token defined for the chain. Works for all chains automatically.
 export function tokenSelectionKeyboard(chain) {
   const buttons = [];
+  const native = getNativeSymbol(chain);
+  buttons.push([Markup.button.callback(`🪙 ${native} (natif)`, `token_${chain}_native`)]);
 
-  if (chain === 'eth' || chain === 'arb' || chain === 'op' || chain === 'base') {
-    buttons.push([Markup.button.callback('🔷 ETH (native)', `token_${chain}_native`)]);
-  } else if (chain === 'matic') {
-    buttons.push([Markup.button.callback('🟣 MATIC (native)', `token_${chain}_native`)]);
-  }
-
-  if (['arb', 'matic', 'op', 'base'].includes(chain)) {
-    buttons.push([Markup.button.callback('💵 USDC', `token_${chain}_USDC`)]);
-    buttons.push([Markup.button.callback('💵 USDT', `token_${chain}_USDT`)]);
+  for (const [symbol, token] of Object.entries(getAllTokensForChain(chain))) {
+    const icon = token.icon || '🎫';
+    buttons.push([Markup.button.callback(`${icon} ${symbol}`, `token_${chain}_${symbol}`)]);
   }
 
   buttons.push([Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)]);
   return Markup.inlineKeyboard(buttons);
+}
+
+// Whether the send flow should offer a token choice for this chain.
+export function chainHasTokens(chain) {
+  return Object.keys(getAllTokensForChain(chain)).length > 0;
 }
 
 export function amountTypeKeyboard() {
@@ -80,6 +84,7 @@ export function addressAnalyzedKeyboard(chain, address) {
   }
 
   buttons.push(
+    [Markup.button.callback('📜 Historique', `analyze_history_${chain}`)],
     [Markup.button.callback('📤 Envoyer a cette adresse', `send_to_analyzed_${chain}`)],
     [Markup.button.callback('🔍 Analyser une autre adresse', CALLBACKS.ANALYZE_ADDRESS)],
     [Markup.button.callback('↩️ Retour au menu', CALLBACKS.BACK_TO_MENU)],

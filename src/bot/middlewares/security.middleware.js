@@ -57,8 +57,24 @@ export function formatDailyLimitMessage(check, symbol) {
   );
 }
 
+// Tracks the last time we told a given chatId it was rate-limited, so a flood
+// doesn't make the bot reply to every single blocked update (self-amplification).
+const lastRateLimitNotice = new Map();
+const RATE_LIMIT_NOTICE_COOLDOWN_MS = 30_000;
+
+function shouldNotify(chatId, now = Date.now()) {
+  const last = lastRateLimitNotice.get(chatId);
+  if (last != null && now - last < RATE_LIMIT_NOTICE_COOLDOWN_MS) return false;
+  lastRateLimitNotice.set(chatId, now);
+  return true;
+}
+
 /**
- * Security middleware for global rate limiting
+ * Security middleware for global rate limiting.
+ *
+ * When blocked we drop the update silently and notify the user at most once
+ * per cooldown window. Replying to every blocked update under a flood would
+ * burn Telegram API quota and amplify the attack.
  */
 export function globalRateLimit(ctx, next) {
   const chatId = ctx.chat?.id;
@@ -70,10 +86,14 @@ export function globalRateLimit(ctx, next) {
   const check = limiters.global.isAllowed(chatId);
 
   if (!check.allowed) {
+    // Blacklisted users get no reply at all — silent drop.
     if (check.reason === 'blacklist' || check.reason === 'blacklist_auto') {
-      return ctx.reply("Acces bloque. Contactez l'administrateur.");
+      return;
     }
-    return ctx.reply('Trop de requetes. Reessayez dans quelques instants.');
+    if (shouldNotify(chatId)) {
+      ctx.reply('Trop de requetes. Reessayez dans quelques instants.').catch(() => {});
+    }
+    return;
   }
 
   return next();
@@ -169,4 +189,10 @@ export function cleanupLimiters() {
   limiters.global.cleanup();
   limiters.sensitive.cleanup();
   limiters.transaction.cleanup();
+
+  // Drop stale rate-limit-notice timestamps so the map can't grow unbounded.
+  const now = Date.now();
+  for (const [chatId, ts] of lastRateLimitNotice) {
+    if (now - ts >= RATE_LIMIT_NOTICE_COOLDOWN_MS) lastRateLimitNotice.delete(chatId);
+  }
 }

@@ -4,21 +4,19 @@
 import { setupStartHandler } from './start/index.js';
 import { setupWalletHandlers } from './wallet/index.js';
 import { setupKeysHandlers } from './keys/index.js';
+import { setupDepositHandlers } from './deposit/index.js';
 import { setupSendHandlers } from './send/index.js';
 import { setupAdminHandlers } from './admin/index.js';
-import { setupDustHandlers } from './dust/index.js';
-import { setupStakingHandlers } from './staking/index.js';
-import { setupTokenHandlers } from './token/index.js';
-import { setupNFTHandlers } from './nft/index.js';
-import { setupPolymarketHandlers } from './polymarket/index.js';
 import { setupCommands } from './commands/index.js';
 import { setupBalanceHandlers } from './balance.handlers.js';
 import { setupNavigationHandlers } from './nav.handlers.js';
 import { SessionManager } from '../../core/session/index.js';
 import { WalletService } from '../../modules/wallet/wallet.service.js';
-import { config } from '../../core/config.js';
+import { config, torProxyUrl } from '../../core/config.js';
+import { initTorProxy } from '../../shared/tor-proxy.js';
 import { DepositMonitor } from '../../core/monitor.js';
 import { globalRateLimit, cleanupLimiters } from '../middlewares/security.middleware.js';
+import { dedupUpdates, cleanupDedup } from '../middlewares/dedup.middleware.js';
 import { adminGuard } from '../middlewares/auth.middleware.js';
 import { adminExtendedKeyboard } from '../keyboards/index.js';
 import { initPatterns } from '../patterns/index.js';
@@ -28,6 +26,7 @@ import { logger } from '../../shared/logger.js';
  * Setup all handlers
  */
 export async function setupHandlers(bot, storage) {
+  initTorProxy(torProxyUrl);
   const walletService = new WalletService(storage, config);
   const sessions = new SessionManager({
     timeoutMinutes: config.sessionTimeout || 30,
@@ -39,11 +38,18 @@ export async function setupHandlers(bot, storage) {
   sessions.start();
   initPatterns(bot, sessions);
 
-  setInterval(() => cleanupLimiters(), 60 * 1000);
+  setInterval(() => {
+    cleanupLimiters();
+    cleanupDedup();
+  }, 60 * 1000);
 
   // Setup deposit monitor
   const depositMonitor = new DepositMonitor(storage, walletService, bot);
   depositMonitor.start();
+
+  // Drop duplicate/redelivered updates and debounce rapid button taps first,
+  // so a flood never reaches profile sync, rate limiting, or handlers.
+  bot.use(dedupUpdates);
 
   // Global middleware
   bot.use(async (ctx, next) => {
@@ -82,26 +88,11 @@ export async function setupHandlers(bot, storage) {
   setupStartHandler(bot, storage, walletService);
   setupWalletHandlers(bot, storage, walletService, sessions);
   setupKeysHandlers(bot, storage, walletService);
+  setupDepositHandlers(bot, storage);
   setupSendHandlers(bot, storage, walletService, sessions);
   setupAdminHandlers(bot, storage, sessions, walletService);
   setupBalanceHandlers(bot, storage, walletService);
   setupNavigationHandlers(bot, storage, walletService, sessions);
-
-  // Protected feature loading
-  const safeSetup = (name, setupFn) => {
-    try {
-      setupFn(bot, storage, walletService, sessions);
-      logger.info(`✅ ${name} handlers loaded`);
-    } catch (error) {
-      logger.error(`❌ Error loading ${name} handlers`, { error: error.message });
-    }
-  };
-
-  safeSetup('Dust', setupDustHandlers);
-  safeSetup('Staking', setupStakingHandlers);
-  safeSetup('Token', setupTokenHandlers);
-  safeSetup('NFT', setupNFTHandlers);
-  safeSetup('Polymarket', setupPolymarketHandlers);
 
   setupCommands(bot, storage, walletService, sessions);
 

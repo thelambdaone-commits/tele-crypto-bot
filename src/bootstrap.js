@@ -6,9 +6,9 @@ import { config } from './core/config.js';
 import { setupHandlers } from './bot/handlers/index.js';
 import { StorageService } from './core/storage.js';
 import { logger } from './shared/logger.js';
-import { cleanupAllFeeds } from './clob/feed.js';
 import { auditLogger } from './shared/security/audit-logger.js';
 import { initRateLimiters } from './bot/middlewares/security.middleware.js';
+import { registerBotCommands } from './bot/bot-commands.js';
 
 export class App {
   constructor() {
@@ -38,6 +38,7 @@ export class App {
     this._setupShutdown();
 
     await this.bot.telegram.getMe();
+    await registerBotCommands(this.bot);
     this.bot.launch().catch((error) => {
       logger.logError(error, { context: 'bot.launch' });
       process.exit(1);
@@ -83,7 +84,6 @@ export class App {
   _setupShutdown() {
     const shutdown = async (signal) => {
       logger.info(`Bot shutting down (${signal})`);
-      cleanupAllFeeds();
       if (this.depositMonitor) {
         this.depositMonitor.stop();
       }

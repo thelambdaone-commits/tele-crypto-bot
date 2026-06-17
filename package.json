@@ -6,8 +6,6 @@
   "description": "Telegram Multi-Chain Wallet Manager Bot",
   "scripts": {
     "precheck": "node scripts/precheck.js",
-    "check:polymarket": "node scripts/check-polymarket.js",
-    "check:polymarket-history": "node scripts/check-polymarket-history.js",
     "check:exports": "node scripts/check-exports.js",
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
@@ -17,7 +15,6 @@
     "test": "node --test tests",
     "ci": "npm run lint && npm test && npm run precheck",
     "config:check": "node scripts/config-check.js",
-    "test:clob": "node --test tests/clob/*.test.js",
     "test:watch": "node --watch --test tests"
   },
   "keywords": [
@@ -36,22 +33,26 @@
     "url": "git+https://github.com/thelambdaone-commits/telegram-crypto-bot-v1.git"
   },
   "dependencies": {
-    "@polymarket/clob-client": "^5.8.1",
     "@solana/spl-token": "^0.4.14",
     "@solana/web3.js": "1.98.4",
     "bip32": "^5.0.1",
     "bip39": "3.1.0",
     "bitcoinjs-lib": "7.0.1",
     "bs58": "6.0.0",
+    "bs58check": "^4.0.0",
     "canvas": "^3.1.0",
     "chart.js": "^4.5.1",
     "chartjs-node-canvas": "^5.0.0",
     "dotenv": "17.2.3",
     "ecpair": "^3.0.0",
     "ethers": "6.16.0",
+    "monero-ts": "^0.11.10",
     "pm2": "^7.0.1",
+    "qrcode": "^1.5.4",
+    "socks-proxy-agent": "^10.0.0",
     "telegraf": "4.16.3",
-    "tiny-secp256k1": "2.2.4"
+    "tiny-secp256k1": "2.2.4",
+    "tronweb": "^6.3.0"
   },
   "devDependencies": {
     "eslint": "^8.57.0",

@@ -1,4 +1,5 @@
-import { convertToEUR, formatEUR } from '../../shared/price.js';
+import { convertToEUR, formatEUR, getPricesEUR } from '../../shared/price.js';
+import { getAllTokensForChain } from '../../core/tokens.config.js';
 
 export async function getWalletBalanceEUR(walletService, chatId, wallet) {
   const balance = await walletService.getBalance(chatId, wallet.id);
@@ -13,35 +14,64 @@ export async function getWalletBalanceEUR(walletService, chatId, wallet) {
   return { balance, balanceNum, valueEUR };
 }
 
+// Non-zero token balances for a wallet, with their EUR value.
+async function getTokenBalances(walletService, chatId, wallet, prices) {
+  const symbols = Object.keys(getAllTokensForChain(wallet.chain));
+  if (symbols.length === 0) return [];
+
+  const entries = await Promise.all(
+    symbols.map(async (symbol) => {
+      try {
+        const bal = await walletService.getBalance(chatId, wallet.id, symbol);
+        const num = Number.parseFloat(bal.balance) || 0;
+        if (num <= 0) return null;
+        const price = prices[symbol.toLowerCase()] || 0;
+        return { symbol, num, valueEUR: num * price };
+      } catch {
+        return null;
+      }
+    })
+  );
+  return entries.filter(Boolean);
+}
+
 export async function buildBalancesText(walletService, storage, chatId) {
   const wallets = await storage.getWallets(chatId);
+  const prices = await getPricesEUR().catch(() => ({}));
   let text = '\n';
   let totalEUR = 0;
 
   const results = await Promise.all(
     wallets.map(async (wallet) => {
       try {
-        const { balance, valueEUR } = await getWalletBalanceEUR(
-          walletService, chatId, wallet
-        );
-        return { wallet, balance, valueEUR, error: null };
+        const { balance, valueEUR } = await getWalletBalanceEUR(walletService, chatId, wallet);
+        const tokens = await getTokenBalances(walletService, chatId, wallet, prices);
+        return { wallet, balance, valueEUR, tokens, error: null };
       } catch {
-        return { wallet, balance: null, valueEUR: 0, error: true };
+        return { wallet, balance: null, valueEUR: 0, tokens: [], error: true };
       }
     })
   );
 
-  for (const { wallet, balance, valueEUR, error } of results) {
-    if (!error) {
-      totalEUR += valueEUR;
-      text += `🔸 *${wallet.label}* (${wallet.chain.toUpperCase()})\n`;
-      text += `Solde: ${balance.balance} ${balance.symbol || wallet.chain.toUpperCase()}`;
-      if (valueEUR > 0) text += ` ≈ ${formatEUR(valueEUR)}`;
-    } else {
-      text += `🔸 *${wallet.label}* (${wallet.chain.toUpperCase()})\n`;
+  for (const { wallet, balance, valueEUR, tokens, error } of results) {
+    text += `🔸 *${wallet.label}* (${wallet.chain.toUpperCase()})\n`;
+    if (error) {
       text += '❌ Erreur de récupération\n\n';
+      continue;
     }
-    text += '\n\n';
+
+    totalEUR += valueEUR;
+    text += `Solde: ${balance.balance} ${balance.symbol || wallet.chain.toUpperCase()}`;
+    if (valueEUR > 0) text += ` ≈ ${formatEUR(valueEUR)}`;
+    text += '\n';
+
+    for (const t of tokens) {
+      totalEUR += t.valueEUR;
+      text += `   • ${t.num} ${t.symbol}`;
+      if (t.valueEUR > 0) text += ` ≈ ${formatEUR(t.valueEUR)}`;
+      text += '\n';
+    }
+    text += '\n';
   }
 
   text += '━━━━━━━━━━━━\n';

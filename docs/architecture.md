@@ -14,7 +14,6 @@ src/
 │   ├── messages/     → Textes utilisateur centralisés
 │   ├── middlewares/  → Auth, rate limiting, sécurité
 │   └── ui/           → Formateurs d'affichage
-├── clob/             → Client Polymarket CLOB
 ├── core/             → Infrastructure fondamentale
 │   ├── session/      → Gestionnaire de sessions persistantes
 │   ├── config.js     → Configuration centralisée
@@ -22,18 +21,15 @@ src/
 │   ├── secret-vault.js → Coffre-fort de secrets chiffrés
 │   └── storage.js    → Stockage fichier chiffré
 ├── modules/          → Logique métier
-│   ├── wallet/       → Service wallet unifié
-│   ├── staking/      → Staking SOL (Jito, Marinade)
-│   ├── tokens/       → Création de tokens
-│   ├── nfts/         → Création de NFTs
-│   ├── polymarket/   → Analytics Polymarket
-│   └── dust/         → Analyse et sweep de dust
+│   └── wallet/       → Service wallet unifié
 ├── providers/        → Abstraction blockchain
 │   ├── base.provider.js → Clase abstraite
-│   ├── evm-base.js   → Base EVM (ETH, ARB, MATIC, OP, BASE)
+│   ├── evm-base.js   → Base EVM (ETH, ARB, MATIC, OP, BASE, AVAX)
 │   ├── bitcoin.js    → BTC
 │   ├── solana.js     → SOL
-│   └── ...           → LTC, BCH, chaînes EVM individuelles
+│   ├── monero.js     → XMR (privacy, via Tor optionnel)
+│   ├── zcash.js      → ZEC (privacy, via Tor optionnel)
+│   └── ...           → LTC, BCH, avalanche, chaînes EVM individuelles
 └── shared/           → Utilitaires transversaux
     ├── security/     → Audit log, rate limiter
     ├── utils/        → Utilitaires Telegram
@@ -55,7 +51,7 @@ Middlewares (auth, rate-limit, profile sync)
     ↓
 Handlers (commandes callbacks, text input)
     ↓
-Modules / Services (wallet, staking, etc.)
+Modules / Services (wallet)
     ↓
 Providers (blockchain specific implementations)
     ↓
@@ -93,3 +89,6 @@ RPC / External APIs
 | Base | evm-base | EVM L2 |
 | Litecoin | litecoin | UTXO |
 | Bitcoin Cash | bitcoincash | UTXO |
+| Avalanche | avalanche (evm-base) | EVM (C-Chain) |
+| Monero | monero | CryptoNote (privacy) |
+| Zcash | zcash | UTXO (privacy) |

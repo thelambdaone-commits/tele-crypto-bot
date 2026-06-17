@@ -8,6 +8,53 @@ import { convertToEUR, formatEUR } from '../../../shared/price.js';
 import { getTokenExplorerUrl } from '../../../shared/explorer.js';
 import { handleSendError } from './helpers.js';
 
+// EVM addresses (0x…) are identical across all EVM networks, so an analyzed
+// 0x address is scanned on each of these and reported per-network.
+const EVM_NETWORKS = [
+  { chain: 'eth', name: 'Ethereum', emoji: '🔷' },
+  { chain: 'base', name: 'Base', emoji: '🟦' },
+  { chain: 'op', name: 'Optimism', emoji: '🔴' },
+  { chain: 'matic', name: 'Polygon', emoji: '🟣' },
+  { chain: 'arb', name: 'Arbitrum', emoji: '🔵' },
+  { chain: 'avax', name: 'Avalanche', emoji: '🔺' },
+];
+
+/**
+ * Build the native-balance + tokens section for one chain.
+ * @returns {Promise<{ text: string, valueEUR: number }>}
+ */
+async function buildChainSection(walletService, chain, address) {
+  const balanceData = await walletService.getPublicAddressBalance(chain, address);
+  const nativeSymbol = balanceData.symbol || chain.toUpperCase();
+  const balanceNum = Number.parseFloat(balanceData.balance) || 0;
+  const conversion = await convertToEUR(chain, balanceNum);
+  let valueEUR = conversion.valueEUR || 0;
+
+  let text = `💰 *${balanceData.balance} ${nativeSymbol}*`;
+  text += valueEUR > 0 ? ` — ${formatEUR(valueEUR)}\n` : '\n';
+
+  const tokens = await walletService.getPublicAddressTokens(chain, address);
+  for (const token of tokens || []) {
+    const sym = (token.symbol || '').toLowerCase();
+    // Stablecoins price off USDC; other tokens only show an EUR value if known.
+    const priceKey = sym.includes('usd') ? 'usdc' : sym;
+    const tokenConv = await convertToEUR(priceKey, token.amount);
+    const tokenValue = tokenConv.priceEUR > 0 ? tokenConv.valueEUR : 0;
+    valueEUR += tokenValue;
+
+    const amountStr = token.amount.toFixed(token.decimals <= 6 ? 2 : 6);
+    text += `   ${token.icon || '🪙'} *${token.symbol}:* ${amountStr}`;
+    text += tokenValue > 0 ? ` (${formatEUR(tokenValue)})\n` : '\n';
+
+    if (!token.isKnown) {
+      const tokenUrl = getTokenExplorerUrl(chain, token.mint);
+      if (tokenUrl) text += `      └ [🔗 Voir](${tokenUrl})\n`;
+    }
+  }
+
+  return { text, valueEUR };
+}
+
 export function setupSendTextInput(bot, storage, walletService, sessions) {
   bot.on('text', async (ctx, next) => {
     const chatId = ctx.chat.id;
@@ -23,7 +70,7 @@ export function setupSendTextInput(bot, storage, walletService, sessions) {
       let validationChain = data.selectedChain;
 
       // Si selectedChain n'est pas une blockchain connue (ex: "DECIMALS"), forcer "sol"
-      const validChains = ['eth', 'btc', 'ltc', 'bch', 'sol', 'arb', 'matic', 'op', 'base'];
+      const validChains = ['eth', 'btc', 'ltc', 'bch', 'sol', 'arb', 'matic', 'op', 'base', 'xmr', 'zec'];
       if (!validChains.includes(validationChain)) {
         validationChain = 'sol';
       }
@@ -118,8 +165,6 @@ export function setupSendTextInput(bot, storage, walletService, sessions) {
           '❓ Aide',
           '🆘 Help',
           '➕ Nouveau Wallet',
-          '🆕 Nouveau Wallet',
-          "➕ Plus d'actions",
           '❌ Fermer',
           '👑 Admin',
           'Stop',
@@ -136,55 +181,53 @@ export function setupSendTextInput(bot, storage, walletService, sessions) {
       if (!chain) {
         logger.warn('Invalid address provided for analysis', { address: text, chatId });
         return ctx.reply(
-          '⚠️ Adresse non reconnue (ETH, BTC, LTC, BCH, SOL, Arbitrum, Polygon, Optimism, Base acceptés).'
+          '⚠️ Adresse non reconnue (ETH, BTC, LTC, BCH, SOL, XMR, ZEC, Arbitrum, Polygon, Optimism, Base, Avalanche acceptés).'
         );
       }
 
+      // A 0x… address exists identically on every EVM network, so it can't be
+      // attributed to a single one — scan them all.
+      const isEvm = EVM_NETWORKS.some((n) => n.chain === chain);
+
       try {
-        logger.info('Analyzing external address', { chain, address: text, chatId });
+        logger.info('Analyzing external address', { chain, address: text, chatId, multiEvm: isEvm });
 
-        const balanceData = await walletService.getPublicAddressBalance(chain, text);
-        const conversion = await convertToEUR(chain, Number.parseFloat(balanceData.balance));
+        let message;
+        if (isEvm) {
+          message =
+            "🔍 *Analyse d'adresse EVM*\n\n" +
+            `📬 \`${text}\`\n` +
+            '_Même adresse scannée sur tous les réseaux EVM._\n';
 
-        sessions.setData(chatId, { analyzedAddress: text, analyzedChain: chain });
-
-        let message =
-          "🔍 *Analyse d'adresse*\n\n" +
-          `⛓ Réseau : *${chain.toUpperCase()}*\n` +
-          `📬 Adresse : \`${text}\`\n\n` +
-          `💰 *Solde natif:* *${balanceData.balance} ${chain.toUpperCase()}*\n` +
-          `💶 Valeur : ${formatEUR(conversion.valueEUR)}\n`;
-
-        const tokens = await walletService.getPublicAddressTokens(chain, text);
-
-        if (tokens && tokens.length > 0) {
-          const knownTokens = tokens.filter((t) => t.isKnown);
-          const unknownTokens = tokens.filter((t) => !t.isKnown);
-
-          if (knownTokens.length > 0) {
-            message += '\n📦 *Tokens:*\n';
-            for (const token of knownTokens) {
-              const tokenConv = await convertToEUR(
-                token.symbol.toLowerCase().includes('usd') ? 'usd' : 'sol',
-                token.amount
-              );
-              message += `${token.icon} *${token.symbol}:* ${token.amount.toFixed(token.decimals <= 6 ? 2 : 6)} (${formatEUR(tokenConv.valueEUR)})\n`;
+          let total = 0;
+          for (const net of EVM_NETWORKS) {
+            message += `\n${net.emoji} *${net.name}*\n`;
+            try {
+              const section = await buildChainSection(walletService, net.chain, text);
+              message += section.text;
+              total += section.valueEUR;
+            } catch (e) {
+              message += '   ⚠️ _Réseau indisponible_\n';
+              logger.warn('EVM network scan failed', { chain: net.chain, error: e.message });
             }
           }
-
-          if (unknownTokens.length > 0) {
-            message += '\n📦 *Fallback Tokens:*\n';
-            for (const token of unknownTokens) {
-              const tokenUrl = getTokenExplorerUrl(chain, token.mint);
-              message += `${token.icon} *${token.symbol}:* ${token.amount.toFixed(token.decimals <= 6 ? 2 : 6)}\n`;
-              if (tokenUrl) {
-                message += `   └ [🔗 Voir](${tokenUrl})\n`;
-              } else {
-                message += `   └ \`${token.mint}\`\n`;
-              }
-            }
-          }
+          message += `\n💶 *Valeur totale (EVM):* ${formatEUR(total)}`;
+        } else {
+          const section = await buildChainSection(walletService, chain, text);
+          message =
+            "🔍 *Analyse d'adresse*\n\n" +
+            `⛓ Réseau : *${chain.toUpperCase()}*\n` +
+            `📬 \`${text}\`\n\n` +
+            section.text +
+            `\n💶 *Valeur totale :* ${formatEUR(section.valueEUR)}`;
         }
+
+        // Keep the rendered analysis so the history view can restore it on "Retour".
+        sessions.setData(chatId, {
+          analyzedAddress: text,
+          analyzedChain: chain,
+          analyzedMessage: message,
+        });
 
         const { addressAnalyzedKeyboard } = await import('../../keyboards/index.js');
         ctx.reply(message, {
@@ -192,13 +235,7 @@ export function setupSendTextInput(bot, storage, walletService, sessions) {
           ...addressAnalyzedKeyboard(chain, text),
         });
         sessions.setState(chatId, 'IDLE');
-        logger.info('Address analysis completed', {
-          chain,
-          address: text,
-          balance: balanceData.balance,
-          tokensCount: tokens?.length || 0,
-          chatId,
-        });
+        logger.info('Address analysis completed', { chain, address: text, chatId });
       } catch (error) {
         logger.logError(error, {
           context: 'Address analysis',

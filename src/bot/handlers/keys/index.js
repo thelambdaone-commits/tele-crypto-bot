@@ -5,25 +5,12 @@ import {
   corruptedWalletKeyboard,
 } from '../../keyboards/index.js';
 import { auditLogger, AUDIT_ACTIONS } from '../../../shared/security/audit-logger.js';
-import { safeAnswerCbQuery } from '../../utils.js';
+import { safeAnswerCbQuery, scheduleSecureDelete } from '../../utils.js';
 import { MESSAGES, EMOJIS } from '../../messages/index.js';
 import { isAdmin } from '../../middlewares/auth.middleware.js';
 import { logger } from '../../../shared/logger.js';
-
-const pendingTimeouts = new Map();
-
-function clearableTimeout(key, callback, delay) {
-  const existing = pendingTimeouts.get(key);
-  if (existing) clearTimeout(existing);
-
-  const timeoutId = setTimeout(() => {
-    pendingTimeouts.delete(key);
-    callback();
-  }, delay);
-  timeoutId.unref();
-
-  pendingTimeouts.set(key, timeoutId);
-}
+import { generateAddressQR } from '../../../shared/qr.js';
+import { Markup } from 'telegraf';
 
 export function setupKeysHandlers(bot, storage, walletService) {
   // View keys menu
@@ -107,6 +94,47 @@ export function setupKeysHandlers(bot, storage, walletService) {
     }
   });
 
+  // QR code of the address (coin logo centered)
+  bot.action(/^qr_addr_(.+)$/, async (ctx) => {
+    const walletId = ctx.match[1];
+    const chatId = ctx.chat.id;
+    await safeAnswerCbQuery(ctx);
+
+    const wallets = await storage.getWallets(chatId);
+    const wallet = wallets.find((w) => w.id === walletId);
+
+    if (!wallet) {
+      return ctx.reply('😕 Wallet non trouvé');
+    }
+
+    try {
+      const buffer = await generateAddressQR(wallet.address, wallet.chain);
+      await ctx.replyWithPhoto(
+        { source: buffer },
+        {
+          caption: `📷 *${wallet.label}*\n${wallet.chain.toUpperCase()}\n\`${wallet.address}\``,
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('↩️ Retour', `qr_back_${walletId}`)],
+          ]),
+        }
+      );
+    } catch (e) {
+      logger.logError(e, { context: 'qr_addr', walletId });
+      await ctx.reply('❌ Impossible de générer le QR code.');
+    }
+  });
+
+  // Back from QR: remove the QR photo (wallet menu stays above it)
+  bot.action(/^qr_back_(.+)$/, async (ctx) => {
+    await safeAnswerCbQuery(ctx);
+    try {
+      await ctx.deleteMessage();
+    } catch (e) {
+      logger.debug('qr_back deleteMessage failed', { error: e.message });
+    }
+  });
+
   // View seed phrase
   bot.action(/^view_seed_(.+)$/, async (ctx) => {
     const walletId = ctx.match[1];
@@ -155,11 +183,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
 
       const sentMsg = await ctx.reply(message, { parse_mode: 'Markdown', ...mainMenuKeyboard() });
 
-      clearableTimeout(`seed_${chatId}`, async () => {
-        try {
-          await ctx.telegram.deleteMessage(chatId, sentMsg.message_id);
-        } catch (e) {}
-      }, 30000);
+      scheduleSecureDelete(ctx, `seed_${chatId}`, sentMsg.message_id, 30000);
     } catch (error) {
       logger.logError(error, { context: 'view_seed', chatId });
       return ctx.reply(`❌ Erreur lors de la récupération de la phrase : ${error.message}`, mainMenuKeyboard());
@@ -204,11 +228,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
 
       const sentMsg = await ctx.reply(message, { parse_mode: 'Markdown', ...mainMenuKeyboard() });
 
-      clearableTimeout(`privkey_${chatId}`, async () => {
-        try {
-          await ctx.telegram.deleteMessage(chatId, sentMsg.message_id);
-        } catch (e) {}
-      }, 30000);
+      scheduleSecureDelete(ctx, `privkey_${chatId}`, sentMsg.message_id, 30000);
     } catch (error) {
       logger.logError(error, { context: 'view_privkey', chatId });
       return ctx.reply(`❌ Erreur lors de la récupération de la clé : ${error.message}`, mainMenuKeyboard());
@@ -249,7 +269,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
         );
       }
 
-      const chainEmoji = { eth: '🔷', btc: '🟠', sol: '🟣' }[wallet.chain] || '💎';
+      const chainEmoji = { eth: '🔷', btc: '🟠', sol: '🟣', xmr: '🔒', zec: '🛡️' }[wallet.chain] || '💎';
       const chainSymbol = wallet.chain.toUpperCase();
 
       let text = `${chainEmoji} *Historique — ${wallet.label}*\n`;

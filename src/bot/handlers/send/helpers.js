@@ -23,6 +23,8 @@ export async function formatTxDetails(data, feeLevel) {
     btc: 'BTC',
     ltc: 'LTC',
     bch: 'BCH',
+    xmr: 'XMR',
+    zec: 'ZEC',
   };
   const nativeSymbol = CHAIN_NATIVE_SYMBOLS[data.selectedChain] || data.selectedChain.toUpperCase();
 

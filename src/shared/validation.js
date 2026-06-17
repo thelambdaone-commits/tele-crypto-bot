@@ -27,6 +27,24 @@ export function isValidAddress(address, chain = null) {
   if (chain === 'btc') {
     return /^(1|3|bc1)[a-zA-Z0-9]{25,62}$/.test(trimmed);
   }
+
+  if (chain === 'ltc') {
+    return /^[LMltc1][a-zA-Z0-9]{25,42}$/.test(trimmed);
+  }
+
+  if (chain === 'bch') {
+    return /^(bitcoincash:)?[qp][a-zA-Z0-9]{41}$/i.test(trimmed);
+  }
+
+  // Monero: standard (4/8, 95 chars) or integrated (106 chars)
+  if (chain === 'xmr') {
+    return /^[48][A-Za-z0-9]{94}$/.test(trimmed) || /^[48][A-Za-z0-9]{105}$/.test(trimmed);
+  }
+
+  // Zcash: transparent t1 (P2PKH) or t3 (P2SH), 35 chars
+  if (chain === 'zec') {
+    return /^t[13][a-km-zA-HJ-NP-Z1-9]{33}$/.test(trimmed);
+  }
   
   // Generic fallback if chain not specified
   if (!chain) {

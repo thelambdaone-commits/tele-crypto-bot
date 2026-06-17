@@ -10,6 +10,7 @@ import {
 } from '@solana/web3.js';
 import {
   createAssociatedTokenAccountInstruction,
+  createTransferCheckedInstruction,
   getAccount,
   getAssociatedTokenAddress,
 } from '../shared/solana-token.js';
@@ -216,10 +217,16 @@ export class SolanaChain extends BaseProvider {
     return fees;
   }
 
-  async sendTransaction(privateKey, toAddress, amount, feeLevel = 'average') {
+  async sendTransaction(privateKey, toAddress, amount, feeLevel = 'average', tokenSymbol = null) {
     const secretKey = Uint8Array.from(Buffer.from(privateKey, 'hex'));
     const fromKeypair = Keypair.fromSecretKey(secretKey);
     const toPublicKey = new PublicKey(toAddress);
+
+    // SPL token transfer (USDC, USDT, ...) — route away from the native path.
+    const sym = tokenSymbol ? String(tokenSymbol).toUpperCase() : null;
+    if (sym && sym !== 'SOL') {
+      return await this._sendSplToken(fromKeypair, toPublicKey, amount, feeLevel, sym);
+    }
 
     const lamports = Math.round(Number.parseFloat(amount) * LAMPORTS_PER_SOL);
     const transaction = new Transaction();
@@ -268,6 +275,73 @@ export class SolanaChain extends BaseProvider {
         chain: 'SOL',
         details: error,
       });
+    }
+  }
+
+  async _sendSplToken(fromKeypair, toPublicKey, amount, feeLevel, sym) {
+    const cfg = getTokenConfig('sol', sym);
+    if (!cfg) {
+      throw new TransactionError(`Token SPL non supporté: ${sym}`, {
+        code: ERROR_CODES.VALIDATION_ERROR || 'VALIDATION_ERROR',
+        chain: 'SOL',
+      });
+    }
+
+    const mint = new PublicKey(cfg.mint);
+    const fromAta = await getAssociatedTokenAddress(mint, fromKeypair.publicKey);
+    const toAta = await getAssociatedTokenAddress(mint, toPublicKey);
+
+    const transaction = new Transaction();
+
+    if (feeLevel !== 'slow') {
+      const fees = await this.estimateFees('', '', 0);
+      const priorityFee = fees[feeLevel]?.priorityFee || 0;
+      if (priorityFee > 0) {
+        transaction.add(
+          ComputeBudgetProgram.setComputeUnitPrice({
+            microLamports: Math.floor((priorityFee * 1000) / 200000),
+          })
+        );
+      }
+    }
+
+    // Create the recipient's associated token account if it doesn't exist yet
+    // (the sender pays the small rent).
+    try {
+      await getAccount(this.connection, toAta);
+    } catch {
+      transaction.add(
+        createAssociatedTokenAccountInstruction(fromKeypair.publicKey, toAta, toPublicKey, mint)
+      );
+    }
+
+    const rawAmount = BigInt(Math.round(Number(amount) * 10 ** cfg.decimals));
+    transaction.add(
+      createTransferCheckedInstruction(
+        fromAta,
+        mint,
+        toAta,
+        fromKeypair.publicKey,
+        rawAmount,
+        cfg.decimals
+      )
+    );
+
+    try {
+      const signature = await sendAndConfirmTransaction(this.connection, transaction, [fromKeypair]);
+      return {
+        hash: signature,
+        from: fromKeypair.publicKey.toString(),
+        to: toPublicKey.toString(),
+        amount: amount.toString(),
+        symbol: sym,
+        status: 'success',
+      };
+    } catch (error) {
+      let code = ERROR_CODES.BROADCAST_FAILED;
+      if (error.message.includes('insufficient funds')) code = ERROR_CODES.INSUFFICIENT_FUNDS;
+      else if (error.message.includes('Simulation failed')) code = ERROR_CODES.SIMULATION_ERROR;
+      throw new TransactionError(error.message, { code, chain: 'SOL', details: error });
     }
   }
 

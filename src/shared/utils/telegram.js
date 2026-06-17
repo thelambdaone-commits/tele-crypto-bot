@@ -90,3 +90,37 @@ export async function deleteLoadingMessage(ctx, message) {
     // Ignore deletion errors (message already deleted, etc)
   }
 }
+
+const pendingSecureDeletes = new Map();
+
+/**
+ * Schedule a keyed, silent auto-deletion of a sensitive message.
+ *
+ * Re-scheduling with the same key cancels the previous timer, so a flow that
+ * fires twice (double tap, Telegram callback retry) can never queue two
+ * deletions. The deletion is silent on purpose — we do NOT post a follow-up
+ * "message supprimé" notice, because that confirmation would itself linger in
+ * the chat (and previously appeared duplicated).
+ *
+ * @param {import('telegraf').Context} ctx
+ * @param {string} key   unique per (flow, chatId), e.g. `gen_${chatId}`
+ * @param {number} messageId  message to delete
+ * @param {number} delayMs
+ */
+export function scheduleSecureDelete(ctx, key, messageId, delayMs) {
+  const existing = pendingSecureDeletes.get(key);
+  if (existing) clearTimeout(existing);
+
+  const chatId = ctx.chat.id;
+  const timer = setTimeout(async () => {
+    pendingSecureDeletes.delete(key);
+    try {
+      await ctx.telegram.deleteMessage(chatId, messageId);
+    } catch (e) {
+      // Ignore: message already gone, too old to delete, etc.
+    }
+  }, delayMs);
+  timer.unref?.();
+
+  pendingSecureDeletes.set(key, timer);
+}

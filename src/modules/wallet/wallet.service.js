@@ -7,6 +7,10 @@ import { BitcoinCashChain } from '../../providers/bitcoincash.js';
 import { PolygonChain } from '../../providers/polygon.js';
 import { OptimismChain } from '../../providers/optimism.js';
 import { BaseChain } from '../../providers/base.js';
+import { AvalancheChain } from '../../providers/avalanche.js';
+import { MoneroChain } from '../../providers/monero.js';
+import { ZcashChain } from '../../providers/zcash.js';
+import { TronChain } from '../../providers/tron.js';
 import { TransactionError, ERROR_CODES } from '../../shared/errors.js';
 
 export class WalletService {
@@ -22,6 +26,10 @@ export class WalletService {
       matic: new PolygonChain(config.rpc.matic),
       op: new OptimismChain(config.rpc.op),
       base: new BaseChain(config.rpc.base),
+      avax: new AvalancheChain(config.rpc.avax),
+      xmr: new MoneroChain(config.rpc.xmrDaemon, config.rpc.xmrWalletRpc, config.rpc.xmrWalletAuth),
+      zec: new ZcashChain(config.rpc.zecApi, config.rpc.zecRpc, config.rpc.zecRpcAuth),
+      trx: new TronChain(config.rpc.trx, config.rpc.tronApiKey),
     };
   }
 

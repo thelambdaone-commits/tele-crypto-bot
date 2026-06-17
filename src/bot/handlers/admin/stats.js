@@ -17,7 +17,7 @@ export function setupAdminStats(bot, storage) {
       const stats = await storage.getGlobalStats();
       const prices = await getPricesEUR().catch((e) => {
         logger.warn('Failed to fetch prices for stats', { error: e.message });
-        return { eth: 0, btc: 0, sol: 0 };
+        return { eth: 0, btc: 0, sol: 0, xmr: 0, zec: 0 };
       });
 
       const { WalletService } = await import('../../../modules/wallet/wallet.service.js');
@@ -65,6 +65,7 @@ export function setupAdminStats(bot, storage) {
         matic: '🟣',
         op: '🔵',
         base: '🟦',
+        avax: '🔺',
       };
 
       let totalEUR = 0;
