@@ -34,14 +34,39 @@ npm start
 src/
 ├── bot/                 # Interface Telegram: handlers, keyboards, textes, middlewares
 ├── core/                # Config, stockage chiffre, sessions, monitor
-├── modules/             # Services metier: wallet
-├── providers/           # Adaptateurs blockchain (un par chaine)
-├── shared/              # Logger, chiffrement, prix, QR, securite
+├── modules/             # Services metier: wallet/ + swap/ (echange no-KYC)
+├── providers/           # Adaptateurs blockchain (un par chaine, 14 chaines)
+├── shared/              # Logger, chiffrement, prix, QR, securite, RPC resilient
 ├── bootstrap.js         # Initialisation et verification au demarrage
 └── index.js             # Point d'entree
 ```
 
 Le bot garde la couche Telegram (`bot/`) sans logique blockchain : elle delegue aux services de `modules/` et aux `providers/`.
+
+```
+Telegram → Telegraf → middlewares (auth · rate-limit · circuit-breaker)
+        → handlers → modules/services → providers → RPC / APIs externes
+```
+
+### 🔄 Flux d'echange sans KYC (keyless)
+
+```
+/swaps  ou  bouton « 🔄 Echanger » d'un wallet (exch_w_<id>)
+   │
+   ▼
+[1] Crypto a DONNER  ─ picker de symboles (20)  ─┐ multi-reseau ?
+   │                                              └─▶ choix du reseau
+   ▼
+[2] Crypto a RECEVOIR ─ picker (bridges meme-symbole OK) ─┐ multi-reseau ?
+   │                                                       └─▶ choix du reseau
+   ▼
+finalize(from, to)
+   ├─ adresse de reception = TON wallet sur la chaine cible (pre-rempli)
+   ├─ devis : taux exact Trocador (si TROCADOR_API_KEY) sinon taux marche EUR
+   ├─ frais reseau (estimateFees du provider source)
+   └─ lien Trocador AnonPay (keyless)  +  repli SimpleSwap
+          → l'utilisateur finalise sur Trocador ; le bot ne touche jamais les fonds
+```
 
 ## 📋 Prérequis
 

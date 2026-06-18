@@ -52,11 +52,19 @@ CakeWallet-style, **keyless** by default. `ExchangeService` builds a Trocador **
 - **UI** (`src/bot/handlers/exchange/`, `exchange.keyboards.js`): two-step picker (coin symbol → network, network step only when multi-network). Reachable from `/swaps` and the per-wallet **🔄 Échanger** button (`exch_w_<id>` → pre-selects that wallet's coin). `finalize()` shows a best-effort **devis** (exact Trocador rate if `TROCADOR_API_KEY` set, else a market-rate estimate from the EUR price map) + network fee, then the link.
 - `TROCADOR_API_KEY` / `TROCADOR_REF` are **optional** (env or `SecretVault`). Tested in `tests/exchange.service.test.js` (mocked aggregator).
 
+```
+EXCHANGE / CALLBACKS  (src/bot/handlers/exchange/index.js)
+  exchange ───────────────▶ pick FROM symbol  (exch_fs_<SYM>)
+  exch_w_<id> (wallet) ────▶ pick TO symbol    (skips FROM; coin pre-set)
+  exch_fs_<SYM> / exch_ts_<SYM> ─ 1 network → next ; many → exch_from_/exch_to_<key>
+  exch_to_<key> ──▶ finalize → anonPayUrl (+ simpleSwapUrl) + devis + fee
+```
+
 ## Conventions
 
 - **Handler module shape**: each feature is a directory under `src/bot/handlers/<feature>/` with an `index.js` exporting `setupXHandlers(...)` that registers Telegraf actions/commands. Multi-step text input is typically isolated in a `text-input.js` within the feature.
 - **Keyboards, UI text, callbacks** are centralized: `src/bot/keyboards/`, `src/bot/ui/` + `src/bot/messages/fr.js`, and `src/bot/constants/callbacks.js`. Reuse these rather than inlining strings or callback data.
-- **Adding a chain**: create a provider in `src/providers/` (extend `EvmBaseProvider` for EVM chains), register it in `WalletService.chains`, add RPC defaults in `src/core/config.js`, tokens in `src/core/tokens.config.js`, explorer in `src/shared/explorer.js`, CoinGecko id in `src/shared/coingecko.js`, a QR logo/label in `src/shared/qr.js`, and the chain-selection keyboard entry. EVM addresses can't be auto-detected per-network, so they're swept across all EVM chains in the analyze flow (`src/bot/handlers/send/text-input.js`).
+- **Adding a chain**: create a provider in `src/providers/` (extend `EvmBaseProvider` for EVM chains), register it in `WalletService.chains` (+ `FIRST_WALLET_CHAINS`), add it to `CHAIN_REGISTRY` (`src/shared/chains.js` — drives emojis/labels/derived maps), add RPC defaults in `src/core/config.js`, tokens in `src/core/tokens.config.js`, explorer in `src/shared/explorer.js`, CoinGecko id in `src/shared/coingecko.js` `COIN_IDS` (so it shows a EUR price), a QR logo/label in `src/shared/qr.js` (bundle a PNG under `assets/coin-logos/` if the icon CDN lacks it), the chain-selection keyboard entry, and its Trocador network label in `CHAIN_NETWORK` (`src/modules/swap/exchange.service.js`) to make it exchangeable (tokens auto-sync from `TOKEN_CONFIGS`). EVM addresses can't be auto-detected per-network, so they're swept across all EVM chains in the analyze flow (`src/bot/handlers/send/text-input.js`). `src/bot/handlers/commands/info.commands.js` `/list` & `/chains` derive their lists from these registries automatically.
 - **Security**: `src/shared/security/` (audit logger, rate limiter with auto-blacklist), `src/bot/middlewares/` (auth/admin guard, rate limit, daily volume circuit breaker). The structured logger (`src/shared/logger.js`) auto-redacts sensitive fields — log via it, not `console`. The bot auto-leaves any group chat not in `ADMIN_CHAT_ID`.
 - **RPC resilience**: `src/shared/rpc/`, `rpc-fallback.js`, `resilient-rpc.js` provide multi-endpoint fallback and a circuit breaker. Solana takes a primary RPC plus `SOL_RPC_FALLBACK_URLS`.
 - **Privacy coins** (Monero, Zcash) can route through a Tor SOCKS proxy (`src/shared/tor-proxy.js`, `TOR_PROXY_URL`).
