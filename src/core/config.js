@@ -61,6 +61,14 @@ export const config = {
     trocadorRef: vault.get('trocadorRef') || process.env.TROCADOR_REF || '',
   },
 
+  // Lightning backend for instant BTC invoices (phoenixd HTTP API by default).
+  // Empty = Lightning disabled (the bot still does on-chain invoicing). The node
+  // runs as a separate daemon; the bot only talks to its HTTP API.
+  lightning: {
+    url: vault.get('lnUrl') || process.env.LN_BACKEND_URL || '',
+    password: vault.get('lnPassword') || process.env.LN_PASSWORD || '',
+  },
+
   rpc: {
     eth: vault.get('ethRpc') || process.env.ETH_RPC_URL || 'https://eth.llamarpc.com',
     sol: vault.get('solRpc') || process.env.SOL_RPC_URL,
