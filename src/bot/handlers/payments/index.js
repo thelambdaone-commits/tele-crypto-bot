@@ -4,6 +4,7 @@ import { CALLBACKS } from '../../constants/callbacks.js';
 import { safeAnswerCbQuery, safeEditMessage, escapeHtml } from '../../../shared/utils/telegram.js';
 import { generateAddressQR } from '../../../shared/qr.js';
 import { CHAIN_REGISTRY, CHAIN_EMOJIS } from '../../../shared/chains.js';
+import { getAllTokensForChain, getNativeSymbol } from '../../../core/tokens.config.js';
 import { formatEUR } from '../../../shared/price.js';
 import { logger } from '../../../shared/logger.js';
 
@@ -72,21 +73,47 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     );
   });
 
-  // Wallet chosen → ask the amount (in EUR).
+  // Ask the EUR amount for a chosen (chain, asset).
+  const askAmount = (ctx, chain, symbol) => {
+    sessions.setData(ctx.chat.id, { invoiceChain: chain, invoiceSymbol: symbol });
+    sessions.setState(ctx.chat.id, STATE);
+    return safeEditMessage(
+      ctx,
+      `💳 <b>Facture en ${symbol}</b> · ${CHAIN_REGISTRY[chain]?.name || chain}\n\n` +
+        'Quel montant veux-tu recevoir, en <b>EUR</b> ? (ex : 25)',
+      { parse_mode: 'HTML' }
+    );
+  };
+
+  // Wallet chosen → pick the asset (native + tokens) when the chain has tokens,
+  // else go straight to the amount.
   bot.action(/^pinv_w_(.+)$/, async (ctx) => {
     const walletId = ctx.match[1];
     await safeAnswerCbQuery(ctx);
     const wallet = (await storage.getWallets(ctx.chat.id)).find((w) => w.id === walletId);
     if (!wallet) return;
-    const symbol = CHAIN_REGISTRY[wallet.chain]?.native || wallet.chain.toUpperCase();
-    sessions.setData(ctx.chat.id, { invoiceChain: wallet.chain, invoiceSymbol: symbol });
-    sessions.setState(ctx.chat.id, STATE);
+    const native = getNativeSymbol(wallet.chain);
+    const tokens = Object.keys(getAllTokensForChain(wallet.chain) || {});
+    sessions.setData(ctx.chat.id, { invoiceChain: wallet.chain });
+    if (!tokens.length) return askAmount(ctx, wallet.chain, native);
+
+    const btns = [native, ...tokens].map((s) => Markup.button.callback(s, `pinv_a_${s}`));
+    const rows = [];
+    for (let i = 0; i < btns.length; i += 3) rows.push(btns.slice(i, i + 3));
+    rows.push([Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)]);
     await safeEditMessage(
       ctx,
-      `💳 <b>Facture en ${symbol}</b> · ${CHAIN_REGISTRY[wallet.chain]?.name || wallet.chain}\n\n` +
-        'Quel montant veux-tu recevoir, en <b>EUR</b> ? (ex : 25)',
-      { parse_mode: 'HTML' }
+      `💳 <b>Facture · ${CHAIN_REGISTRY[wallet.chain]?.name || wallet.chain}</b>\n\nQuel actif veux-tu recevoir ?`,
+      { parse_mode: 'HTML', ...Markup.inlineKeyboard(rows) }
     );
+  });
+
+  // Asset chosen → ask the amount. The chain is already in session.
+  bot.action(/^pinv_a_(.+)$/, async (ctx) => {
+    await safeAnswerCbQuery(ctx);
+    const chain = sessions.getData(ctx.chat.id)?.invoiceChain;
+    if (!chain) return;
+    await askAmount(ctx, chain, ctx.match[1]);
   });
 
   // Amount entered → create the invoice + show address/QR. Falls through for other states.

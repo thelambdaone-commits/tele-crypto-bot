@@ -80,6 +80,16 @@ test('checkInvoice marks underpayment as processing (no false settle)', async ()
   assert.equal(h.notes.length, 0);
 });
 
+test('invoicing supports tokens (USDT) — native vs token resolved via _tokenSymbol', async () => {
+  const h = harness({ balance: 0 });
+  assert.equal(h.svc._tokenSymbol('eth', 'ETH'), null); // native → no token symbol
+  assert.equal(h.svc._tokenSymbol('eth', 'USDT'), 'USDT'); // token → its symbol
+  const inv = await h.svc.createInvoice(1, 'eth', 'USDT', { amountCrypto: 10 });
+  assert.equal(inv.symbol, 'USDT');
+  assert.equal(inv.chain, 'eth');
+  assert.equal(inv.address, '0xMerchant'); // received at the same wallet address
+});
+
 test('createLightningInvoice requires the LN backend to be configured', async () => {
   const off = harness({ lnConfigured: false });
   await assert.rejects(() => off.svc.createLightningInvoice(1, { amountCrypto: 0.001 }), /non configuré/i);
