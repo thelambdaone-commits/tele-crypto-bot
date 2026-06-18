@@ -88,6 +88,15 @@ test('expiry: no payment past the window → expired; full payment still settles
   assert.equal(expireIfDue(inv, T0).status, INVOICE_STATES.NEW);
 });
 
+test('sub-0.1% rounding drift does not falsely flag over-payment (Lightning sats)', async () => {
+  const inv = await createInvoice({ merchantId: 'm', chain: 'lightning', symbol: 'BTC', amountCrypto: 0.00026876 }, deps());
+  const drift = applyPayment(inv, 0.00026876 * 1.0004, { confirmed: true, now: T0 }); // < 0.1%
+  assert.equal(drift.status, INVOICE_STATES.SETTLED);
+  assert.equal(drift.overpaid, false);
+  const real = applyPayment(inv, 0.00026876 * 1.02, { confirmed: true, now: T0 }); // 2% → genuine
+  assert.equal(real.overpaid, true);
+});
+
 test('terminal states are immutable', async () => {
   const inv = await createInvoice({ merchantId: 'm', chain: 'btc', symbol: 'BTC', amountCrypto: 1 }, deps());
   const settled = applyPayment(inv, 1, { confirmed: true, now: T0 });

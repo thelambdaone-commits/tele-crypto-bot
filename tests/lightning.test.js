@@ -13,7 +13,8 @@ function mockFetch(handler) {
   };
   return { fn, calls };
 }
-const ok = (body) => ({ ok: true, json: async () => body });
+const ok = (body) => ({ ok: true, text: async () => JSON.stringify(body) });
+const okText = (raw) => ({ ok: true, text: async () => raw });
 
 test('isConfigured reflects url + password', () => {
   assert.equal(new LightningService({ url: '', password: '' }).isConfigured(), false);
@@ -55,7 +56,31 @@ test('calls throw clearly when Lightning is not configured', async () => {
 });
 
 test('a non-2xx node response surfaces the error message', async () => {
-  const m = mockFetch(() => ({ ok: false, json: async () => ({ message: 'insufficient liquidity' }) }));
+  const m = mockFetch(() => ({ ok: false, text: async () => JSON.stringify({ message: 'insufficient liquidity' }) }));
   const ln = new LightningService({ url: 'http://x', password: 'p', fetchImpl: m.fn });
   await assert.rejects(() => ln.createInvoice({ amountSat: 100 }), /insufficient liquidity/);
+});
+
+test('getBalance returns the node spendable balance (sats)', async () => {
+  const m = mockFetch(() => ok({ balanceSat: 750000, feeCreditSat: 0 }));
+  const ln = new LightningService({ url: 'http://x', password: 'p', fetchImpl: m.fn });
+  assert.deepEqual(await ln.getBalance(), { balanceSat: 750000, feeCreditSat: 0 });
+  assert.match(m.calls[0].url, /\/getbalance$/);
+});
+
+test('sendToAddress POSTs the payout and returns the txid (bare-string response)', async () => {
+  const m = mockFetch(() => okText('abc123txid'));
+  const ln = new LightningService({ url: 'http://x', password: 'p', fetchImpl: m.fn });
+  const r = await ln.sendToAddress({ address: 'bc1qcold', amountSat: 500000 });
+  assert.equal(r.txid, 'abc123txid');
+  assert.equal(m.calls[0].url, 'http://x/sendtoaddress');
+  assert.equal(m.calls[0].opts.method, 'POST');
+  assert.match(m.calls[0].opts.body, /address=bc1qcold/);
+  assert.match(m.calls[0].opts.body, /amountSat=500000/);
+});
+
+test('sendToAddress validates address + amount', async () => {
+  const ln = new LightningService({ url: 'http://x', password: 'p', fetchImpl: mockFetch(() => okText('t')).fn });
+  await assert.rejects(() => ln.sendToAddress({ address: '', amountSat: 1 }), /Adresse/);
+  await assert.rejects(() => ln.sendToAddress({ address: 'bc1q', amountSat: 0 }), /Montant retrait/);
 });

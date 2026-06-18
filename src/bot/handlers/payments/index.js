@@ -1,6 +1,7 @@
 import { Markup } from 'telegraf';
 import { mainMenuKeyboard } from '../../keyboards/index.js';
 import { CALLBACKS } from '../../constants/callbacks.js';
+import { adminGuard } from '../../middlewares/auth.middleware.js';
 import { safeAnswerCbQuery, safeEditMessage, escapeHtml } from '../../../shared/utils/telegram.js';
 import { generateAddressQR } from '../../../shared/qr.js';
 import { CHAIN_REGISTRY, CHAIN_EMOJIS } from '../../../shared/chains.js';
@@ -158,13 +159,52 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     }
   });
 
-  // /invoices — my recent invoices + their status.
+  // /invoices — my recent invoices + their status (+ Lightning balance if any).
   bot.command(['invoices', 'factures'], async (ctx) => {
     const list = (await storage.getInvoices(ctx.chat.id)).slice(-10).reverse();
-    if (!list.length) return ctx.reply('🧾 Aucune facture. <code>/invoice</code> pour en créer une.', { parse_mode: 'HTML' });
+    const lnBal = await storage.getLnBalance(ctx.chat.id).catch(() => 0);
+    const head = lnBal > 0 ? `⚡ Solde Lightning : <b>${lnBal} sats</b>\n\n` : '';
+    if (!list.length) {
+      return ctx.reply(head + '🧾 Aucune facture. <code>/invoice</code> pour en créer une.', { parse_mode: 'HTML' });
+    }
     const lines = list.map(
       (i) => `${STATUS_EMOJI[i.status] || '•'} ${fmt(i.amountCrypto)} ${i.symbol} · ${i.status} · <code>${escapeHtml(i.id.slice(4, 20))}</code>`
     );
-    await ctx.reply('🧾 <b>Mes factures</b>\n\n' + lines.join('\n'), { parse_mode: 'HTML' });
+    await ctx.reply(head + '🧾 <b>Mes factures</b>\n\n' + lines.join('\n'), { parse_mode: 'HTML' });
+  });
+
+  // /treasury (admin) — node balance, recent payouts, manual sweep.
+  bot.command(['treasury', 'tresorerie'], async (ctx) => {
+    if (!adminGuard(ctx)) return;
+    if (!payments.lightningEnabled()) return ctx.reply('⚡ Lightning non configuré.');
+    let bal;
+    try {
+      bal = await payments.lightning.getBalance();
+    } catch (e) {
+      return ctx.reply(`❌ Nœud injoignable : ${escapeHtml(e.message)}`);
+    }
+    const payouts = (await storage.getPayouts()).slice(-5).reverse();
+    const pe = { withdrawn: '✅', failed: '❌', pending: '⏳' };
+    const lines = payouts.map((p) => `${pe[p.status] || '•'} ${p.amountSat} sats · ${p.status}${p.txid ? ` · <code>${escapeHtml(p.txid.slice(0, 14))}</code>` : ''}`);
+    await ctx.reply(
+      '🏦 <b>Trésorerie Lightning</b>\n' +
+        `Solde nœud : <b>${bal.balanceSat} sats</b>\n` +
+        `Seuil de sweep : ${payments.sweep.thresholdSat} sats\n` +
+        `Destination : <code>${escapeHtml(payments.sweep.address || '(non configurée)')}</code>\n\n` +
+        (lines.length ? '<b>Derniers retraits</b>\n' + lines.join('\n') : 'Aucun retrait.'),
+      { parse_mode: 'HTML', ...Markup.inlineKeyboard([[Markup.button.callback('🧹 Balayer maintenant', 'treasury_sweep')]]) }
+    );
+  });
+
+  bot.action('treasury_sweep', async (ctx) => {
+    if (!adminGuard(ctx)) return safeAnswerCbQuery(ctx);
+    await safeAnswerCbQuery(ctx);
+    const r = await payments.sweepLightningBalance();
+    await ctx.reply(
+      r.swept
+        ? `✅ Balayé ${r.payout.amountSat} sats → trésorerie (txid <code>${escapeHtml(r.payout.txid)}</code>)`
+        : `ℹ️ Rien à balayer (${r.reason}${r.balanceSat != null ? ` : ${r.balanceSat} sats` : ''})`,
+      { parse_mode: 'HTML' }
+    );
   });
 }

@@ -436,6 +436,53 @@ export class StorageService {
     });
   }
 
+  // ── Lightning internal balance (per merchant) — accounting, decoupled from the
+  // physical node funds. Credited on settlement; the treasury sweep is separate.
+  async creditLnBalance(chatId, sat) {
+    return this._withLock(chatId, async () => {
+      const data = await this.loadUserData(chatId);
+      data.lnBalanceSat = (data.lnBalanceSat || 0) + Math.round(Number(sat) || 0);
+      await this.saveUserData(chatId, data);
+      return data.lnBalanceSat;
+    });
+  }
+
+  async getLnBalance(chatId) {
+    const data = await this.loadUserData(chatId);
+    return data.lnBalanceSat || 0;
+  }
+
+  // ── Treasury payouts (global) — persisted so an in-flight sweep survives a
+  // crash (status pending → withdrawn/failed). The node balance is the source of
+  // truth, so a failed payout is simply retried from the real balance next cycle.
+  async addPayout(payout) {
+    return this._withLock('_global', async () => {
+      const stats = await this.loadStats();
+      stats.payouts = stats.payouts || [];
+      stats.payouts.push(payout);
+      await this.saveStats(stats);
+      return payout.id;
+    });
+  }
+
+  async getPayouts() {
+    const stats = await this.loadStats();
+    return stats.payouts || [];
+  }
+
+  async updatePayout(payout) {
+    return this._withLock('_global', async () => {
+      const stats = await this.loadStats();
+      const list = stats.payouts || [];
+      const i = list.findIndex((p) => p.id === payout.id);
+      if (i === -1) return false;
+      list[i] = payout;
+      stats.payouts = list;
+      await this.saveStats(stats);
+      return true;
+    });
+  }
+
   async _cleanupExpiredTransactions(chatId) {
     return this._withLock(chatId, async () => {
       const data = await this.loadUserData(chatId);

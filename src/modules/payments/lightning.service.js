@@ -40,7 +40,15 @@ export class LightningService {
       opts.body = new URLSearchParams(form).toString();
     }
     const res = await this._fetch(`${this.url}${path}`, opts);
-    const json = await res.json().catch(() => ({}));
+    // phoenixd returns JSON for most calls but a bare txid string for
+    // /sendtoaddress — read text first, then try to parse.
+    const text = typeof res.text === 'function' ? await res.text() : '';
+    let json;
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch {
+      json = { _raw: text };
+    }
     if (!res.ok) throw new Error(json?.message || `Lightning HTTP ${res.status}`);
     return json;
   }
@@ -61,5 +69,24 @@ export class LightningService {
   async lookupIncoming(paymentHash) {
     const j = await this._call(`/payments/incoming/${encodeURIComponent(paymentHash)}`);
     return { isPaid: Boolean(j.isPaid), receivedSat: Number(j.receivedSat || 0), preimage: j.preimage || null };
+  }
+
+  /** Node's spendable balance (sats) — used by the treasury sweep. */
+  async getBalance() {
+    const j = await this._call('/getbalance');
+    return { balanceSat: Number(j.balanceSat || 0), feeCreditSat: Number(j.feeCreditSat || 0) };
+  }
+
+  /** On-chain payout from the node to `address` (treasury sweep). Returns the txid. */
+  async sendToAddress({ address, amountSat, feerateSatByte = 1 }) {
+    const sat = Math.round(Number(amountSat));
+    if (!address) throw new Error('Adresse de retrait manquante');
+    if (!Number.isFinite(sat) || sat <= 0) throw new Error('Montant retrait invalide');
+    const j = await this._call('/sendtoaddress', {
+      method: 'POST',
+      form: { address, amountSat: sat, feerateSatByte },
+    });
+    const txid = typeof j === 'string' ? j : j.txid || j._raw || '';
+    return { txid: String(txid).trim() };
   }
 }

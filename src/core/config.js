@@ -67,6 +67,12 @@ export const config = {
   lightning: {
     url: vault.get('lnUrl') || process.env.LN_BACKEND_URL || '',
     password: vault.get('lnPassword') || process.env.LN_PASSWORD || '',
+    // Treasury sweep: move pooled node funds to a cold BTC address once the node
+    // balance crosses the threshold (NOT per-payment — fewer fees, fewer failure
+    // points). Sweep is OFF unless a destination address is set.
+    sweepAddress: vault.get('lnSweepAddress') || process.env.LN_SWEEP_BTC_ADDRESS || '',
+    sweepThresholdSat: Number(process.env.LN_SWEEP_THRESHOLD_SAT) || 500_000,
+    sweepIntervalMs: (Number(process.env.LN_SWEEP_INTERVAL_HOURS) || 6) * 3600 * 1000,
   },
 
   rpc: {

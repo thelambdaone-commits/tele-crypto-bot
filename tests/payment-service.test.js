@@ -7,8 +7,10 @@ import assert from 'node:assert/strict';
 import { PaymentService } from '../src/modules/payments/payment.service.js';
 import { INVOICE_STATES } from '../src/modules/payments/invoice.service.js';
 
-function harness({ balance = 0, wallets, lnConfigured = false } = {}) {
+function harness({ balance = 0, wallets, lnConfigured = false, sweep, nodeBalanceSat = 0, sendFails = false } = {}) {
   const store = new Map(); // chatId -> invoices[]
+  const lnBalances = new Map();
+  const payouts = [];
   const notes = [];
   let bal = balance;
   const ln = { paid: false, receivedSat: 0 };
@@ -21,6 +23,11 @@ function harness({ balance = 0, wallets, lnConfigured = false } = {}) {
       if (i === -1) return false; l[i] = inv; store.set(id, l); return true;
     },
     getAllUsers: async () => [...store.keys()].map((chatId) => ({ chatId })),
+    creditLnBalance: async (id, sat) => { const v = (lnBalances.get(id) || 0) + Math.round(sat); lnBalances.set(id, v); return v; },
+    getLnBalance: async (id) => lnBalances.get(id) || 0,
+    addPayout: async (p) => { payouts.push(p); return p.id; },
+    getPayouts: async () => payouts,
+    updatePayout: async (p) => { const i = payouts.findIndex((x) => x.id === p.id); if (i === -1) return false; payouts[i] = p; return true; },
   };
   const walletService = { getBalance: async () => ({ balance: String(bal) }) };
   const bot = { telegram: { sendMessage: async (id, text) => notes.push({ id, text }) } };
@@ -28,9 +35,11 @@ function harness({ balance = 0, wallets, lnConfigured = false } = {}) {
     isConfigured: () => lnConfigured,
     createInvoice: async ({ amountSat, externalId }) => ({ bolt11: `lnbc${amountSat}`, paymentHash: `ph-${externalId}`, amountSat }),
     lookupIncoming: async () => (ln.paid ? { isPaid: true, receivedSat: ln.receivedSat } : { isPaid: false, receivedSat: 0 }),
+    getBalance: async () => ({ balanceSat: nodeBalanceSat, feeCreditSat: 0 }),
+    sendToAddress: async ({ amountSat }) => { if (sendFails) throw new Error('node offline'); return { txid: `tx-${amountSat}` }; },
   };
-  const svc = new PaymentService(storage, walletService, bot, { lightning });
-  return { svc, store, notes, ln, setBalance: (v) => { bal = v; } };
+  const svc = new PaymentService(storage, walletService, bot, { lightning, sweep, adminId: 999 });
+  return { svc, store, notes, ln, lnBalances, payouts, setBalance: (v) => { bal = v; } };
 }
 
 test('createInvoice attaches the merchant address + baseline and persists', async () => {
@@ -121,6 +130,51 @@ test('only one open Lightning invoice at a time', async () => {
   const h = harness({ lnConfigured: true });
   await h.svc.createLightningInvoice(1, { amountCrypto: 0.0005 });
   await assert.rejects(() => h.svc.createLightningInvoice(1, { amountCrypto: 0.001 }), /déjà ouverte/);
+});
+
+test('settling a Lightning invoice credits the merchant internal balance', async () => {
+  const h = harness({ lnConfigured: true });
+  const inv = await h.svc.createLightningInvoice(1, { amountCrypto: 0.0005 }); // 50_000 sats
+  h.ln.paid = true; h.ln.receivedSat = 50000;
+  await h.svc.checkInvoice(inv);
+  assert.equal(await h.svc.storage.getLnBalance(1), 50000); // accounting credited
+  assert.match(h.notes.at(-1).text, /Solde Lightning/);
+});
+
+const SWEEP = { address: 'bc1qcold', thresholdSat: 500_000, intervalMs: 1 };
+
+test('sweep is a no-op below the threshold', async () => {
+  const h = harness({ lnConfigured: true, sweep: SWEEP, nodeBalanceSat: 200_000 });
+  const r = await h.svc.sweepLightningBalance();
+  assert.equal(r.swept, false);
+  assert.equal(r.reason, 'below-threshold');
+  assert.equal(h.payouts.length, 0);
+});
+
+test('sweep moves node funds to the cold address above the threshold + records a payout', async () => {
+  const h = harness({ lnConfigured: true, sweep: SWEEP, nodeBalanceSat: 750_000 });
+  const r = await h.svc.sweepLightningBalance();
+  assert.equal(r.swept, true);
+  assert.equal(h.payouts.length, 1);
+  assert.equal(h.payouts[0].status, 'withdrawn');
+  assert.equal(h.payouts[0].amountSat, 750_000);
+  assert.equal(h.payouts[0].txid, 'tx-750000');
+  assert.match(h.notes.at(-1).text, /Trésorerie balayée/);
+});
+
+test('a failed payout is recorded as failed; funds stay in the node (no loss)', async () => {
+  const h = harness({ lnConfigured: true, sweep: SWEEP, nodeBalanceSat: 750_000, sendFails: true });
+  const r = await h.svc.sweepLightningBalance();
+  assert.equal(r.swept, false);
+  assert.equal(r.reason, 'payout-failed');
+  assert.equal(h.payouts[0].status, 'failed'); // audit trail; retried next cycle from real balance
+});
+
+test('sweep stays disabled without a cold address', async () => {
+  const h = harness({ lnConfigured: true, sweep: { address: '', thresholdSat: 1, intervalMs: 1 }, nodeBalanceSat: 9_999_999 });
+  const r = await h.svc.sweepLightningBalance();
+  assert.equal(r.swept, false);
+  assert.equal(r.reason, 'disabled');
 });
 
 test('pollOnce checks every merchant open invoice', async () => {

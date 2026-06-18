@@ -16,6 +16,7 @@ import { settlementEntries } from './ledger.js';
 import { LightningService } from './lightning.service.js';
 import { CHAIN_REGISTRY } from '../../shared/chains.js';
 import { formatEUR } from '../../shared/price.js';
+import { config } from '../../core/config.js';
 import { logger } from '../../shared/logger.js';
 
 const OPEN = [INVOICE_STATES.NEW, INVOICE_STATES.PROCESSING];
@@ -23,13 +24,20 @@ const LN = 'lightning';
 const SATS_PER_BTC = 100_000_000;
 
 export class PaymentService {
-  constructor(storage, walletService, bot, { intervalMs = 30_000, lightning } = {}) {
+  constructor(storage, walletService, bot, { intervalMs = 30_000, lightning, sweep, adminId } = {}) {
     this.storage = storage;
     this.walletService = walletService;
     this.bot = bot;
     this.intervalMs = intervalMs;
     this.lightning = lightning || new LightningService();
+    this.sweep = sweep || {
+      address: config.lightning?.sweepAddress || '',
+      thresholdSat: config.lightning?.sweepThresholdSat || 500_000,
+      intervalMs: config.lightning?.sweepIntervalMs || 6 * 3600 * 1000,
+    };
+    this.adminId = adminId ?? config.adminUserId;
     this.timer = null;
+    this.sweepTimer = null;
     this.ledger = []; // in-memory reconciliation log (persisted in a later phase)
   }
 
@@ -126,12 +134,74 @@ export class PaymentService {
 
   async _onSettled(invoice) {
     this.ledger.push(...settlementEntries(invoice));
+    // Lightning: funds pool in the node — credit the merchant's INTERNAL balance
+    // (accounting), decoupled from the physical treasury sweep.
+    let lnLine = '';
+    if (invoice.chain === LN) {
+      const sat = Math.round((invoice.receivedCrypto || 0) * SATS_PER_BTC);
+      try {
+        const bal = await this.storage.creditLnBalance(invoice.merchantId, sat);
+        lnLine = `\n💼 Solde Lightning : <b>${bal} sats</b>`;
+      } catch (e) {
+        logger.warn('[Payments] creditLnBalance failed', { id: invoice.id, error: e.message });
+      }
+    }
     const fiat = invoice.amountFiat != null ? ` (${formatEUR(invoice.amountFiat)})` : '';
     const over = invoice.overpaid ? ' ⚠️ trop-perçu' : '';
     await this._notify(
       invoice,
-      `✅ <b>Paiement reçu</b>\n${invoice.receivedCrypto} ${invoice.symbol}${fiat}${over}\nFacture <code>${invoice.id}</code> réglée.`
+      `✅ <b>Paiement reçu</b>\n${invoice.receivedCrypto} ${invoice.symbol}${fiat}${over}\nFacture <code>${invoice.id}</code> réglée.${lnLine}`
     );
+  }
+
+  /**
+   * Treasury sweep: move pooled node funds to the cold BTC address once the node
+   * balance crosses the threshold. Threshold-based (not per-payment) to save fees
+   * and failure points. The node balance is the source of truth, so a failed
+   * payout just retries from the real balance next cycle — funds are never lost.
+   */
+  async sweepLightningBalance() {
+    if (!this.lightningEnabled() || !this.sweep.address) return { swept: false, reason: 'disabled' };
+
+    let bal;
+    try {
+      bal = await this.lightning.getBalance();
+    } catch (e) {
+      logger.warn('[Payments] sweep getBalance failed', { error: e.message });
+      return { swept: false, reason: 'balance-error' };
+    }
+    if (bal.balanceSat < this.sweep.thresholdSat) {
+      return { swept: false, reason: 'below-threshold', balanceSat: bal.balanceSat };
+    }
+
+    const payout = {
+      id: `payout-${Date.now()}`,
+      amountSat: bal.balanceSat,
+      address: this.sweep.address,
+      status: 'pending',
+      txid: null,
+      createdAt: new Date().toISOString(),
+    };
+    await this.storage.addPayout(payout);
+    try {
+      const { txid } = await this.lightning.sendToAddress({ address: this.sweep.address, amountSat: bal.balanceSat });
+      payout.status = 'withdrawn';
+      payout.txid = txid;
+      await this.storage.updatePayout(payout);
+      logger.info('[Payments] treasury swept', { amountSat: payout.amountSat, txid });
+      if (this.adminId) {
+        await this.bot.telegram
+          .sendMessage(this.adminId, `🏦 <b>Trésorerie balayée</b>\n${payout.amountSat} sats → <code>${payout.address}</code>\ntxid <code>${txid}</code>`, { parse_mode: 'HTML' })
+          .catch(() => {});
+      }
+      return { swept: true, payout };
+    } catch (e) {
+      payout.status = 'failed';
+      payout.error = e.message;
+      await this.storage.updatePayout(payout);
+      logger.warn('[Payments] sweep payout failed (funds remain in node)', { error: e.message });
+      return { swept: false, reason: 'payout-failed', error: e.message };
+    }
   }
 
   async _notify(invoice, text) {
@@ -162,10 +232,21 @@ export class PaymentService {
     if (this.timer) return;
     this.timer = setInterval(() => this.pollOnce().catch((e) => logger.warn('[Payments] poll error', { error: e.message })), this.intervalMs);
     logger.info('[Payments] watcher started', { intervalMs: this.intervalMs });
+
+    // Treasury sweep loop — only when Lightning + a cold address are configured.
+    if (this.lightningEnabled() && this.sweep.address && !this.sweepTimer) {
+      this.sweepTimer = setInterval(
+        () => this.sweepLightningBalance().catch((e) => logger.warn('[Payments] sweep error', { error: e.message })),
+        this.sweep.intervalMs
+      );
+      logger.info('[Payments] treasury sweep started', { intervalMs: this.sweep.intervalMs, thresholdSat: this.sweep.thresholdSat });
+    }
   }
 
   stop() {
     if (this.timer) clearInterval(this.timer);
+    if (this.sweepTimer) clearInterval(this.sweepTimer);
     this.timer = null;
+    this.sweepTimer = null;
   }
 }

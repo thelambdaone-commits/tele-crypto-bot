@@ -43,6 +43,10 @@ export function canTransition(from, to) {
 // Default acceptance window for a received amount (covers on-chain fee shaving
 // and rounding). Received ≥ amount × (1 − tolerance) counts as paid-in-full.
 const DEFAULT_UNDERPAY_TOLERANCE = 0.01; // 1%
+// Only flag genuine over-payment, not sub-0.1% rounding drift (Lightning
+// quantises to whole sats, so an exact payment's received amount can exceed the
+// BTC amount by a fraction of a sat).
+const OVERPAY_EPSILON = 0.001; // 0.1%
 const DEFAULT_EXPIRY_SEC = 900; // 15 min — short, because the rate is locked
 
 /**
@@ -156,7 +160,7 @@ export function applyPayment(invoice, receivedCrypto, opts = {}) {
     return withStatus(invoice, INVOICE_STATES.PROCESSING, { receivedCrypto: received });
   }
 
-  const overpaid = received > invoice.amountCrypto * 1.0;
+  const overpaid = received > invoice.amountCrypto * (1 + OVERPAY_EPSILON);
   if (opts.confirmed) {
     return withStatus(invoice, INVOICE_STATES.SETTLED, {
       receivedCrypto: received,
