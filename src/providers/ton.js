@@ -24,10 +24,10 @@ export class TonChain extends BaseProvider {
     super('TON', 'TON');
     this.endpoint = endpoint || 'https://toncenter.com/api/v2/jsonRPC';
     this.client = new TonClient({ endpoint: this.endpoint, apiKey: apiKey || undefined });
-    // TonCenter's public endpoint rate-limits to ~1 req/s; the balances screen
-    // fetches every wallet in parallel, so without a key multiple TON wallets
-    // would fail ("network issue"). Serialize with a gap + retry, like Tron.
-    this._minGapMs = apiKey ? 0 : 1100;
+    // TonCenter rate-limits even the free keyed tier on parallel bursts (and the
+    // balances screen fetches every wallet at once), so keep a serialized gap in
+    // both cases — just smaller with a key. Retry backs it up.
+    this._minGapMs = apiKey ? 220 : 1100;
     this._queue = Promise.resolve();
   }
 
