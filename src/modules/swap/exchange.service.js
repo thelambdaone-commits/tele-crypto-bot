@@ -70,13 +70,11 @@ function networkFor(chain, ticker, isToken) {
 // Exchange-only assets that aren't wallet assets, so they're NOT in TOKEN_CONFIGS
 // (the TON wallet provider holds native Toncoin only, no jettons). Quotable here
 // because to Trocador a jetton is just a (ticker, network) pair.
-// Stablecoins on TON (jettons), received at the user's TON wallet address.
-// USDT-TON is dominant and reliable; USDC/DAI on TON exist but are smaller — if
-// Trocador has no route, AnonPay simply shows no offer (keyless, no funds risk).
+// Only USDT exists on the TON network in Trocador's list (network "Toncoin").
+// USDC and DAI on TON have NO Trocador route (verified against its coin list), so
+// they're intentionally omitted — listing them would be a dead option.
 const EXTRA_COINS = {
   usdt_ton: { ticker: 'usdt', network: 'Toncoin', symbol: 'USDT', emoji: '💎', name: 'USDT · TON', walletChain: 'ton' },
-  usdc_ton: { ticker: 'usdc', network: 'Toncoin', symbol: 'USDC', emoji: '💎', name: 'USDC · TON', walletChain: 'ton' },
-  dai_ton: { ticker: 'dai', network: 'Toncoin', symbol: 'DAI', emoji: '💎', name: 'DAI · TON', walletChain: 'ton' },
 };
 
 /**

@@ -77,10 +77,12 @@ test('TON is quotable (ticker/network) without a wallet provider', async () => {
   assert.ok(ton.emoji, 'TON needs its own emoji (absent from CHAIN_REGISTRY)');
 });
 
-test('TON stablecoins are quotable as (ticker, network) jetton pairs', async () => {
+test('USDT-TON is the only TON jetton with a Trocador route (usdc/dai omitted)', async () => {
   const svc = new ExchangeService(mockAggregator());
   assert.ok(svc.isSupported('usdt_ton'));
-  assert.ok(svc.isSupported('usdc_ton'));
+  // USDC/DAI have no "Toncoin" route on Trocador → intentionally not listed.
+  assert.ok(!svc.isSupported('usdc_ton'));
+  assert.ok(!svc.isSupported('dai_ton'));
   assert.equal(TROCADOR_COINS.usdt_ton.ticker, 'usdt');
   assert.equal(TROCADOR_COINS.usdt_ton.network, 'Toncoin'); // jetton label, not native 'Mainnet'
 
