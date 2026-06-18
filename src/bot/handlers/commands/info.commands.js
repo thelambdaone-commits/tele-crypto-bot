@@ -4,7 +4,9 @@ import { getFullHelpText } from '../../ui/index.js';
 import { CALLBACKS } from '../../constants/callbacks.js';
 import { CHAIN_REGISTRY } from '../../../shared/chains.js';
 import { TOKEN_CONFIGS } from '../../../core/tokens.config.js';
-import { TROCADOR_COINS } from '../../../modules/swap/exchange.service.js';
+import { ExchangeService } from '../../../modules/swap/exchange.service.js';
+
+const exchange = new ExchangeService();
 
 // "Ξ Ethereum · ₿ Bitcoin · …" — every supported network, from CHAIN_REGISTRY.
 function networksLine() {
@@ -13,12 +15,12 @@ function networksLine() {
     .join(' · ');
 }
 
-// "• Ethereum: USDC, USDT, …" per chain that has tokens, from TOKEN_CONFIGS.
+// "• Ethereum : USDC, USDT, …" per chain that has tokens, from TOKEN_CONFIGS.
 function tokensSection() {
   return Object.entries(TOKEN_CONFIGS)
     .map(([chain, cfg]) => [chain, Object.keys(cfg.tokens || {})])
     .filter(([, syms]) => syms.length)
-    .map(([chain, syms]) => `• ${CHAIN_REGISTRY[chain]?.name || chain}: ${syms.join(', ')}`)
+    .map(([chain, syms]) => `• <b>${CHAIN_REGISTRY[chain]?.name || chain}</b> : ${syms.join(', ')}`)
     .join('\n');
 }
 
@@ -63,29 +65,37 @@ export function setupInfoCommands(bot) {
   // 📋 /list (/coins, /tokens, /assets) - Supported coins & tokens (English)
   bot.command(['list', 'coins', 'tokens', 'assets'], async (ctx) => {
     await ctx.reply(
-      '📋 <b>Supported coins & tokens</b>\n\n' +
-        `🔗 <b>Networks</b> (${Object.keys(CHAIN_REGISTRY).length})\n` +
+      '📋 <b>Cryptos &amp; tokens supportés</b>\n' +
+        '━━━━━━━━━━━━━━━\n\n' +
+        `🔗 <b>Réseaux</b> · ${Object.keys(CHAIN_REGISTRY).length} chaînes\n` +
         `${networksLine()}\n\n` +
-        `🎫 <b>Tokens</b>\n${tokensSection()}\n\n` +
-        'ℹ️ All of these are swappable no-KYC — see <code>/swaps</code>.',
+        '🎫 <b>Tokens par réseau</b>\n' +
+        `${tokensSection()}\n\n` +
+        '━━━━━━━━━━━━━━━\n' +
+        '💱 Tout est échangeable <b>sans KYC</b> → <code>/swaps</code>\n' +
+        '💹 Prix en euros → <code>/price</code>',
       { parse_mode: 'HTML' }
     );
   });
 
   // 💱 /swaps (/swap, /exchange) - Swappable assets, no-KYC (English)
   bot.command(['swaps', 'swap', 'exchange'], async (ctx) => {
-    const symbols = [...new Set(Object.values(TROCADOR_COINS).map((c) => c.symbol))];
+    const symbols = exchange.listSymbols(); // sorted: natives → stablecoins → tokens
+    const list = symbols.map((s) => `${s.emoji} ${s.symbol}`).join(' · ');
     await ctx.reply(
-      '💱 <b>No-KYC exchange</b>\n\n' +
-        `<b>${Object.keys(TROCADOR_COINS).length}</b> swappable assets, cross-chain, best rate. ` +
-        'Quote-only for now (no funds are moved).\n\n' +
-        `🪙 ${symbols.join(', ')}\n\n` +
-        '💵 USDT & USDC are available on multiple networks ' +
-        '(Ethereum, Arbitrum, Optimism, Polygon, Base, Avalanche, Solana, Tron, TON).\n\n' +
-        '👇 Tap to simulate a swap',
+      '💱 <b>Échange sans KYC</b>\n' +
+        '━━━━━━━━━━━━━━━\n\n' +
+        '🔒 Sans inscription, sans KYC — le meilleur taux est choisi automatiquement ' +
+        'et le bot ne touche jamais tes fonds.\n\n' +
+        `🪙 <b>${symbols.length} cryptos</b> sur tous leurs réseaux\n` +
+        `${list}\n\n` +
+        '💵 <b>USDT</b> &amp; <b>USDC</b> dispo sur Ethereum, Arbitrum, Optimism, Polygon, ' +
+        'Base, Avalanche, Solana, Tron et TON.\n\n' +
+        '━━━━━━━━━━━━━━━\n' +
+        '👇 Choisis une crypto à donner puis une à recevoir',
       {
         parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([[Markup.button.callback('🔄 Open exchange', CALLBACKS.EXCHANGE)]]),
+        ...Markup.inlineKeyboard([[Markup.button.callback('🔄 Ouvrir l’échange', CALLBACKS.EXCHANGE)]]),
       }
     );
   });
