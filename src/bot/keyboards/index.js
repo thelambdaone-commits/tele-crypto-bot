@@ -10,7 +10,7 @@ export * from './send.keyboards.js';
 export function mainReplyKeyboard() {
   // Mirrors the inline menu (same labels/emojis), with Receive included.
   return Markup.keyboard([
-    ['💰 Mes Wallets', '➕ Nouveau'],
+    ['💰 Wallets', '➕ Nouveau'],
     ['📥 Recevoir', '📤 Envoyer'],
     ['💵 Soldes', '📊 Cours'],
     ['🔎 Analyser', '❓ Aide'],
@@ -22,7 +22,7 @@ export function mainMenuKeyboard() {
   // so /start /menu stays uncluttered.
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('💰 Mes Wallets', CALLBACKS.LIST_WALLETS),
+      Markup.button.callback('💰 Wallets', CALLBACKS.LIST_WALLETS),
       Markup.button.callback('➕ Nouveau', CALLBACKS.CREATE_WALLET),
     ],
     [

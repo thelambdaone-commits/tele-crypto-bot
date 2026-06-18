@@ -13,20 +13,51 @@
  */
 import { createInvoice, applyPayment, expireIfDue, INVOICE_STATES } from './invoice.service.js';
 import { settlementEntries } from './ledger.js';
+import { LightningService } from './lightning.service.js';
 import { CHAIN_REGISTRY } from '../../shared/chains.js';
 import { formatEUR } from '../../shared/price.js';
 import { logger } from '../../shared/logger.js';
 
 const OPEN = [INVOICE_STATES.NEW, INVOICE_STATES.PROCESSING];
+const LN = 'lightning';
+const SATS_PER_BTC = 100_000_000;
 
 export class PaymentService {
-  constructor(storage, walletService, bot, { intervalMs = 30_000 } = {}) {
+  constructor(storage, walletService, bot, { intervalMs = 30_000, lightning } = {}) {
     this.storage = storage;
     this.walletService = walletService;
     this.bot = bot;
     this.intervalMs = intervalMs;
+    this.lightning = lightning || new LightningService();
     this.timer = null;
     this.ledger = []; // in-memory reconciliation log (persisted in a later phase)
+  }
+
+  lightningEnabled() {
+    return this.lightning.isConfigured();
+  }
+
+  /**
+   * Create an instant-settling Lightning (BTC) invoice via the LN backend.
+   * Stores the BOLT11 + payment hash; no on-chain wallet/address.
+   */
+  async createLightningInvoice(merchantId, { amountFiat, amountCrypto, memo = '', expirySec = 900 } = {}) {
+    if (!this.lightningEnabled()) throw new Error('Lightning non configuré sur ce bot.');
+
+    const existing = (await this.storage.getInvoices(merchantId)).find((i) => i.chain === LN && OPEN.includes(i.status));
+    if (existing) throw new Error('Une facture Lightning est déjà ouverte.');
+
+    const invoice = await createInvoice({ merchantId, chain: LN, symbol: 'BTC', amountFiat, amountCrypto, memo, expirySec });
+    const amountSat = Math.max(1, Math.round(invoice.amountCrypto * SATS_PER_BTC));
+    const ln = await this.lightning.createInvoice({ amountSat, description: memo || `Facture ${invoice.id}`, externalId: invoice.id, expirySec });
+    invoice.method = LN;
+    invoice.bolt11 = ln.bolt11;
+    invoice.paymentHash = ln.paymentHash;
+    invoice.amountSat = amountSat;
+    invoice.address = ln.bolt11; // the BOLT11 is what the payer scans
+    await this.storage.addInvoice(merchantId, invoice);
+    logger.info('[Payments] lightning invoice created', { id: invoice.id, amountSat });
+    return invoice;
   }
 
   // The token symbol to read, or null when the asset IS the chain's native coin.
@@ -66,9 +97,20 @@ export class PaymentService {
 
     let next = invoice;
     try {
-      const current = await this._balance(invoice.merchantId, invoice.walletId, invoice.chain, invoice.symbol);
-      const received = Math.max(0, current - (invoice.baseline || 0));
-      next = applyPayment(invoice, received, { confirmed: true, now });
+      let received;
+      let confirmed;
+      if (invoice.chain === LN) {
+        // Lightning: ask the node; payment is instant and final.
+        const r = await this.lightning.lookupIncoming(invoice.paymentHash);
+        received = (r.receivedSat || 0) / SATS_PER_BTC;
+        confirmed = r.isPaid;
+      } else {
+        // On-chain: balance increase on the merchant's own wallet.
+        const current = await this._balance(invoice.merchantId, invoice.walletId, invoice.chain, invoice.symbol);
+        received = Math.max(0, current - (invoice.baseline || 0));
+        confirmed = true;
+      }
+      next = applyPayment(invoice, received, { confirmed, now });
     } catch (e) {
       logger.debug('[Payments] balance check failed', { id: invoice.id, error: e.message });
       next = expireIfDue(invoice, now); // still expire on time even if RPC is down

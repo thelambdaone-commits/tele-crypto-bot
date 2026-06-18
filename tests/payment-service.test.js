@@ -7,10 +7,11 @@ import assert from 'node:assert/strict';
 import { PaymentService } from '../src/modules/payments/payment.service.js';
 import { INVOICE_STATES } from '../src/modules/payments/invoice.service.js';
 
-function harness({ balance = 0, wallets } = {}) {
+function harness({ balance = 0, wallets, lnConfigured = false } = {}) {
   const store = new Map(); // chatId -> invoices[]
   const notes = [];
   let bal = balance;
+  const ln = { paid: false, receivedSat: 0 };
   const storage = {
     getWallets: async () => wallets ?? [{ id: 'eth-1', chain: 'eth', address: '0xMerchant', isCorrupted: false }],
     getInvoices: async (id) => store.get(id) || [],
@@ -23,8 +24,13 @@ function harness({ balance = 0, wallets } = {}) {
   };
   const walletService = { getBalance: async () => ({ balance: String(bal) }) };
   const bot = { telegram: { sendMessage: async (id, text) => notes.push({ id, text }) } };
-  const svc = new PaymentService(storage, walletService, bot);
-  return { svc, store, notes, setBalance: (v) => { bal = v; } };
+  const lightning = {
+    isConfigured: () => lnConfigured,
+    createInvoice: async ({ amountSat, externalId }) => ({ bolt11: `lnbc${amountSat}`, paymentHash: `ph-${externalId}`, amountSat }),
+    lookupIncoming: async () => (ln.paid ? { isPaid: true, receivedSat: ln.receivedSat } : { isPaid: false, receivedSat: 0 }),
+  };
+  const svc = new PaymentService(storage, walletService, bot, { lightning });
+  return { svc, store, notes, ln, setBalance: (v) => { bal = v; } };
 }
 
 test('createInvoice attaches the merchant address + baseline and persists', async () => {
@@ -72,6 +78,39 @@ test('checkInvoice marks underpayment as processing (no false settle)', async ()
   assert.equal(cur.status, INVOICE_STATES.PROCESSING);
   assert.ok(Math.abs(cur.receivedCrypto - 0.4) < 1e-9);
   assert.equal(h.notes.length, 0);
+});
+
+test('createLightningInvoice requires the LN backend to be configured', async () => {
+  const off = harness({ lnConfigured: false });
+  await assert.rejects(() => off.svc.createLightningInvoice(1, { amountCrypto: 0.001 }), /non configuré/i);
+  assert.equal(off.svc.lightningEnabled(), false);
+});
+
+test('createLightningInvoice mints a BOLT11 (sats) and stores the payment hash', async () => {
+  const h = harness({ lnConfigured: true });
+  const inv = await h.svc.createLightningInvoice(1, { amountCrypto: 0.0005 }); // 50_000 sats
+  assert.equal(inv.chain, 'lightning');
+  assert.equal(inv.amountSat, 50000);
+  assert.equal(inv.bolt11, 'lnbc50000');
+  assert.equal(inv.address, 'lnbc50000');
+  assert.match(inv.paymentHash, /^ph-inv-/);
+});
+
+test('lightning invoice settles instantly when the node reports it paid', async () => {
+  const h = harness({ lnConfigured: true });
+  const inv = await h.svc.createLightningInvoice(1, { amountCrypto: 0.0005 });
+  let cur = await h.svc.checkInvoice(inv); // not paid yet
+  assert.equal(cur.status, INVOICE_STATES.NEW);
+  h.ln.paid = true; h.ln.receivedSat = 50000;
+  cur = await h.svc.checkInvoice(cur);
+  assert.equal(cur.status, INVOICE_STATES.SETTLED);
+  assert.equal(h.notes.length, 1);
+});
+
+test('only one open Lightning invoice at a time', async () => {
+  const h = harness({ lnConfigured: true });
+  await h.svc.createLightningInvoice(1, { amountCrypto: 0.0005 });
+  await assert.rejects(() => h.svc.createLightningInvoice(1, { amountCrypto: 0.001 }), /déjà ouverte/);
 });
 
 test('pollOnce checks every merchant open invoice', async () => {

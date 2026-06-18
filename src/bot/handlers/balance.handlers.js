@@ -42,7 +42,7 @@ export function setupBalanceHandlers(bot, storage, walletService) {
     }
   });
 
-  bot.hears('💰 Mes Wallets', async (ctx) => {
+  bot.hears(['💰 Wallets', '💰 Mes Wallets'], async (ctx) => {
     const wallets = await storage.getWallets(ctx.chat.id);
     ctx.reply('💰 <b>Tes Wallets</b>', {
       parse_mode: 'HTML',

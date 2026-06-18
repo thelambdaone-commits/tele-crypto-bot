@@ -157,6 +157,7 @@ export function setupSendTextInput(bot, storage, walletService, sessions) {
       if (
         text.startsWith('/') ||
         [
+          '💰 Wallets',
           '💰 Mes Wallets',
           '💸 Envoyer',
           '💵 Soldes',
