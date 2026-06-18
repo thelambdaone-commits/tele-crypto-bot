@@ -62,9 +62,15 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
   });
 
   // ⚡ Lightning chosen → ask the amount.
-  bot.action('pinv_ln', async (ctx) => {
+  bot.action(CALLBACKS.INVOICE_LN, async (ctx) => {
     await safeAnswerCbQuery(ctx);
-    if (!payments.lightningEnabled()) return;
+    if (!payments.lightningEnabled()) {
+      return safeEditMessage(
+        ctx,
+        "⚡ <b>Lightning indisponible</b>\n\nAucun nœud n'est branché. Configure <code>LN_BACKEND_URL</code> + <code>LN_PASSWORD</code> (phoenixd) pour l'activer.\n\nEn attendant, utilise 💳 <b>Facture</b> (on-chain, 15 chaînes + stablecoins).",
+        { parse_mode: 'HTML', ...mainMenuKeyboard() }
+      );
+    }
     sessions.setData(ctx.chat.id, { invoiceMethod: 'lightning', invoiceSymbol: 'BTC' });
     sessions.setState(ctx.chat.id, STATE);
     await safeEditMessage(

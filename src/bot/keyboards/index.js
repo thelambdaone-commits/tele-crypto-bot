@@ -48,13 +48,14 @@ export function moreMenuKeyboard() {
       Markup.button.callback('💳 Facture', CALLBACKS.INVOICE_START),
     ],
     [
+      Markup.button.callback('⚡ Lightning', CALLBACKS.INVOICE_LN),
       Markup.button.callback('🔎 Analyser', CALLBACKS.ANALYZE_ADDRESS),
-      Markup.button.callback('🔐 Mes Clés', CALLBACKS.VIEW_KEYS),
     ],
     [
+      Markup.button.callback('🔐 Mes Clés', CALLBACKS.VIEW_KEYS),
       Markup.button.callback('❓ Aide', CALLBACKS.HELP_MENU),
-      Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU),
     ],
+    [Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)],
   ]);
 }
 

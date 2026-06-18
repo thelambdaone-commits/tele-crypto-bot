@@ -10,6 +10,7 @@ export const CALLBACKS = {
   CANCEL: 'cancel',
   MORE_MENU: 'more_menu',
   INVOICE_START: 'invoice_start',
+  INVOICE_LN: 'pinv_ln',
 
   // Wallet
   LIST_WALLETS: 'list_wallets',
