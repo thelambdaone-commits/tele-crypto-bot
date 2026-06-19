@@ -11,6 +11,7 @@ import { logger } from '../../../shared/logger.js';
 
 const STATE = 'ENTER_INVOICE_AMOUNT';
 const STATUS_EMOJI = { new: '⏳', processing: '🟡', settled: '✅', complete: '✅', expired: '⌛', invalid: '❌' };
+const OPEN_STATUS = ['new', 'processing']; // payable → can be viewed / canceled
 const fmt = (n) => String(Number(Number(n).toPrecision(8)));
 
 // Receiving-method picker: a ⚡ Lightning entry (when the node is up) above the
@@ -40,6 +41,43 @@ function treasuryKeyboard(coldForced) {
  * notifies you. Non-custodial: funds land directly in your wallet.
  */
 export function setupPaymentHandlers(bot, storage, walletService, sessions, payments) {
+  // Render an invoice's QR card (used on creation AND when re-viewing one). Open
+  // invoices also get a 🗑 Annuler button so the merchant can free the slot.
+  const sendInvoiceCard = async (ctx, inv) => {
+    const mins = Math.max(0, Math.round((inv.expiresAt - Date.now()) / 60000));
+    const expLine = mins > 0 ? `⌛ Expire dans ${mins} min` : '⌛ Expirée';
+    const open = OPEN_STATUS.includes(inv.status);
+    let caption;
+    let qr;
+    if (inv.chain === 'lightning') {
+      const dest = await payments.sweepDestination();
+      const destLine = dest
+        ? `💰 Encaissé sur :${dest.label ? ` <b>${escapeHtml(dest.label)}</b>` : ''}\n<code>${escapeHtml(dest.address)}</code>\n`
+        : '';
+      caption =
+        '⚡ <b>Facture Lightning</b>\n━━━━━━━━━━━━━━━\n' +
+        `Montant : <b>${formatEUR(inv.amountFiat)}</b> ≈ <b>${inv.amountSat} sats</b> (${fmt(inv.amountCrypto)} BTC)\n` +
+        `Invoice (BOLT11) :\n<code>${escapeHtml(inv.bolt11)}</code>\n` +
+        `${expLine} · <code>${escapeHtml(inv.id)}</code>\n` +
+        destLine +
+        "\nScanne / envoie l'invoice au client. Règlement <b>instantané</b>. ⚡";
+      qr = await generateAddressQR(inv.bolt11, 'btc', { logoSymbol: 'btc', label: 'Lightning' });
+    } else {
+      caption =
+        '💳 <b>Facture</b>\n━━━━━━━━━━━━━━━\n' +
+        `Montant : <b>${formatEUR(inv.amountFiat)}</b> ≈ <b>${fmt(inv.amountCrypto)} ${inv.symbol}</b>\n` +
+        `Réseau : <b>${escapeHtml(CHAIN_REGISTRY[inv.chain]?.name || inv.chain)}</b>\n` +
+        `Adresse :\n<code>${inv.address}</code>\n` +
+        `${expLine} · <code>${escapeHtml(inv.id)}</code>\n\n` +
+        "Envoie ce QR (ou l'adresse) au client. Tu seras notifié dès réception. 🔔";
+      qr = await generateAddressQR(inv.address, inv.chain);
+    }
+    const rows = [];
+    if (open) rows.push([Markup.button.callback('🗑 Annuler la facture', `inv_cancel_${inv.id}`)]);
+    rows.push([Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)]);
+    await ctx.replyWithPhoto({ source: qr }, { caption, parse_mode: 'HTML', ...Markup.inlineKeyboard(rows) });
+  };
+
   // /invoice — choose which wallet receives.
   bot.command(['invoice', 'facture'], async (ctx) => {
     const wallets = await storage.getWallets(ctx.chat.id);
@@ -177,39 +215,62 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
       const inv = lightning
         ? await payments.createLightningInvoice(ctx.chat.id, { amountFiat: amount })
         : await payments.createInvoice(ctx.chat.id, data.invoiceChain, data.invoiceSymbol, { amountFiat: amount });
-      const mins = Math.max(1, Math.round((inv.expiresAt - Date.now()) / 60000));
-
-      let caption;
-      let qr;
-      if (lightning) {
-        const dest = await payments.sweepDestination();
-        const destLine = dest
-          ? `💰 Encaissé sur :${dest.label ? ` <b>${escapeHtml(dest.label)}</b>` : ''}\n<code>${escapeHtml(dest.address)}</code>\n`
-          : '';
-        caption =
-          '⚡ <b>Facture Lightning</b>\n━━━━━━━━━━━━━━━\n' +
-          `Montant : <b>${formatEUR(inv.amountFiat)}</b> ≈ <b>${inv.amountSat} sats</b> (${fmt(inv.amountCrypto)} BTC)\n` +
-          `Invoice (BOLT11) :\n<code>${escapeHtml(inv.bolt11)}</code>\n` +
-          `⌛ Expire dans ${mins} min · <code>${escapeHtml(inv.id)}</code>\n` +
-          destLine +
-          "\nScanne / envoie l'invoice au client. Règlement <b>instantané</b>. ⚡";
-        qr = await generateAddressQR(inv.bolt11, 'btc', { logoSymbol: 'btc', label: 'Lightning' });
-      } else {
-        caption =
-          '💳 <b>Facture créée</b>\n━━━━━━━━━━━━━━━\n' +
-          `Montant : <b>${formatEUR(inv.amountFiat)}</b> ≈ <b>${fmt(inv.amountCrypto)} ${inv.symbol}</b>\n` +
-          `Réseau : <b>${escapeHtml(CHAIN_REGISTRY[inv.chain]?.name || inv.chain)}</b>\n` +
-          `Adresse :\n<code>${inv.address}</code>\n` +
-          `⌛ Expire dans ${mins} min · <code>${escapeHtml(inv.id)}</code>\n\n` +
-          "Envoie ce QR (ou l'adresse) au client. Tu seras notifié dès réception. 🔔";
-        qr = await generateAddressQR(inv.address, inv.chain);
-      }
-      const invoiceKb = Markup.inlineKeyboard([[Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)]]);
-      await ctx.replyWithPhoto({ source: qr }, { caption, parse_mode: 'HTML', ...invoiceKb });
+      await sendInvoiceCard(ctx, inv);
     } catch (e) {
+      // "Already open" → show the existing one with Voir / Annuler instead of a dead end.
+      if (e.message.includes('déjà ouverte')) {
+        const open = (await payments.getOpenInvoices(ctx.chat.id)).filter((i) =>
+          data.invoiceMethod === 'lightning'
+            ? i.chain === 'lightning'
+            : i.chain === data.invoiceChain && i.symbol === data.invoiceSymbol
+        );
+        const existing = open[0];
+        if (existing) {
+          return ctx.reply(
+            '⚠️ <b>Une facture est déjà ouverte</b> pour cet actif.\nAffiche-la, ou annule-la pour en créer une nouvelle.',
+            {
+              parse_mode: 'HTML',
+              ...Markup.inlineKeyboard([
+                [
+                  Markup.button.callback('👁 Voir', `inv_view_${existing.id}`),
+                  Markup.button.callback('🗑 Annuler', `inv_cancel_${existing.id}`),
+                ],
+                [Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)],
+              ]),
+            }
+          );
+        }
+      }
       logger.warn('[Payments] createInvoice failed', { error: e.message });
       await ctx.reply(`❌ ${escapeHtml(e.message)}`);
     }
+  });
+
+  // Re-display an existing invoice (its BOLT11/address + QR).
+  bot.action(/^inv_view_(.+)$/, async (ctx) => {
+    await safeAnswerCbQuery(ctx);
+    const inv = (await storage.getInvoices(ctx.chat.id)).find((i) => i.id === ctx.match[1]);
+    if (!inv) return ctx.reply('🤷 Facture introuvable.');
+    await sendInvoiceCard(ctx, inv);
+  });
+
+  // Cancel an open invoice → frees the slot; offer to create a fresh one.
+  bot.action(/^inv_cancel_(.+)$/, async (ctx) => {
+    await safeAnswerCbQuery(ctx);
+    let canceled;
+    try {
+      canceled = await payments.cancelInvoice(ctx.chat.id, ctx.match[1]);
+    } catch (e) {
+      return ctx.reply(`❌ ${escapeHtml(e.message)}`);
+    }
+    const recreate =
+      canceled.chain === 'lightning'
+        ? Markup.button.callback('⚡ Nouvelle facture Lightning', CALLBACKS.INVOICE_LN)
+        : Markup.button.callback('💳 Nouvelle facture', CALLBACKS.INVOICE_START);
+    await ctx.reply('🗑 <b>Facture annulée.</b>\nTu peux en créer une nouvelle.', {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard([[recreate], [Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)]]),
+    });
   });
 
   // /invoices — my recent invoices + their status (+ Lightning balance if any).
@@ -223,7 +284,16 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     const lines = list.map(
       (i) => `${STATUS_EMOJI[i.status] || '•'} ${fmt(i.amountCrypto)} ${i.symbol} · ${i.status} · <code>${escapeHtml(i.id.slice(4, 20))}</code>`
     );
-    await ctx.reply(head + '🧾 <b>Mes factures</b>\n\n' + lines.join('\n'), { parse_mode: 'HTML' });
+    const openInvoices = list.filter((i) => OPEN_STATUS.includes(i.status));
+    const rows = openInvoices.map((i) => [
+      Markup.button.callback(`👁 ${i.chain === 'lightning' ? '⚡' : i.symbol} ${fmt(i.amountCrypto)}`, `inv_view_${i.id}`),
+      Markup.button.callback('🗑 Annuler', `inv_cancel_${i.id}`),
+    ]);
+    rows.push([Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)]);
+    await ctx.reply(
+      head + '🧾 <b>Mes factures</b>\n\n' + lines.join('\n') + (openInvoices.length ? '\n\n👇 Factures ouvertes :' : ''),
+      { parse_mode: 'HTML', ...Markup.inlineKeyboard(rows) }
+    );
   });
 
   // /treasury (admin) — node balance, recent payouts, manual sweep.

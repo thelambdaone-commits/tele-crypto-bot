@@ -191,6 +191,26 @@ export class PaymentService {
     return invoice;
   }
 
+  /** Still-open (payable) invoices for a merchant — status new/processing. */
+  async getOpenInvoices(merchantId) {
+    return (await this.storage.getInvoices(merchantId)).filter((i) => OPEN.includes(i.status));
+  }
+
+  /**
+   * Cancel a still-open invoice (→ invalid) so the merchant can create a fresh
+   * one (the per-asset "already open" lock then clears). No-op-safe: refuses if
+   * the invoice is missing or already closed.
+   */
+  async cancelInvoice(merchantId, invoiceId) {
+    const inv = (await this.storage.getInvoices(merchantId)).find((i) => i.id === invoiceId);
+    if (!inv) throw new Error('Facture introuvable.');
+    if (!OPEN.includes(inv.status)) throw new Error('Cette facture n’est plus ouverte.');
+    const canceled = { ...inv, status: INVOICE_STATES.INVALID, canceledAt: new Date().toISOString() };
+    await this.storage.updateInvoice(merchantId, canceled);
+    logger.info('[Payments] invoice canceled', { id: invoiceId, chain: inv.chain });
+    return canceled;
+  }
+
   /** Re-check one invoice against the chain; persist + notify on a state change. */
   async checkInvoice(invoice, now = Date.now()) {
     if (!OPEN.includes(invoice.status)) return invoice;

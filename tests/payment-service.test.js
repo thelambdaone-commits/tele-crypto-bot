@@ -141,6 +141,32 @@ test('only one open Lightning invoice at a time', async () => {
   await assert.rejects(() => h.svc.createLightningInvoice(1, { amountCrypto: 0.001 }), /déjà ouverte/);
 });
 
+test('cancelInvoice frees the slot so a new Lightning invoice can be created', async () => {
+  const h = harness({ lnConfigured: true });
+  const inv = await h.svc.createLightningInvoice(1, { amountCrypto: 0.0005 });
+  await assert.rejects(() => h.svc.createLightningInvoice(1, { amountCrypto: 0.001 }), /déjà ouverte/);
+  const canceled = await h.svc.cancelInvoice(1, inv.id);
+  assert.equal(canceled.status, 'invalid');
+  const inv2 = await h.svc.createLightningInvoice(1, { amountCrypto: 0.001 }); // now allowed
+  assert.ok(inv2.id && inv2.id !== inv.id);
+});
+
+test('getOpenInvoices returns only open invoices; cancelling removes one', async () => {
+  const h = harness({ lnConfigured: true });
+  const inv = await h.svc.createLightningInvoice(1, { amountCrypto: 0.0005 });
+  assert.deepEqual((await h.svc.getOpenInvoices(1)).map((i) => i.id), [inv.id]);
+  await h.svc.cancelInvoice(1, inv.id);
+  assert.equal((await h.svc.getOpenInvoices(1)).length, 0);
+});
+
+test('cancelInvoice rejects an unknown id or an already-closed invoice', async () => {
+  const h = harness({ lnConfigured: true });
+  await assert.rejects(() => h.svc.cancelInvoice(1, 'nope'), /introuvable/);
+  const inv = await h.svc.createLightningInvoice(1, { amountCrypto: 0.0005 });
+  await h.svc.cancelInvoice(1, inv.id);
+  await assert.rejects(() => h.svc.cancelInvoice(1, inv.id), /plus ouverte/);
+});
+
 test('settling a Lightning invoice credits the merchant internal balance', async () => {
   const h = harness({ lnConfigured: true });
   const inv = await h.svc.createLightningInvoice(1, { amountCrypto: 0.0005 }); // 50_000 sats
