@@ -23,7 +23,7 @@ npm start
 | 💳 Wallets | Creation, import (cle privee / seed) et derivation depuis une seed existante |
 | 💸 Transferts | Estimation dynamique des frais, envoi de tokens (USDC/USDT) |
 | 🔄 Échange sans KYC | Échange cross-chain **keyless** (Trocador AnonPay) : depuis le menu ou un wallet, devis + frais affichés, adresse de réception pré-remplie. Repli SimpleSwap. `/swaps` `/list` |
-| 💳 Payment gateway | Factures crypto **non-custodial** (BTCPay-style) : `/invoice` → adresse + QR, surveillance auto, notif au paiement. **⚡ Lightning** (BOLT11, instantané) si un nœud phoenixd est branché. `/invoices` |
+| 💳 Payment gateway | Factures crypto **non-custodial** (BTCPay-style) : `/invoice` → adresse + QR, surveillance auto, notif au paiement. **⚡ Lightning** (BOLT11, instantané) si un nœud phoenixd est branché, avec choix du wallet BTC de réception. Annuler / revoir / recréer une facture (`/invoices`). Trésorerie admin (`/treasury`) : sweep + sélection du wallet |
 | 🔍 Analyse | Detection auto d'adresse + scan multi-EVM (solde, tokens, historique, valeur EUR) |
 | 💵 Prix EUR | CoinGecko integre (`/price`, `/gas`, `/graph`) — tous les coins/tokens pricés |
 | 🔐 Privacy | Monero & Zcash via Tor (optionnel) |

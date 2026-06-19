@@ -456,6 +456,26 @@ export class StorageService {
     });
   }
 
+  /**
+   * Atomically patch an invoice only if its current status is in `allowedStatuses`
+   * (re-checked under the per-user lock). Closes the cancel-vs-settle race where a
+   * stale pre-lock snapshot could overwrite a just-settled invoice.
+   * Returns `{ ok, reason?, invoice? }`.
+   */
+  async updateInvoiceIfStatus(chatId, invoiceId, allowedStatuses, patch) {
+    return this._withLock(chatId, async () => {
+      const data = await this.loadUserData(chatId);
+      const list = data.invoices || [];
+      const i = list.findIndex((x) => x.id === invoiceId);
+      if (i === -1) return { ok: false, reason: 'not-found' };
+      if (!allowedStatuses.includes(list[i].status)) return { ok: false, reason: 'status', invoice: list[i] };
+      list[i] = { ...list[i], ...patch };
+      data.invoices = list;
+      await this.saveUserData(chatId, data);
+      return { ok: true, invoice: list[i] };
+    });
+  }
+
   // ── Lightning internal balance (per merchant) — accounting, decoupled from the
   // physical node funds. Credited on settlement; the treasury sweep is separate.
   async creditLnBalance(chatId, sat) {

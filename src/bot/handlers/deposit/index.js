@@ -19,7 +19,7 @@ import {
 import { generateAddressQR } from '../../../shared/qr.js';
 import { buildPaymentURI } from '../../../shared/payment-uri.js';
 import { logger } from '../../../shared/logger.js';
-import { CHAIN_EMOJIS } from '../../ui/formatters.js';
+import { CHAIN_EMOJIS, truncateAddress } from '../../ui/formatters.js';
 // EVM chains share one address, so any EVM wallet can receive on any of them.
 import { EVM_CHAINS } from '../../../shared/chains.js';
 
@@ -47,8 +47,7 @@ export async function eligibleDepositWallets(storage, chatId, chain) {
   return list;
 }
 
-const shortAddr = (a) => (a && a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
-const walletLabel = (w) => w.label || `${String(w.chain).toUpperCase()} ${shortAddr(w.address)}`;
+const walletLabel = (w) => w.label || `${String(w.chain).toUpperCase()} ${truncateAddress(w.address, 6, 4)}`;
 
 // Fee tier per network, to steer users toward a cheap/right network when an
 // asset (especially a stablecoin) exists on several chains.

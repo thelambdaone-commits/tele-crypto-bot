@@ -28,6 +28,12 @@ function harness({ balance = 0, wallets, lnConfigured = false, sweep, nodeBalanc
       const l = store.get(id) || []; const i = l.findIndex((x) => x.id === inv.id);
       if (i === -1) return false; l[i] = inv; store.set(id, l); return true;
     },
+    updateInvoiceIfStatus: async (id, invId, allowed, patch) => {
+      const l = store.get(id) || []; const i = l.findIndex((x) => x.id === invId);
+      if (i === -1) return { ok: false, reason: 'not-found' };
+      if (!allowed.includes(l[i].status)) return { ok: false, reason: 'status', invoice: l[i] };
+      l[i] = { ...l[i], ...patch }; store.set(id, l); return { ok: true, invoice: l[i] };
+    },
     getAllUsers: async () => [...store.keys()].map((chatId) => ({ chatId })),
     creditLnBalance: async (id, sat) => { const v = (lnBalances.get(id) || 0) + Math.round(sat); lnBalances.set(id, v); return v; },
     getLnBalance: async (id) => lnBalances.get(id) || 0,
@@ -165,6 +171,16 @@ test('cancelInvoice rejects an unknown id or an already-closed invoice', async (
   const inv = await h.svc.createLightningInvoice(1, { amountCrypto: 0.0005 });
   await h.svc.cancelInvoice(1, inv.id);
   await assert.rejects(() => h.svc.cancelInvoice(1, inv.id), /plus ouverte/);
+});
+
+test('cancelInvoice will not clobber an invoice that settled first (atomic open-check)', async () => {
+  const h = harness({ lnConfigured: true });
+  const inv = await h.svc.createLightningInvoice(1, { amountCrypto: 0.0005 }); // 50_000 sats
+  h.ln.paid = true; h.ln.receivedSat = 50000;
+  await h.svc.checkInvoice(inv); // watcher settles it
+  await assert.rejects(() => h.svc.cancelInvoice(1, inv.id), /plus ouverte/);
+  const stored = (await h.svc.storage.getInvoices(1)).find((i) => i.id === inv.id);
+  assert.equal(stored.status, 'settled'); // NOT overwritten with invalid
 });
 
 test('settling a Lightning invoice credits the merchant internal balance', async () => {

@@ -35,6 +35,17 @@ function treasuryKeyboard(coldForced) {
   return Markup.inlineKeyboard(rows);
 }
 
+// BTC-wallet picker shared by /treasury and the Lightning-invoice flow. `prefix`
+// is the per-wallet callback prefix (treasury_w_ / pinv_lnw_); `back` is the
+// trailing Retour button (its target differs per flow).
+function sweepWalletPickKeyboard(wallets, prefix, back) {
+  const rows = wallets.map((w) => [
+    Markup.button.callback(`${w.active ? '✅ ' : ''}💰 ${w.label}`, `${prefix}${w.id}`),
+  ]);
+  rows.push([back]);
+  return Markup.inlineKeyboard(rows);
+}
+
 /**
  * Payment gateway — merchant UI (Phase 1). Create a crypto invoice on one of your
  * own wallets, get a QR + address; the PaymentService watches for payment and
@@ -134,14 +145,13 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     // it's admin-only and skipped when forced to a cold address or only one wallet.
     const { coldForced, wallets } = await payments.sweepWalletOptions();
     if (isAdmin(ctx) && !coldForced && wallets.length > 1) {
-      const rows = wallets.map((w) => [
-        Markup.button.callback(`${w.active ? '✅ ' : ''}💰 ${w.label}`, `pinv_lnw_${w.id}`),
-      ]);
-      rows.push([Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)]);
       return safeEditMessage(
         ctx,
         '⚡ <b>Facture Lightning</b>\n\nSur quel wallet BTC veux-tu être payé ?\n<i>(destination du balayage Lightning)</i>',
-        { parse_mode: 'HTML', ...Markup.inlineKeyboard(rows) }
+        {
+          parse_mode: 'HTML',
+          ...sweepWalletPickKeyboard(wallets, 'pinv_lnw_', Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)),
+        }
       );
     }
     await askLightningAmount(ctx);
@@ -335,13 +345,12 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     const { coldForced, wallets } = await payments.sweepWalletOptions();
     if (coldForced) return ctx.reply('🔒 Destination forcée par <code>LN_SWEEP_BTC_ADDRESS</code>.', { parse_mode: 'HTML' });
     if (!wallets.length) return ctx.reply('Aucun wallet BTC. Crée-en un avec /gen btc.');
-    const rows = wallets.map((w) => [
-      Markup.button.callback(`${w.active ? '✅ ' : ''}💰 ${w.label}`, `treasury_w_${w.id}`),
-    ]);
-    rows.push([Markup.button.callback('↩️ Retour', 'treasury_open')]);
     await ctx.reply(
       '💰 <b>Wallet de réception Lightning</b>\nOù veux-tu que les sats balayés depuis le nœud soient envoyés ?',
-      { parse_mode: 'HTML', ...Markup.inlineKeyboard(rows) }
+      {
+        parse_mode: 'HTML',
+        ...sweepWalletPickKeyboard(wallets, 'treasury_w_', Markup.button.callback('↩️ Retour', 'treasury_open')),
+      }
     );
   });
 

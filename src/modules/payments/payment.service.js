@@ -202,13 +202,17 @@ export class PaymentService {
    * the invoice is missing or already closed.
    */
   async cancelInvoice(merchantId, invoiceId) {
-    const inv = (await this.storage.getInvoices(merchantId)).find((i) => i.id === invoiceId);
-    if (!inv) throw new Error('Facture introuvable.');
-    if (!OPEN.includes(inv.status)) throw new Error('Cette facture n’est plus ouverte.');
-    const canceled = { ...inv, status: INVOICE_STATES.INVALID, canceledAt: new Date().toISOString() };
-    await this.storage.updateInvoice(merchantId, canceled);
-    logger.info('[Payments] invoice canceled', { id: invoiceId, chain: inv.chain });
-    return canceled;
+    // Atomic open-check + write under the storage lock — a concurrent settle can't
+    // be clobbered by a stale snapshot.
+    const res = await this.storage.updateInvoiceIfStatus(merchantId, invoiceId, OPEN, {
+      status: INVOICE_STATES.INVALID,
+      canceledAt: new Date().toISOString(),
+    });
+    if (!res.ok) {
+      throw new Error(res.reason === 'not-found' ? 'Facture introuvable.' : 'Cette facture n’est plus ouverte.');
+    }
+    logger.info('[Payments] invoice canceled', { id: invoiceId, chain: res.invoice.chain });
+    return res.invoice;
   }
 
   /** Re-check one invoice against the chain; persist + notify on a state change. */
