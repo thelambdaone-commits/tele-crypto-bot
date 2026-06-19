@@ -48,7 +48,7 @@ export function setupBalanceHandlers(bot, storage, walletService) {
 
       ctx.editMessageText(text, {
         parse_mode: 'HTML',
-        ...mainMenuKeyboard(),
+        ...pricesKeyboard(),
       });
     } catch (error) {
       ctx.editMessageText('❌ Erreur lors de la récupération des prix.', mainMenuKeyboard());
