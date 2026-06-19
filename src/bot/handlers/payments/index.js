@@ -46,6 +46,24 @@ function sweepWalletPickKeyboard(wallets, prefix, back) {
   return Markup.inlineKeyboard(rows);
 }
 
+// Edit the current message in place when handling a button tap, else send a fresh
+// one (delete+reply fallback when the message can't be edited, e.g. a photo). Keeps
+// button taps from stacking new messages under the previous screen.
+async function sendOrEdit(ctx, text, extra) {
+  if (ctx.callbackQuery) {
+    try {
+      return await ctx.editMessageText(text, extra);
+    } catch {
+      try {
+        await ctx.deleteMessage();
+      } catch {
+        /* already gone */
+      }
+    }
+  }
+  return ctx.reply(text, extra);
+}
+
 /**
  * Payment gateway — merchant UI (Phase 1). Create a crypto invoice on one of your
  * own wallets, get a QR + address; the PaymentService watches for payment and
@@ -271,13 +289,14 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     try {
       canceled = await payments.cancelInvoice(ctx.chat.id, ctx.match[1]);
     } catch (e) {
-      return ctx.reply(`❌ ${escapeHtml(e.message)}`);
+      return sendOrEdit(ctx, `❌ ${escapeHtml(e.message)}`, { parse_mode: 'HTML' });
     }
     const recreate =
       canceled.chain === 'lightning'
         ? Markup.button.callback('⚡ Nouvelle facture Lightning', CALLBACKS.INVOICE_LN)
         : Markup.button.callback('💳 Nouvelle facture', CALLBACKS.INVOICE_START);
-    await ctx.reply('🗑 <b>Facture annulée.</b>\nTu peux en créer une nouvelle.', {
+    // Replaces the source message (the /invoices list or the invoice card) in place.
+    await sendOrEdit(ctx, '🗑 <b>Facture annulée.</b>\nTu peux en créer une nouvelle.', {
       parse_mode: 'HTML',
       ...Markup.inlineKeyboard([[recreate], [Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)]]),
     });
@@ -312,12 +331,13 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     try {
       st = await payments.treasuryStatus();
     } catch (e) {
-      return ctx.reply(`❌ Nœud injoignable : ${escapeHtml(e.message)}`);
+      return sendOrEdit(ctx, `❌ Nœud injoignable : ${escapeHtml(e.message)}`, { parse_mode: 'HTML' });
     }
-    if (!st.enabled) return ctx.reply('⚡ Lightning non configuré.');
+    if (!st.enabled) return sendOrEdit(ctx, '⚡ Lightning non configuré.', {});
     const pe = { withdrawn: '✅', failed: '❌', pending: '⏳' };
     const lines = st.payouts.map((p) => `${pe[p.status] || '•'} ${p.amountSat} sats · ${p.status}${p.txid ? ` · <code>${escapeHtml(p.txid.slice(0, 14))}</code>` : ''}`);
-    await ctx.reply(
+    await sendOrEdit(
+      ctx,
       '🏦 <b>Trésorerie Lightning</b>\n' +
         `Solde nœud : <b>${st.balanceSat} sats</b>\n` +
         `Seuil de sweep : ${st.thresholdSat} sats\n` +
@@ -343,9 +363,10 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     if (!adminGuard(ctx)) return safeAnswerCbQuery(ctx);
     await safeAnswerCbQuery(ctx);
     const { coldForced, wallets } = await payments.sweepWalletOptions();
-    if (coldForced) return ctx.reply('🔒 Destination forcée par <code>LN_SWEEP_BTC_ADDRESS</code>.', { parse_mode: 'HTML' });
-    if (!wallets.length) return ctx.reply('Aucun wallet BTC. Crée-en un avec /gen btc.');
-    await ctx.reply(
+    if (coldForced) return sendOrEdit(ctx, '🔒 Destination forcée par <code>LN_SWEEP_BTC_ADDRESS</code>.', { parse_mode: 'HTML', ...treasuryBackKb });
+    if (!wallets.length) return sendOrEdit(ctx, 'Aucun wallet BTC. Crée-en un avec /gen btc.', { ...treasuryBackKb });
+    await sendOrEdit(
+      ctx,
       '💰 <b>Wallet de réception Lightning</b>\nOù veux-tu que les sats balayés depuis le nœud soient envoyés ?',
       {
         parse_mode: 'HTML',
@@ -375,7 +396,8 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     if (!adminGuard(ctx)) return safeAnswerCbQuery(ctx);
     await safeAnswerCbQuery(ctx);
     const r = await payments.sweepLightningBalance();
-    await ctx.reply(
+    await sendOrEdit(
+      ctx,
       r.swept
         ? `✅ Balayé ${r.payout.amountSat} sats → trésorerie (txid <code>${escapeHtml(r.payout.txid)}</code>)`
         : `ℹ️ Rien à balayer (${r.reason}${r.balanceSat != null ? ` : ${r.balanceSat} sats` : ''})`,

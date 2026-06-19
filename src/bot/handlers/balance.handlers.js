@@ -83,7 +83,7 @@ export function setupBalanceHandlers(bot, storage, walletService) {
     }
 
     const text = '💰 <b>Soldes de tes Wallets</b>' + await buildBalancesText(walletService, storage, chatId);
-    await ctx.reply(text, { parse_mode: 'HTML' });
+    await ctx.reply(text, { parse_mode: 'HTML', ...mainMenuKeyboard() });
   });
 
   bot.action('refresh_prices', async (ctx) => {
