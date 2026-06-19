@@ -59,7 +59,10 @@ export function setupBalanceHandlers(bot, storage, walletService) {
       await ctx.reply(text, {
         ...Markup.inlineKeyboard([
           [Markup.button.callback('🔄 Recharger', 'refresh_prices')],
-          [Markup.button.callback('❌ Fermer', 'close_message')],
+          [
+            Markup.button.callback('🎮 Menu', 'back_to_menu'),
+            Markup.button.callback('❌ Fermer', 'close_message'),
+          ],
         ]),
       });
     } catch (error) {
@@ -87,7 +90,10 @@ export function setupBalanceHandlers(bot, storage, walletService) {
       await ctx.editMessageText(text, {
         ...Markup.inlineKeyboard([
           [Markup.button.callback('🔄 Recharger', 'refresh_prices')],
-          [Markup.button.callback('❌ Fermer', 'close_message')],
+          [
+            Markup.button.callback('🎮 Menu', 'back_to_menu'),
+            Markup.button.callback('❌ Fermer', 'close_message'),
+          ],
         ]),
       });
     } catch (error) {

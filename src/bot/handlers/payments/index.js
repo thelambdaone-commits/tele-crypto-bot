@@ -1,7 +1,7 @@
 import { Markup } from 'telegraf';
 import { mainMenuKeyboard } from '../../keyboards/index.js';
 import { CALLBACKS } from '../../constants/callbacks.js';
-import { adminGuard } from '../../middlewares/auth.middleware.js';
+import { adminGuard, isAdmin } from '../../middlewares/auth.middleware.js';
 import { safeAnswerCbQuery, safeEditMessage, escapeHtml } from '../../../shared/utils/telegram.js';
 import { generateAddressQR } from '../../../shared/qr.js';
 import { CHAIN_REGISTRY, CHAIN_EMOJIS } from '../../../shared/chains.js';
@@ -30,6 +30,7 @@ function methodKeyboard(wallets, lnEnabled) {
 function treasuryKeyboard(coldForced) {
   const rows = [[Markup.button.callback('🧹 Balayer maintenant', 'treasury_sweep')]];
   if (!coldForced) rows.push([Markup.button.callback('💰 Changer le wallet de réception', 'treasury_pick')]);
+  rows.push([Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)]);
   return Markup.inlineKeyboard(rows);
 }
 
@@ -69,7 +70,18 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     });
   });
 
-  // ⚡ Lightning chosen → ask the amount.
+  // Lightning: set the amount-entry state and prompt for the EUR amount.
+  const askLightningAmount = (ctx) => {
+    sessions.setData(ctx.chat.id, { invoiceMethod: 'lightning', invoiceSymbol: 'BTC' });
+    sessions.setState(ctx.chat.id, STATE);
+    return safeEditMessage(
+      ctx,
+      '⚡ <b>Facture Lightning (BTC)</b>\n\nQuel montant veux-tu recevoir, en <b>EUR</b> ? (ex : 25)',
+      { parse_mode: 'HTML' }
+    );
+  };
+
+  // ⚡ Lightning chosen → (admin) pick the receiving BTC wallet, then the amount.
   bot.action(CALLBACKS.INVOICE_LN, async (ctx) => {
     await safeAnswerCbQuery(ctx);
     if (!payments.lightningEnabled()) {
@@ -79,13 +91,34 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
         { parse_mode: 'HTML', ...mainMenuKeyboard() }
       );
     }
-    sessions.setData(ctx.chat.id, { invoiceMethod: 'lightning', invoiceSymbol: 'BTC' });
-    sessions.setState(ctx.chat.id, STATE);
-    await safeEditMessage(
-      ctx,
-      '⚡ <b>Facture Lightning (BTC)</b>\n\nQuel montant veux-tu recevoir, en <b>EUR</b> ? (ex : 25)',
-      { parse_mode: 'HTML' }
-    );
+    // Lightning funds pool in the node and are swept to ONE on-chain destination.
+    // Choosing the BTC wallet here = setting that (global) sweep destination, so
+    // it's admin-only and skipped when forced to a cold address or only one wallet.
+    const { coldForced, wallets } = await payments.sweepWalletOptions();
+    if (isAdmin(ctx) && !coldForced && wallets.length > 1) {
+      const rows = wallets.map((w) => [
+        Markup.button.callback(`${w.active ? '✅ ' : ''}💰 ${w.label}`, `pinv_lnw_${w.id}`),
+      ]);
+      rows.push([Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)]);
+      return safeEditMessage(
+        ctx,
+        '⚡ <b>Facture Lightning</b>\n\nSur quel wallet BTC veux-tu être payé ?\n<i>(destination du balayage Lightning)</i>',
+        { parse_mode: 'HTML', ...Markup.inlineKeyboard(rows) }
+      );
+    }
+    await askLightningAmount(ctx);
+  });
+
+  // A receiving BTC wallet was chosen for the Lightning invoice → set it, then ask amount.
+  bot.action(/^pinv_lnw_(.+)$/, async (ctx) => {
+    if (!adminGuard(ctx)) return;
+    await safeAnswerCbQuery(ctx);
+    try {
+      await payments.setSweepWallet(ctx.match[1]);
+    } catch (e) {
+      return safeEditMessage(ctx, `❌ ${escapeHtml(e.message)}`, { parse_mode: 'HTML', ...mainMenuKeyboard() });
+    }
+    await askLightningAmount(ctx);
   });
 
   // Ask the EUR amount for a chosen (chain, asset).
@@ -171,7 +204,8 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
           "Envoie ce QR (ou l'adresse) au client. Tu seras notifié dès réception. 🔔";
         qr = await generateAddressQR(inv.address, inv.chain);
       }
-      await ctx.replyWithPhoto({ source: qr }, { caption, parse_mode: 'HTML' });
+      const invoiceKb = Markup.inlineKeyboard([[Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)]]);
+      await ctx.replyWithPhoto({ source: qr }, { caption, parse_mode: 'HTML', ...invoiceKb });
     } catch (e) {
       logger.warn('[Payments] createInvoice failed', { error: e.message });
       await ctx.reply(`❌ ${escapeHtml(e.message)}`);
@@ -193,8 +227,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
   });
 
   // /treasury (admin) — node balance, recent payouts, manual sweep.
-  bot.command(['treasury', 'tresorerie'], async (ctx) => {
-    if (!adminGuard(ctx)) return;
+  const renderTreasury = async (ctx) => {
     let st;
     try {
       st = await payments.treasuryStatus();
@@ -212,6 +245,17 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
         (lines.length ? '<b>Derniers retraits</b>\n' + lines.join('\n') : 'Aucun retrait.'),
       { parse_mode: 'HTML', ...treasuryKeyboard(st.coldForced) }
     );
+  };
+
+  bot.command(['treasury', 'tresorerie'], async (ctx) => {
+    if (!adminGuard(ctx)) return;
+    await renderTreasury(ctx);
+  });
+
+  bot.action('treasury_open', async (ctx) => {
+    if (!adminGuard(ctx)) return safeAnswerCbQuery(ctx);
+    await safeAnswerCbQuery(ctx);
+    await renderTreasury(ctx);
   });
 
   // Picker: choose WHICH BTC wallet receives swept Lightning funds.
@@ -224,11 +268,14 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     const rows = wallets.map((w) => [
       Markup.button.callback(`${w.active ? '✅ ' : ''}💰 ${w.label}`, `treasury_w_${w.id}`),
     ]);
+    rows.push([Markup.button.callback('↩️ Retour', 'treasury_open')]);
     await ctx.reply(
       '💰 <b>Wallet de réception Lightning</b>\nOù veux-tu que les sats balayés depuis le nœud soient envoyés ?',
       { parse_mode: 'HTML', ...Markup.inlineKeyboard(rows) }
     );
   });
+
+  const treasuryBackKb = Markup.inlineKeyboard([[Markup.button.callback('↩️ Trésorerie', 'treasury_open')]]);
 
   bot.action(/^treasury_w_(.+)$/, async (ctx) => {
     if (!adminGuard(ctx)) return safeAnswerCbQuery(ctx);
@@ -238,10 +285,10 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
       await safeEditMessage(
         ctx,
         `✅ Destination du sweep : 💰 <b>${escapeHtml(w.label)}</b>\n<code>${escapeHtml(w.address)}</code>`,
-        { parse_mode: 'HTML' }
+        { parse_mode: 'HTML', ...treasuryBackKb }
       );
     } catch (e) {
-      await ctx.reply(`❌ ${escapeHtml(e.message)}`);
+      await ctx.reply(`❌ ${escapeHtml(e.message)}`, treasuryBackKb);
     }
   });
 
@@ -253,7 +300,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
       r.swept
         ? `✅ Balayé ${r.payout.amountSat} sats → trésorerie (txid <code>${escapeHtml(r.payout.txid)}</code>)`
         : `ℹ️ Rien à balayer (${r.reason}${r.balanceSat != null ? ` : ${r.balanceSat} sats` : ''})`,
-      { parse_mode: 'HTML' }
+      { parse_mode: 'HTML', ...treasuryBackKb }
     );
   });
 }

@@ -16,10 +16,19 @@ export function setupNavigationHandlers(bot, storage, walletService, sessions) {
   // Action: back_to_menu
   bot.action('back_to_menu', async (ctx) => {
     await ctx.answerCbQuery().catch((err) => logger.debug('back_to_menu answerCbQuery failed', { error: err.message }));
-    await safeEditMessage(ctx, '🎮 <b>Menu Principal</b>', {
-      parse_mode: 'HTML',
-      ...mainMenuKeyboard(),
-    });
+    const opts = { parse_mode: 'HTML', ...mainMenuKeyboard() };
+    try {
+      await ctx.editMessageText('🎮 <b>Menu Principal</b>', opts);
+    } catch (e) {
+      // The current message may be a photo (e.g. a QR) — its text can't be
+      // edited, so replace it with a fresh menu message.
+      try {
+        await ctx.deleteMessage();
+      } catch (_) {
+        // already gone
+      }
+      await ctx.reply('🎮 <b>Menu Principal</b>', opts);
+    }
   });
 
   // Action: more_menu — secondary actions behind "☰ Plus"
