@@ -194,6 +194,7 @@ export function setupMarketCommands(bot) {
       if (args.length === 0) {
         // Full list (same as the 📊 Cours button) + a 📈 graph entry point.
         return ctx.reply(formatCryptoPricesEUR(prices), {
+          parse_mode: 'HTML',
           ...Markup.inlineKeyboard([
             [Markup.button.callback('📈 Graphique', 'graph_pick')],
             [Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)],

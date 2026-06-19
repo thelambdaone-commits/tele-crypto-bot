@@ -165,10 +165,12 @@ export const PRICE_GROUPS = [
 // its twin, so intentionally not in PRICE_GROUPS): pol≡matic, bsc≡bnb.
 export const PRICE_ALIASES = new Set(['pol', 'bsc']);
 
+// Sent with parse_mode: 'HTML' — the title and group headers are bold. Coin
+// labels/values are static (no HTML-special chars), so no escaping needed.
 export function formatCryptoPricesEUR(prices, date = new Date()) {
   const body = PRICE_GROUPS.map(
     ([title, coins]) =>
-      `${title}\n` + coins.map(([key, emoji, label]) => `${emoji} ${label} : ${formatEUR(prices[key] || 0)}`).join('\n')
+      `<b>${title}</b>\n` + coins.map(([key, emoji, label]) => `${emoji} ${label} : ${formatEUR(prices[key] || 0)}`).join('\n')
   ).join('\n\n');
-  return `💹 Prix en euros\n\n${body}\n\n🕒 Mis à jour en temps réel le ${formatPriceUpdateDate(date)}`;
+  return `<b>💹 Prix en euros</b>\n\n${body}\n\n🕒 Mis à jour en temps réel le ${formatPriceUpdateDate(date)}`;
 }

@@ -47,6 +47,7 @@ export function setupBalanceHandlers(bot, storage, walletService) {
       const text = formatCryptoPricesEUR(prices);
 
       ctx.editMessageText(text, {
+        parse_mode: 'HTML',
         ...mainMenuKeyboard(),
       });
     } catch (error) {
@@ -68,7 +69,7 @@ export function setupBalanceHandlers(bot, storage, walletService) {
       const prices = await getPricesEUR(true);
       const text = formatCryptoPricesEUR(prices);
 
-      await ctx.reply(text, { ...pricesKeyboard() });
+      await ctx.reply(text, { parse_mode: 'HTML', ...pricesKeyboard() });
     } catch (error) {
       ctx.reply('❌ Erreur lors de la recuperation des prix.');
     }
@@ -91,7 +92,7 @@ export function setupBalanceHandlers(bot, storage, walletService) {
       const prices = await getPricesEUR(true);
       const text = formatCryptoPricesEUR(prices);
 
-      await ctx.editMessageText(text, { ...pricesKeyboard() });
+      await ctx.editMessageText(text, { parse_mode: 'HTML', ...pricesKeyboard() });
     } catch (error) {
       if (error.message && error.message.includes('message is not modified')) {
         return;
