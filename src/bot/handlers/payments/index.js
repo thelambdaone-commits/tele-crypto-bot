@@ -184,7 +184,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
       if (lightning) {
         const dest = await payments.sweepDestination();
         const destLine = dest
-          ? `💰 Encaissé sur : <b>${escapeHtml(dest.label || dest.address)}</b> <code>${escapeHtml(dest.address.slice(0, 8))}…</code>\n`
+          ? `💰 Encaissé sur :${dest.label ? ` <b>${escapeHtml(dest.label)}</b>` : ''}\n<code>${escapeHtml(dest.address)}</code>\n`
           : '';
         caption =
           '⚡ <b>Facture Lightning</b>\n━━━━━━━━━━━━━━━\n' +
