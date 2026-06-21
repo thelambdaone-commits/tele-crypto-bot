@@ -17,9 +17,10 @@ import { TransactionError, ERROR_CODES } from '../../shared/errors.js';
 import { logger } from '../../shared/logger.js';
 import * as bip39 from 'bip39';
 
-// Chains derivable from a SINGLE BIP39 seed. The six EVM chains share one
-// address (same derivation), but each is registered so the user gets a usable
-// wallet on every network. Ordered for display (EVM first, grouped).
+// Chains derivable from a SINGLE BIP39 seed. The seven EVM chains
+// (eth/arb/matic/op/base/avax/bsc) share one address (same derivation), but
+// each is registered so the user gets a usable wallet on every network.
+// Ordered for display (EVM first, grouped).
 const FIRST_WALLET_CHAINS = [
   'eth',
   'arb',
