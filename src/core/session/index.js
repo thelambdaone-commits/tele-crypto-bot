@@ -36,6 +36,19 @@ export class SessionManager {
     }, 5 * 60 * 1000);
     this._cleanupInterval.unref();
 
+    // Persist in-flight multi-step state (send/import/analyze) to the encrypted
+    // store on a short cadence. Without this, flush only ran on session expiry
+    // or a clean stop(), so a crash/kill -9 lost everything since the last
+    // cleanup — defeating the restart-recovery the file store exists for.
+    this._flushInterval = setInterval(async () => {
+      try {
+        await this.flush();
+      } catch (e) {
+        logger.warn('Session flush failed', { error: e.message });
+      }
+    }, 30 * 1000);
+    this._flushInterval.unref();
+
     logger.debug('SessionManager started');
   }
 
@@ -45,6 +58,8 @@ export class SessionManager {
   async stop() {
     clearInterval(this._cleanupInterval);
     this._cleanupInterval = null;
+    clearInterval(this._flushInterval);
+    this._flushInterval = null;
     this._started = false;
     await this.flush();
     logger.debug('SessionManager stopped');
