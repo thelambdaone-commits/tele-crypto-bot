@@ -83,7 +83,7 @@ export const config = {
     arb: vault.get('arbRpc') || process.env.ARB_RPC_URL || 'https://arb1.arbitrum.io/rpc',
     ltcApi: vault.get('ltcApi') || process.env.LTC_API_URL || 'https://litecoinspace.org/api',
     bchApi: vault.get('bchApi') || process.env.BCH_API_URL || 'https://api.blockchain.info/bch',
-    matic: vault.get('maticRpc') || process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com',
+    matic: vault.get('maticRpc') || process.env.POLYGON_RPC_URL || 'https://polygon-bor-rpc.publicnode.com',
     op: vault.get('opRpc') || process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io',
     base: vault.get('baseRpc') || process.env.BASE_RPC_URL || 'https://mainnet.base.org',
     bsc: vault.get('bscRpc') || process.env.BSC_RPC_URL || 'https://bsc-dataseed.binance.org',
