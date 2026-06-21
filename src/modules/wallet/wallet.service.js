@@ -303,6 +303,24 @@ export class WalletService {
       });
     }
 
+    // For NATIVE sends, the network fee comes out of the same balance, so
+    // amount + fee must fit — otherwise the build fails late (e.g. "send max").
+    // Token sends pay gas in the native coin (a separate balance) so they're
+    // skipped here. We only subtract a fee we can read in NATIVE units without
+    // ambiguity (estimatedFee for EVM/BTC/BCH/TON, feeSOL for Solana); chains
+    // whose tiers express fees in sats/atomic units fall through unchanged
+    // rather than risk a false "insufficient" that blocks a valid send.
+    if (!tokenSymbol) {
+      const tier = fees?.average || fees?.slow;
+      const nativeFee = Number.parseFloat(tier?.estimatedFee ?? tier?.feeSOL);
+      if (Number.isFinite(nativeFee) && nativeFee > 0 && parsedAmount + nativeFee > balanceNum) {
+        throw new TransactionError('Solde insuffisant (frais de réseau inclus)', {
+          code: ERROR_CODES.INSUFFICIENT_FUNDS,
+          chain: wallet.chain,
+        });
+      }
+    }
+
     return {
       wallet,
       chainHandler,
