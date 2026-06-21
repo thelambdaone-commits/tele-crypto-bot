@@ -87,6 +87,12 @@ test('checkInvoice settles on a balance delta ≥ amount and notifies the mercha
   assert.equal(h.notes.length, 0);
   // customer pays 0.1 → balance 5 → 5.1
   h.setBalance(5.1);
+  // First sighting only moves to processing (soft 1-confirmation: the credited
+  // delta must persist across two polls before we settle 0-conf-safely).
+  cur = await h.svc.checkInvoice(cur);
+  assert.equal(cur.status, INVOICE_STATES.PROCESSING);
+  assert.equal(h.notes.length, 0);
+  // Second poll still sees the funds → settle + notify.
   cur = await h.svc.checkInvoice(cur);
   assert.equal(cur.status, INVOICE_STATES.SETTLED);
   assert.equal(cur.receivedCrypto, 0.1 + 5 - 5); // ~0.1 within fp
@@ -380,6 +386,8 @@ test('pollOnce checks every merchant open invoice', async () => {
   const h = harness({ balance: 0 });
   await h.svc.createInvoice(7, 'eth', 'ETH', { amountCrypto: 1 });
   h.setBalance(1);
+  // Two cycles: first confirms the delta (→ processing), second settles.
+  await h.svc.pollOnce();
   await h.svc.pollOnce();
   const inv = (h.store.get(7) || [])[0];
   assert.equal(inv.status, INVOICE_STATES.SETTLED);

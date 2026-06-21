@@ -229,10 +229,17 @@ export class PaymentService {
         received = (r.receivedSat || 0) / SATS_PER_BTC;
         confirmed = r.isPaid;
       } else {
-        // On-chain: balance increase on the merchant's own wallet.
+        // On-chain: balance increase on the merchant's own wallet. Require the
+        // credited delta to PERSIST across two poll cycles before settling: the
+        // first sighting only moves the invoice to `processing`, and we settle
+        // once a later poll still sees enough. This is a soft 1-confirmation
+        // that guards against 0-conf reorgs and transient balance blips
+        // (settlement is irreversible, so we trade ~one cycle of latency).
         const current = await this._balance(invoice.merchantId, invoice.walletId, invoice.chain, invoice.symbol);
         received = Math.max(0, current - (invoice.baseline || 0));
-        confirmed = true;
+        const required = invoice.amountCrypto * (1 - invoice.underpayTolerance);
+        confirmed =
+          invoice.status === INVOICE_STATES.PROCESSING && (invoice.receivedCrypto || 0) >= required;
       }
       next = applyPayment(invoice, received, { confirmed, now });
     } catch (e) {
