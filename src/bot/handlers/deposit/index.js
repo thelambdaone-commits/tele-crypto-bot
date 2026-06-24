@@ -61,6 +61,7 @@ const FEE_HINT = {
   bsc: { emoji: '🟢', label: 'frais bas' },
   sol: { emoji: '🟢', label: 'frais quasi nuls' },
   trx: { emoji: '🟢', label: 'frais bas' },
+  ton: { emoji: '🟢', label: 'frais bas' },
 };
 
 const feeEmoji = (chain) => FEE_HINT[chain]?.emoji || '';

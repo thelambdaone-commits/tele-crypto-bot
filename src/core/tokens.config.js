@@ -15,6 +15,8 @@
  * deployment on that chain (only a bridged contract exists).
  */
 
+import { NATIVE_ICON, SUPPORTED_CHAINS } from '../shared/chains.js';
+
 export const TOKEN_CONFIGS = {
   sol: {
     name: 'Solana',
@@ -430,19 +432,9 @@ export function getTokenLabel(chain, symbol) {
   return token.standard ? `${symbol} (${token.standard})` : symbol;
 }
 
-// Display icons for native coins (token icons live on the token entries).
-const NATIVE_ICONS = {
-  BTC: '₿',
-  ETH: 'Ξ',
-  SOL: '◎',
-  TRX: '🟥',
-  MATIC: '⬡',
-  AVAX: '🔺',
-  LTC: 'Ł',
-  BCH: '🅑',
-  XMR: 'ɱ',
-  ZEC: 'Ⓩ',
-};
+// Display icons for native coins — derived from the chain registry (token icons
+// live on the token entries). A new chain's glyph flows in automatically.
+const NATIVE_ICONS = NATIVE_ICON;
 
 // Preferred display order for the deposit asset picker (anything not listed
 // falls to the end, keeping the menu stable as new tokens are added).
@@ -450,7 +442,9 @@ const ASSET_DISPLAY_ORDER = [
   'BTC',
   'ETH',
   'SOL',
+  'TON',
   'TRX',
+  'BNB',
   'USDT',
   'USDC',
   'MATIC',
@@ -481,6 +475,7 @@ const NETWORK_ORDER = [
   'bsc',
   'sol',
   'trx',
+  'ton',
   'btc',
   'ltc',
   'bch',
@@ -519,9 +514,13 @@ export function getAssetNetworks(symbol) {
       });
     }
   }
+  // Explicit preference first; any chain not listed falls back to registry order
+  // (after the explicit ones) so a newly added network still sorts deterministically.
   const rank = (c) => {
     const i = NETWORK_ORDER.indexOf(c);
-    return i === -1 ? NETWORK_ORDER.length : i;
+    if (i !== -1) return i;
+    const r = SUPPORTED_CHAINS.indexOf(c);
+    return NETWORK_ORDER.length + (r === -1 ? SUPPORTED_CHAINS.length : r);
   };
   return out.sort((a, b) => rank(a.chain) - rank(b.chain));
 }

@@ -6,20 +6,17 @@ import {
 import { detectChain } from '../../../shared/address-detector.js';
 import { convertToEUR, formatEUR } from '../../../shared/price.js';
 import { getTokenExplorerUrl } from '../../../shared/explorer.js';
-import { SUPPORTED_CHAINS } from '../../../shared/chains.js';
+import { SUPPORTED_CHAINS, NETWORK_LABEL, CHAIN_EMOJIS, isEvmChain } from '../../../shared/chains.js';
 import { handleSendError } from './helpers.js';
 
 // EVM addresses (0x…) are identical across all EVM networks, so an analyzed
-// 0x address is scanned on each of these and reported per-network.
-const EVM_NETWORKS = [
-  { chain: 'eth', name: 'Ethereum', emoji: 'Ξ' },
-  { chain: 'base', name: 'Base', emoji: '🟦' },
-  { chain: 'op', name: 'Optimism', emoji: '🔴' },
-  { chain: 'matic', name: 'Polygon', emoji: '⬡' },
-  { chain: 'arb', name: 'Arbitrum', emoji: '🔵' },
-  { chain: 'avax', name: 'Avalanche', emoji: '🔺' },
-  { chain: 'bsc', name: 'BNB Chain', emoji: '🟡' },
-];
+// 0x address is scanned on each of these and reported per-network. Derived from
+// the registry — a new EVM chain is swept automatically.
+const EVM_NETWORKS = SUPPORTED_CHAINS.filter(isEvmChain).map((chain) => ({
+  chain,
+  name: NETWORK_LABEL[chain],
+  emoji: CHAIN_EMOJIS[chain],
+}));
 
 /**
  * Build the native-balance + tokens section for one chain.
@@ -125,7 +122,9 @@ export function setupSendTextInput(bot, storage, walletService, sessions) {
           return ctx.reply(`💸 Solde insuffisant (${balanceData.balance} ${balanceData.symbol})`);
         }
 
-        sessions.setData(chatId, { ...data, amount });
+        // A manually typed amount is never a sweep — clear any stale flag from a
+        // prior "Tout envoyer" so the SOL max-send path isn't wrongly triggered.
+        sessions.setData(chatId, { ...data, amount, isMaxSend: false });
 
         const fees = await walletService.estimateFees(
           chatId,

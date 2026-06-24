@@ -9,6 +9,13 @@ import { escapeHtml, scheduleSecureDelete, safeAnswerCbQuery } from '../../../sh
 import { isAdmin } from '../../middlewares/auth.middleware.js';
 import { sendWalletKeysFile } from '../wallet/key-file.js';
 import { separator, CHAIN_EMOJIS } from '../../ui/index.js';
+import { SUPPORTED_CHAINS, NETWORK_LABEL, isEvmChain } from '../../../shared/chains.js';
+
+// Onboarding reveal groups — derived from the registry so a new chain shows up
+// automatically. EVM chains share one address line; every other chain (except
+// Monero, which has its own seed and is rendered separately) gets its own line.
+const EVM_REVEAL_CHAINS = SUPPORTED_CHAINS.filter(isEvmChain);
+const NON_EVM_REVEAL_CHAINS = SUPPORTED_CHAINS.filter((c) => !isEvmChain(c) && c !== 'xmr');
 
 // Welcome video shown once, on a brand-new user's first /start. Resolved from
 // the project root. The Telegram file_id is cached after the first upload so we
@@ -75,14 +82,6 @@ async function notifyAdminNewUser(ctx, chatId, userName, username) {
   }
 }
 
-const REVEAL_CHAIN_NAMES = {
-  btc: 'Bitcoin',
-  ltc: 'Litecoin',
-  bch: 'Bitcoin Cash',
-  sol: 'Solana',
-  trx: 'Tron',
-  zec: 'Zcash',
-};
 
 /**
  * One-time onboarding reveal. A single BIP39 phrase backs every main chain
@@ -109,15 +108,15 @@ function buildOnboardingReveal(mnemonic, wallets) {
 
   const evm = byChain('eth');
   if (evm) {
-    lines.push('Ξ <b>EVM</b> · ETH · Arbitrum · Polygon · Optimism · Base · Avalanche');
+    lines.push(`Ξ <b>EVM</b> · ${EVM_REVEAL_CHAINS.map((c) => NETWORK_LABEL[c]).join(' · ')}`);
     lines.push(`<code>${evm.address}</code>`);
     lines.push('');
   }
 
-  for (const chain of ['btc', 'ltc', 'bch', 'sol', 'trx', 'zec']) {
+  for (const chain of NON_EVM_REVEAL_CHAINS) {
     const wallet = byChain(chain);
     if (!wallet) continue;
-    lines.push(`${CHAIN_EMOJIS[chain] || '🔗'} <b>${REVEAL_CHAIN_NAMES[chain]}</b>`);
+    lines.push(`${CHAIN_EMOJIS[chain] || '🔗'} <b>${NETWORK_LABEL[chain]}</b>`);
     lines.push(`<code>${wallet.address}</code>`);
     lines.push('');
   }

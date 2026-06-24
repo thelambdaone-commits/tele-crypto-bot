@@ -14,14 +14,7 @@
  *  - UTXO/others: BIP-21-style scheme  `bitcoin:<addr>`, `litecoin:<addr>`, ...
  */
 
-const EVM_CHAIN_IDS = {
-  eth: 1,
-  op: 10,
-  arb: 42161,
-  matic: 137,
-  base: 8453,
-  avax: 43114,
-};
+import { EVM_CHAIN_IDS } from './chains.js';
 
 // Single-asset chains whose address maps to a simple URI scheme.
 const SIMPLE_SCHEMES = {

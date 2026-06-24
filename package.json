@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Telegram multi-chain crypto wallet bot (14 chains incl. TON) with a keyless, no-KYC cross-chain exchange",
+  "description": "Telegram multi-chain crypto wallet bot (15 chains incl. TON) with a keyless, no-KYC cross-chain exchange",
   "scripts": {
     "precheck": "node scripts/precheck.js",
     "check:exports": "node scripts/check-exports.js",

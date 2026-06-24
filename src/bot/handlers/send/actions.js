@@ -229,25 +229,43 @@ export function setupSendActions(bot, storage, walletService, sessions) {
       );
       const estimatedFee = fees.slow.estimatedFee || fees.slow.feeSOL || 0;
 
+      // Reserve the LARGEST tier fee, not the slow one: the user still picks the
+      // speed after this step, and estimateAndValidate() re-checks the balance
+      // against the `average` tier. Subtracting only the slow fee here makes
+      // `amount + average_fee` overshoot the balance and trips a false
+      // "Solde insuffisant" on every "Tout envoyer". Math.max keeps it correct
+      // whatever tier ends up being selected/validated.
+      const solReserveLamports = Math.max(
+        Number(fees.slow?.fee) || 0,
+        Number(fees.average?.fee) || 0,
+        Number(fees.fast?.fee) || 0,
+        5000
+      );
+
       const balance = data.currentBalance;
       let amount;
+      // True "send everything" sweep (0 dust). Only set for native SOL, where
+      // the provider can compute the exact fee and leave the wallet at 0.
+      let isMaxSend = false;
 
       if (type === 'all') {
-        if (data.selectedChain === 'sol' && data.currentBalanceLamports) {
-          const feeLamports = fees.slow.fee || 5000;
-          const amountLamports = Math.max(0, Number(data.currentBalanceLamports) - feeLamports);
+        if (data.selectedChain === 'sol' && !tokenSymbol && data.currentBalanceLamports) {
+          // Provisional sweep estimate (balance − base fee); the exact amount
+          // for the chosen speed is locked in the fee_ handler, and the provider
+          // does the authoritative balance − exact-fee sweep at broadcast.
+          const amountLamports = Math.max(0, Number(data.currentBalanceLamports) - 5000);
           amount = amountLamports / 1e9;
+          isMaxSend = true;
         } else if (tokenSymbol) {
           amount = balance;
         } else {
           amount = Math.max(0, balance - Number.parseFloat(estimatedFee));
         }
       } else if (type === '50') {
-        if (data.selectedChain === 'sol' && data.currentBalanceLamports) {
-          const feeLamports = fees.slow.fee || 5000;
+        if (data.selectedChain === 'sol' && !tokenSymbol && data.currentBalanceLamports) {
           const amountLamports = Math.max(
             0,
-            Math.floor(Number(data.currentBalanceLamports) * 0.5) - Math.floor(feeLamports * 0.5)
+            Math.floor(Number(data.currentBalanceLamports) * 0.5) - solReserveLamports
           );
           amount = amountLamports / 1e9;
         } else if (tokenSymbol) {
@@ -265,7 +283,7 @@ export function setupSendActions(bot, storage, walletService, sessions) {
         );
       }
 
-      sessions.updateData(chatId, { amount });
+      sessions.updateData(chatId, { amount, isMaxSend });
 
       const actualFees = await walletService.estimateFees(
         chatId,
@@ -327,6 +345,24 @@ export function setupSendActions(bot, storage, walletService, sessions) {
     const actualFeeLevel = feeLevel === 'auto' ? 'slow' : feeLevel;
     sessions.updateData(chatId, { feeLevel: actualFeeLevel });
 
+    // For a SOL sweep, lock the amount to the exact balance − fee for the chosen
+    // speed so the confirmation shows precisely what's sent (0 dust remainder).
+    if (data.isMaxSend && data.selectedChain === 'sol' && !data.selectedToken) {
+      try {
+        const max = await walletService.getMaxSendable(
+          chatId,
+          data.selectedWalletId,
+          actualFeeLevel
+        );
+        if (max && max.lamports > 0) {
+          sessions.updateData(chatId, { amount: max.amount });
+          data.amount = max.amount;
+        }
+      } catch {
+        // Keep the provisional amount; the provider still sweeps exactly at send.
+      }
+    }
+
     const text = await formatTxDetails(data, actualFeeLevel);
 
     sessions.setState(chatId, 'CONFIRM_SEND');
@@ -358,13 +394,15 @@ export function setupSendActions(bot, storage, walletService, sessions) {
         parse_mode: 'HTML',
       });
 
+      const sendMax = !!data.isMaxSend && data.selectedChain === 'sol' && !tokenSymbol;
       const result = await walletService.sendTransaction(
         chatId,
         data.selectedWalletId,
         data.toAddress,
         data.amount,
         data.feeLevel,
-        tokenSymbol
+        tokenSymbol,
+        { sendMax }
       );
 
       await storage.completePendingTransaction(chatId, pendingTxId, result.hash);

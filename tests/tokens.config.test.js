@@ -141,8 +141,8 @@ test('getDepositAssets lists majors first and de-dupes by symbol', () => {
   for (const s of ['BTC', 'ETH', 'SOL', 'USDT', 'USDC']) {
     assert.ok(symbols.includes(s), `${s} missing from deposit assets`);
   }
-  // Majors ordered first.
-  assert.deepEqual(symbols.slice(0, 6), ['BTC', 'ETH', 'SOL', 'TRX', 'USDT', 'USDC']);
+  // Majors ordered first (BTC/ETH/SOL, then the other native L1s TON/TRX/BNB).
+  assert.deepEqual(symbols.slice(0, 6), ['BTC', 'ETH', 'SOL', 'TON', 'TRX', 'BNB']);
 });
 
 test('getAssetNetworks(USDT) covers every chain that defines USDT', () => {
