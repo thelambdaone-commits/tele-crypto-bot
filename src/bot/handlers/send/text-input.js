@@ -18,6 +18,13 @@ const EVM_NETWORKS = SUPPORTED_CHAINS.filter(isEvmChain).map((chain) => ({
   emoji: CHAIN_EMOJIS[chain],
 }));
 
+// Networks the analyze flow accepts, for the "address not recognized" hint. The
+// EVM half is derived from EVM_NETWORKS (so a new EVM chain shows up here too);
+// the non-EVM half mirrors the formats detectChain() can resolve.
+const ANALYZE_ACCEPTED_LABELS = ['BTC', 'LTC', 'BCH', 'SOL', 'XMR', 'ZEC', 'TON']
+  .concat(EVM_NETWORKS.map((n) => n.name))
+  .join(', ');
+
 /**
  * Build the native-balance + tokens section for one chain.
  * @returns {Promise<{ text: string, valueEUR: number }>}
@@ -186,9 +193,7 @@ export function setupSendTextInput(bot, storage, walletService, sessions) {
       const chain = detectChain(text);
       if (!chain) {
         logger.warn('Invalid address provided for analysis', { address: text, chatId });
-        return ctx.reply(
-          '⚠️ Adresse non reconnue (ETH, BTC, LTC, BCH, SOL, XMR, ZEC, TON, Arbitrum, Polygon, Optimism, Base, Avalanche acceptés).'
-        );
+        return ctx.reply(`⚠️ Adresse non reconnue (${ANALYZE_ACCEPTED_LABELS} acceptés).`);
       }
 
       // A 0x… address exists identically on every EVM network, so it can't be

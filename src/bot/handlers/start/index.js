@@ -82,7 +82,6 @@ async function notifyAdminNewUser(ctx, chatId, userName, username) {
   }
 }
 
-
 /**
  * One-time onboarding reveal. A single BIP39 phrase backs every main chain
  * (the EVM chains share one address, shown once); Monero is listed with its
