@@ -7,8 +7,14 @@ import {
 import { formatEUR, convertToEUR } from '../../../shared/price.js';
 import { formatNumber, formatCryptoAmount, CHAIN_EMOJIS, truncateAddress } from '../../ui/formatters.js';
 import { sendWalletKeysFile } from '../wallet/key-file.js';
-import { SUPPORTED_CHAINS as PUBLIC_CHAINS } from '../../../shared/chains.js';
+import { SUPPORTED_CHAINS as PUBLIC_CHAINS, CHAIN_REGISTRY } from '../../../shared/chains.js';
 import { escapeHtml } from '../../../shared/utils/telegram.js';
+
+// chain → "Name Emoji" display label, derived from the registry so /gen
+// auto-syncs with every supported chain (no hand-maintained list to drift).
+const CHAIN_DISPLAY = Object.fromEntries(
+  Object.entries(CHAIN_REGISTRY).map(([chain, m]) => [chain, `${m.name} ${m.emoji}`])
+);
 
 // Native-coin denomination tables for /unit. `factor` = sub-units per 1 coin.
 const UNIT_DENOMS = {
@@ -88,50 +94,24 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
     const args = ctx.message.text.split(' ').slice(1);
 
     if (args.length === 0) {
+      const lines = PUBLIC_CHAINS.map((c) => `• <code>/gen ${c}</code> — ${CHAIN_DISPLAY[c]}`).join('\n');
       return ctx.reply(
-        '🎲 <b>Génération de Wallet</b>\n\n' +
-          'Utilise cette commande avec le réseau souhaité :\n\n' +
-          '• <code>/gen eth</code> — Ethereum Ξ\n' +
-          '• <code>/gen btc</code> — Bitcoin ₿\n' +
-          '• <code>/gen sol</code> — Solana ◎\n' +
-          '• <code>/gen arb</code> — Arbitrum 🔵\n' +
-          '• <code>/gen matic</code> — Polygon ⬡\n' +
-          '• <code>/gen op</code> — Optimism 🔴\n' +
-          '• <code>/gen base</code> — Base 🟦\n' +
-          '• <code>/gen avax</code> — Avalanche 🔺\n' +
-          '• <code>/gen ltc</code> — Litecoin Ł\n' +
-          '• <code>/gen bch</code> — Bitcoin Cash 🅑\n' +
-          '• <code>/gen xmr</code> — Monero ɱ\n' +
-          '• <code>/gen zec</code> — Zcash Ⓩ',
+        '🎲 <b>Génération de Wallet</b>\n\n' + 'Utilise cette commande avec le réseau souhaité :\n\n' + lines,
         { parse_mode: 'HTML' }
       );
     }
 
     const chain = args[0].toLowerCase();
-    const supportedChains = ['eth', 'btc', 'sol', 'arb', 'matic', 'op', 'base', 'avax', 'ltc', 'bch', 'xmr', 'zec'];
-    if (!supportedChains.includes(chain)) {
+    if (!PUBLIC_CHAINS.includes(chain)) {
       return ctx.reply(
-        '❌ <b>Réseau non supporté !</b>\n\n' + `Choisis parmi : <code>${supportedChains.join(', ')}</code>`,
+        '❌ <b>Réseau non supporté !</b>\n\n' + `Choisis parmi : <code>${PUBLIC_CHAINS.join(', ')}</code>`,
         {
           parse_mode: 'HTML',
         }
       );
     }
 
-    const chainNames = {
-      eth: 'Ethereum Ξ',
-      btc: 'Bitcoin ₿',
-      sol: 'Solana ◎',
-      arb: 'Arbitrum 🔵',
-      matic: 'Polygon ⬡',
-      op: 'Optimism 🔴',
-      base: 'Base 🟦',
-      avax: 'Avalanche 🔺',
-      ltc: 'Litecoin Ł',
-      bch: 'Bitcoin Cash 🅑',
-      xmr: 'Monero ɱ',
-      zec: 'Zcash Ⓩ',
-    };
+    const chainNames = CHAIN_DISPLAY;
     const loadingMsg = await ctx.reply(`⏳ Génération de ton wallet ${chainNames[chain]}...`);
 
     try {
