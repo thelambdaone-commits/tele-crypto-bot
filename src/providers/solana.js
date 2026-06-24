@@ -217,7 +217,54 @@ export class SolanaChain extends BaseProvider {
     return fees;
   }
 
-  async sendTransaction(privateKey, toAddress, amount, feeLevel = 'average', tokenSymbol = null) {
+  // Compute-budget priority instruction(s) for a fee level, if any. Centralised
+  // so the fee *estimate* and the real *send* compile an identical message —
+  // that's what makes getFeeForMessage exact enough to leave 0 dust on a sweep.
+  _priorityInstructions(feeLevel) {
+    const priorityFee = feeLevel === 'fast' ? 10000 : feeLevel === 'average' ? 1000 : 0;
+    if (priorityFee <= 0) return [];
+    return [
+      ComputeBudgetProgram.setComputeUnitPrice({
+        microLamports: Math.floor((priorityFee * 1000) / 200000),
+      }),
+    ];
+  }
+
+  // Exact network fee (base + priority) for a native SOL transfer at `feeLevel`,
+  // read from the cluster via getFeeForMessage on the real message shape.
+  async _estimateNativeFeeLamports(fromPubkey, feeLevel) {
+    const tx = new Transaction();
+    for (const ix of this._priorityInstructions(feeLevel)) tx.add(ix);
+    tx.add(SystemProgram.transfer({ fromPubkey, toPubkey: fromPubkey, lamports: 0 }));
+    try {
+      const { blockhash } = await this.connection.getLatestBlockhash();
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = fromPubkey;
+      const res = await this.connection.getFeeForMessage(tx.compileMessage());
+      if (res && Number.isFinite(res.value)) return res.value;
+    } catch {
+      // fall through to the static per-signature base fee
+    }
+    return 5000;
+  }
+
+  // Max lamports sweepable from `address` at `feeLevel`: full balance minus the
+  // exact fee, so the sender is left at exactly 0 (Cake-Wallet style, no dust).
+  async getMaxSendableLamports(address, feeLevel = 'slow') {
+    const fromPubkey = new PublicKey(address);
+    const balanceLamports = await this.connection.getBalance(fromPubkey);
+    const feeLamports = await this._estimateNativeFeeLamports(fromPubkey, feeLevel);
+    return { balanceLamports, feeLamports, lamports: Math.max(0, balanceLamports - feeLamports) };
+  }
+
+  async sendTransaction(
+    privateKey,
+    toAddress,
+    amount,
+    feeLevel = 'average',
+    tokenSymbol = null,
+    options = {}
+  ) {
     const secretKey = Uint8Array.from(Buffer.from(privateKey, 'hex'));
     const fromKeypair = Keypair.fromSecretKey(secretKey);
     const toPublicKey = new PublicKey(toAddress);
@@ -228,21 +275,29 @@ export class SolanaChain extends BaseProvider {
       return await this._sendSplToken(fromKeypair, toPublicKey, amount, feeLevel, sym);
     }
 
-    const lamports = Math.round(Number.parseFloat(amount) * LAMPORTS_PER_SOL);
     const transaction = new Transaction();
 
     // Add priority fees if specified
-    if (feeLevel !== 'slow') {
-      const fees = await this.estimateFees('', '', 0);
-      const priorityFee = fees[feeLevel]?.priorityFee || 0;
+    for (const ix of this._priorityInstructions(feeLevel)) transaction.add(ix);
 
-      if (priorityFee > 0) {
-        transaction.add(
-          ComputeBudgetProgram.setComputeUnitPrice({
-            microLamports: Math.floor((priorityFee * 1000) / 200000), // Rough conversion to microLamports for priority
-          })
-        );
+    let lamports;
+    let sentAmount;
+    let feeLamports = 5000;
+    if (options.sendMax) {
+      // Sweep: entire balance minus the exact network fee → wallet left at 0.
+      const balanceLamports = await this.connection.getBalance(fromKeypair.publicKey);
+      feeLamports = await this._estimateNativeFeeLamports(fromKeypair.publicKey, feeLevel);
+      lamports = balanceLamports - feeLamports;
+      if (lamports <= 0) {
+        throw new TransactionError('Solde insuffisant pour couvrir les frais de réseau', {
+          code: ERROR_CODES.INSUFFICIENT_FUNDS,
+          chain: 'SOL',
+        });
       }
+      sentAmount = lamports / LAMPORTS_PER_SOL;
+    } else {
+      lamports = Math.round(Number.parseFloat(amount) * LAMPORTS_PER_SOL);
+      sentAmount = amount;
     }
 
     transaction.add(
@@ -260,9 +315,9 @@ export class SolanaChain extends BaseProvider {
         hash: signature,
         from: fromKeypair.publicKey.toString(),
         to: toAddress,
-        amount: amount.toString(),
+        amount: sentAmount.toString(),
         symbol: 'SOL',
-        fee: (5000 / 1e9).toString(),
+        fee: (feeLamports / LAMPORTS_PER_SOL).toString(),
         status: 'success',
       };
     } catch (error) {

@@ -259,7 +259,35 @@ export class WalletService {
   /**
    * Pre-flight validation before sending a transaction
    */
-  async estimateAndValidate(chatId, walletId, toAddress, amount, tokenSymbol = null) {
+  /**
+   * Max sendable amount for a "send all" / sweep, leaving 0 dust. Only chains
+   * whose provider implements an exact-fee sweep (Solana) return a value; others
+   * return null so the caller keeps its own reserve-based estimate.
+   */
+  async getMaxSendable(chatId, walletId, feeLevel = 'slow') {
+    const wallets = await this.storage.getWallets(chatId);
+    const wallet = wallets.find((w) => w.id === walletId);
+    if (!wallet) {
+      throw new Error('Wallet non trouve');
+    }
+    const chainHandler = this.chains[wallet.chain];
+    if (typeof chainHandler.getMaxSendableLamports !== 'function') return null;
+    const { lamports, feeLamports, balanceLamports } = await chainHandler.getMaxSendableLamports(
+      wallet.address,
+      feeLevel
+    );
+    return { lamports, feeLamports, balanceLamports, amount: lamports / 1e9 };
+  }
+
+  async estimateAndValidate(
+    chatId,
+    walletId,
+    toAddress,
+    amount,
+    tokenSymbol = null,
+    feeLevel = 'average',
+    sendMax = false
+  ) {
     const wallet = await this.storage.getWalletWithKey(chatId, walletId);
     if (!wallet) {
       throw new Error('Wallet non trouve');
@@ -310,8 +338,14 @@ export class WalletService {
     // ambiguity (estimatedFee for EVM/BTC/BCH/TON, feeSOL for Solana); chains
     // whose tiers express fees in sats/atomic units fall through unchanged
     // rather than risk a false "insufficient" that blocks a valid send.
-    if (!tokenSymbol) {
-      const tier = fees?.average || fees?.slow;
+    // Skip for sweeps (sendMax): the provider recomputes the transfer as
+    // balance − exact fee at broadcast time, so the passed amount is only a
+    // display estimate and must not trip a rounding-induced false "insufficient".
+    if (!tokenSymbol && !sendMax) {
+      // Use the tier the user actually selected — not a hardcoded `average` —
+      // so the reserved fee matches what will be charged (otherwise a max send
+      // computed against `slow` is wrongly rejected against `average`).
+      const tier = fees?.[feeLevel] || fees?.average || fees?.slow;
       const nativeFee = Number.parseFloat(tier?.estimatedFee ?? tier?.feeSOL);
       if (Number.isFinite(nativeFee) && nativeFee > 0 && parsedAmount + nativeFee > balanceNum) {
         throw new TransactionError('Solde insuffisant (frais de réseau inclus)', {
@@ -334,9 +368,17 @@ export class WalletService {
   /**
    * Send transaction with pre-flight validation
    */
-  async sendTransaction(chatId, walletId, toAddress, amount, feeLevel = 'average', tokenSymbol = null) {
+  async sendTransaction(
+    chatId,
+    walletId,
+    toAddress,
+    amount,
+    feeLevel = 'average',
+    tokenSymbol = null,
+    options = {}
+  ) {
     const { wallet, chainHandler } = await this.estimateAndValidate(
-      chatId, walletId, toAddress, amount, tokenSymbol
+      chatId, walletId, toAddress, amount, tokenSymbol, feeLevel, !!options.sendMax
     );
 
     return await chainHandler.sendTransaction(
@@ -344,7 +386,8 @@ export class WalletService {
       toAddress,
       amount,
       feeLevel,
-      tokenSymbol
+      tokenSymbol,
+      options
     );
   }
 
