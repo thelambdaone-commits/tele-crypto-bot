@@ -1,6 +1,7 @@
 import { deleteConfirmKeyboard, mainMenuKeyboard } from '../../keyboards/index.js';
 import { safeAnswerCbQuery, escapeHtml } from '../../utils.js';
 import { auditLogger, AUDIT_ACTIONS } from '../../../shared/security/audit-logger.js';
+import { t } from '../../messages/index.js';
 
 export function setupWalletDelete(bot, storage) {
   // Delete wallet - confirmation
@@ -13,7 +14,7 @@ export function setupWalletDelete(bot, storage) {
     const wallet = wallets.find((w) => w.id === walletId);
 
     if (!wallet) {
-      return ctx.editMessageText('😕 Wallet non trouvé', mainMenuKeyboard());
+      return ctx.editMessageText(t(ctx.state?.lang || 'fr', 'wallet.notFound'), mainMenuKeyboard());
     }
 
     ctx.editMessageText(

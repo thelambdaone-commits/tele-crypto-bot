@@ -4,22 +4,29 @@
 import {
   mainMenuKeyboard,
   moreMenuKeyboard,
+  settingsMenuKeyboard,
+  languageMenuKeyboard,
+  mainReplyKeyboard,
   walletListKeyboard,
   cancelKeyboard,
   chainSelectionKeyboard,
 } from '../keyboards/index.js';
-import { CALLBACKS } from '../constants/callbacks.js';
+import { CALLBACKS, CALLBACK_REGEX } from '../constants/callbacks.js';
+import { t, resolveLang } from '../messages/index.js';
 import { safeEditMessage } from '../utils.js';
 import { logger } from '../../shared/logger.js';
 import { getFullHelpText, chainSelectionPrompt } from '../ui/index.js';
 
 export function setupNavigationHandlers(bot, storage, walletService, sessions) {
+  const langOf = (ctx) => ctx.state?.lang || 'fr';
+
   // Action: back_to_menu
   bot.action(CALLBACKS.BACK_TO_MENU, async (ctx) => {
+    const lang = langOf(ctx);
     await ctx.answerCbQuery().catch((err) => logger.debug('back_to_menu answerCbQuery failed', { error: err.message }));
-    const opts = { parse_mode: 'HTML', ...mainMenuKeyboard() };
+    const opts = { parse_mode: 'HTML', ...mainMenuKeyboard(lang) };
     try {
-      await ctx.editMessageText('🎮 <b>Menu Principal</b>', opts);
+      await ctx.editMessageText(t(lang, 'menu.principal'), opts);
     } catch (e) {
       // The current message may be a photo (e.g. a QR) — its text can't be
       // edited, so replace it with a fresh menu message.
@@ -28,33 +35,77 @@ export function setupNavigationHandlers(bot, storage, walletService, sessions) {
       } catch (_) {
         // already gone
       }
-      await ctx.reply('🎮 <b>Menu Principal</b>', opts);
+      await ctx.reply(t(lang, 'menu.principal'), opts);
     }
   });
 
   // Action: more_menu — secondary actions behind "☰ Plus"
   bot.action(CALLBACKS.MORE_MENU, async (ctx) => {
+    const lang = langOf(ctx);
     await ctx.answerCbQuery().catch((err) => logger.debug('more_menu answerCbQuery failed', { error: err.message }));
-    await safeEditMessage(ctx, '☰ <b>Plus d’options</b>', {
+    await safeEditMessage(ctx, t(lang, 'menu.more'), {
       parse_mode: 'HTML',
-      ...moreMenuKeyboard(),
+      ...moreMenuKeyboard(lang),
     });
+  });
+
+  // Action: settings_menu — ⚙️ Paramètres (Langue, Mes Clés, Aide)
+  bot.action(CALLBACKS.SETTINGS_MENU, async (ctx) => {
+    const lang = langOf(ctx);
+    await ctx.answerCbQuery().catch((err) => logger.debug('settings_menu answerCbQuery failed', { error: err.message }));
+    await safeEditMessage(ctx, t(lang, 'settings.title'), {
+      parse_mode: 'HTML',
+      ...settingsMenuKeyboard(lang),
+    });
+  });
+
+  // Action: language_menu — language picker
+  bot.action(CALLBACKS.LANGUAGE_MENU, async (ctx) => {
+    const lang = langOf(ctx);
+    await ctx.answerCbQuery().catch((err) => logger.debug('language_menu answerCbQuery failed', { error: err.message }));
+    await safeEditMessage(ctx, t(lang, 'settings.chooseLanguage'), {
+      parse_mode: 'HTML',
+      ...languageMenuKeyboard(lang),
+    });
+  });
+
+  // Action: set_lang_<fr|en> — persist the choice and re-render in the new language
+  bot.action(CALLBACK_REGEX.SET_LANG, async (ctx) => {
+    const newLang = resolveLang(ctx.match[1]);
+    const chatId = ctx.chat.id;
+    try {
+      await storage.updateSettings(chatId, { language: newLang });
+      ctx.state.lang = newLang;
+    } catch (e) {
+      logger.warn('[i18n] Failed to persist language', { chatId, error: e.message });
+    }
+    await ctx.answerCbQuery(t(newLang, 'settings.changed')).catch(() => {});
+    // Re-render the language menu (✓ moves) in the new language…
+    await safeEditMessage(ctx, t(newLang, 'settings.chooseLanguage'), {
+      parse_mode: 'HTML',
+      ...languageMenuKeyboard(newLang),
+    });
+    // …and refresh the persistent reply keyboard so its labels match.
+    await ctx
+      .reply(t(newLang, 'settings.changed'), mainReplyKeyboard(newLang))
+      .catch((err) => logger.debug('set_lang reply keyboard refresh failed', { error: err.message }));
   });
 
   // Action: cancel
   bot.action(CALLBACKS.CANCEL, async (ctx) => {
+    const lang = langOf(ctx);
     const chatId = ctx.chat.id;
     sessions.clearState(chatId);
-    await ctx.answerCbQuery('Opération annulée').catch((err) => logger.debug('cancel answerCbQuery failed', { error: err.message }));
-    await safeEditMessage(ctx, '❌ <b>Opération annulée</b>', {
+    await ctx.answerCbQuery().catch((err) => logger.debug('cancel answerCbQuery failed', { error: err.message }));
+    await safeEditMessage(ctx, t(lang, 'menu.cancelled'), {
       parse_mode: 'HTML',
-      ...mainMenuKeyboard(),
+      ...mainMenuKeyboard(lang),
     });
   });
 
   // Action: close_menu
   bot.action(CALLBACKS.CLOSE_MENU, async (ctx) => {
-    await ctx.answerCbQuery('Menu fermé').catch((err) => logger.debug('close_menu answerCbQuery failed', { error: err.message }));
+    await ctx.answerCbQuery().catch((err) => logger.debug('close_menu answerCbQuery failed', { error: err.message }));
     try {
       await ctx.deleteMessage();
     } catch (e) {
@@ -64,37 +115,42 @@ export function setupNavigationHandlers(bot, storage, walletService, sessions) {
 
   // Action: help_menu
   bot.action(CALLBACKS.HELP_MENU, async (ctx) => {
+    const lang = langOf(ctx);
     await ctx.answerCbQuery().catch((err) => logger.debug('help_menu answerCbQuery failed', { error: err.message }));
-    await safeEditMessage(ctx, getFullHelpText(), {
+    await safeEditMessage(ctx, getFullHelpText(lang), {
       parse_mode: 'HTML',
-      ...mainMenuKeyboard(),
+      ...mainMenuKeyboard(lang),
     });
   });
 
-  // Hears: Envoyer
-  bot.hears(['💸 Envoyer', '📡 Envoyer', '📤 Envoyer'], async (ctx) => {
+  // Hears: Envoyer / Send
+  bot.hears(['💸 Envoyer', '📡 Envoyer', '📤 Envoyer', '📤 Send'], async (ctx) => {
+    const lang = langOf(ctx);
     const wallets = await storage.getWallets(ctx.chat.id);
-    if (wallets.length === 0) return ctx.reply("❌ Tu n'as pas encore de wallet.");
-    ctx.reply('📡 <b>Envoyer des fonds</b>\n\nDepuis quel wallet ?', {
+    if (wallets.length === 0) return ctx.reply(t(lang, 'errors.noWallets'));
+    ctx.reply(`📡 <b>${t(lang, 'menu.send')}</b>`, {
       parse_mode: 'HTML',
       ...walletListKeyboard(wallets, 'send_from_'),
     });
   });
 
-  // Hears: Analyser
-  bot.hears(['🔍 Analyser', '🔎 Analyser'], async (ctx) => {
+  // Hears: Analyser / Analyze
+  bot.hears(['🔍 Analyser', '🔎 Analyser', '🔎 Analyze'], async (ctx) => {
+    const lang = langOf(ctx);
     sessions.setState(ctx.chat.id, 'ENTER_ADDRESS_ANALYZE');
     ctx.reply(
-      "🔎 <b>Analyse d'adresse</b>\n\nEntre une adresse publique (ETH, BTC, LTC, BCH, SOL, ARB, MATIC, OP, BASE, AVAX, XMR, ZEC, TON) pour voir son solde et tous ses tokens.",
+      lang === 'en'
+        ? '🔎 <b>Address analysis</b>\n\nEnter a public address (ETH, BTC, LTC, BCH, SOL, ARB, MATIC, OP, BASE, AVAX, XMR, ZEC, TON, TRX) to see its balance and all its tokens.'
+        : "🔎 <b>Analyse d'adresse</b>\n\nEntre une adresse publique (ETH, BTC, LTC, BCH, SOL, ARB, MATIC, OP, BASE, AVAX, XMR, ZEC, TON, TRX) pour voir son solde et tous ses tokens.",
       {
         parse_mode: 'HTML',
-        ...cancelKeyboard(),
+        ...cancelKeyboard(lang),
       }
     );
   });
 
-  // Hears: ➕ Nouveau (anciens libellés conservés pour compat)
-  bot.hears(['➕ Nouveau', '➕ Nouveau Wallet', '🆕 Nouveau Wallet'], async (ctx) => {
+  // Hears: ➕ Nouveau / New (anciens libellés conservés pour compat)
+  bot.hears(['➕ Nouveau', '➕ Nouveau Wallet', '🆕 Nouveau Wallet', '➕ New'], async (ctx) => {
     ctx.reply(chainSelectionPrompt(), {
       parse_mode: 'HTML',
       ...chainSelectionKeyboard('chain_'),
@@ -102,16 +158,18 @@ export function setupNavigationHandlers(bot, storage, walletService, sessions) {
   });
 
   // Hears: help buttons
-  bot.hears(['❓ Aide', '🆘 Help', '🆘 Aide'], async (ctx) => {
-    await ctx.reply(getFullHelpText(), {
+  bot.hears(['❓ Aide', '🆘 Help', '🆘 Aide', '❓ Help'], async (ctx) => {
+    const lang = langOf(ctx);
+    await ctx.reply(getFullHelpText(lang), {
       parse_mode: 'HTML',
-      ...mainMenuKeyboard(),
+      ...mainMenuKeyboard(lang),
     });
   });
 
-  // Hears: ❌ Fermer
-  bot.hears('❌ Fermer', async (ctx) => {
+  // Hears: ❌ Fermer / Close
+  bot.hears(['❌ Fermer', '❌ Close'], async (ctx) => {
+    const lang = langOf(ctx);
     sessions.clearState(ctx.chat.id);
-    await ctx.reply('❌ Menu fermé.', { reply_markup: { remove_keyboard: true } });
+    await ctx.reply(t(lang, 'menu.closed'), { reply_markup: { remove_keyboard: true } });
   });
 }

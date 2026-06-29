@@ -6,13 +6,13 @@ import {
 } from '../../keyboards/index.js';
 import { auditLogger, AUDIT_ACTIONS } from '../../../shared/security/audit-logger.js';
 import { safeAnswerCbQuery, scheduleSecureDelete, escapeHtml } from '../../utils.js';
-import { MESSAGES, EMOJIS } from '../../messages/index.js';
+import { MESSAGES, EMOJIS, t } from '../../messages/index.js';
 import { isAdmin } from '../../middlewares/auth.middleware.js';
 import { logger } from '../../../shared/logger.js';
 import { generateAddressQR } from '../../../shared/qr.js';
 import { CHAIN_EMOJIS, truncateAddress } from '../../ui/formatters.js';
 import { Markup } from 'telegraf';
-import { CALLBACKS } from '../../constants/callbacks.js';
+import { CALLBACKS, CALLBACK_REGEX, dynamicCallback } from '../../constants/callbacks.js';
 
 export function setupKeysHandlers(bot, storage, walletService) {
   // View keys menu
@@ -38,7 +38,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
     );
   });
 
-  bot.hears('🔐 Mes Clés', async (ctx) => {
+  bot.hears(['🔐 Mes Clés', '🔐 My Keys'], async (ctx) => {
     const chatId = ctx.chat.id;
     const wallets = await storage.getWallets(chatId);
 
@@ -59,7 +59,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
   });
 
   // Select wallet for keys
-  bot.action(/^keys_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.KEYS, async (ctx) => {
     const walletId = ctx.match[1];
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
@@ -68,7 +68,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
     const wallet = wallets.find((w) => w.id === walletId);
 
     if (!wallet) {
-      return ctx.editMessageText('😕 Wallet non trouvé', mainMenuKeyboard());
+      return ctx.editMessageText(t(ctx.state?.lang || 'fr', 'wallet.notFound'), mainMenuKeyboard());
     }
 
     ctx.editMessageText(
@@ -81,7 +81,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
   });
 
   // Copy address action
-  bot.action(/^copy_addr_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.COPY_ADDR, async (ctx) => {
     const walletId = ctx.match[1];
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx, '✅ Adresse copiée !');
@@ -97,7 +97,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
   });
 
   // QR code of the address (coin logo centered)
-  bot.action(/^qr_addr_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.QR_ADDR, async (ctx) => {
     const walletId = ctx.match[1];
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
@@ -106,7 +106,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
     const wallet = wallets.find((w) => w.id === walletId);
 
     if (!wallet) {
-      return ctx.reply('😕 Wallet non trouvé');
+      return ctx.reply(t(ctx.state?.lang || 'fr', 'wallet.notFound'));
     }
 
     try {
@@ -121,7 +121,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
           caption: `📷 <b>${escapeHtml(wallet.label)}</b>\n${wallet.chain.toUpperCase()}\n<code>${wallet.address}</code>`,
           parse_mode: 'HTML',
           ...Markup.inlineKeyboard([
-            [Markup.button.callback('↩️ Retour', `qr_back_${walletId}`)],
+            [Markup.button.callback('↩️ Retour', dynamicCallback.qrBack(walletId))],
           ]),
         }
       );
@@ -132,7 +132,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
   });
 
   // Back from QR: remove the QR photo (wallet menu stays above it)
-  bot.action(/^qr_back_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.QR_BACK, async (ctx) => {
     await safeAnswerCbQuery(ctx);
     try {
       await ctx.deleteMessage();
@@ -142,7 +142,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
   });
 
   // View seed phrase
-  bot.action(/^view_seed_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.VIEW_SEED, async (ctx) => {
     const walletId = ctx.match[1];
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
@@ -159,7 +159,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
       const wallet = await storage.getWalletWithKey(chatId, walletId);
 
       if (!wallet) {
-        return ctx.editMessageText('😕 Wallet non trouvé', mainMenuKeyboard());
+        return ctx.editMessageText(t(ctx.state?.lang || 'fr', 'wallet.notFound'), mainMenuKeyboard());
       }
 
       if (wallet.isCorrupted) {
@@ -197,7 +197,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
   });
 
   // View private key
-  bot.action(/^view_privkey_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.VIEW_PRIVKEY, async (ctx) => {
     const walletId = ctx.match[1];
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
@@ -214,7 +214,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
       const wallet = await storage.getWalletWithKey(chatId, walletId);
 
       if (!wallet) {
-        return ctx.editMessageText('😕 Wallet non trouvé', mainMenuKeyboard());
+        return ctx.editMessageText(t(ctx.state?.lang || 'fr', 'wallet.notFound'), mainMenuKeyboard());
       }
 
       if (wallet.isCorrupted) {
@@ -242,7 +242,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
   });
 
   // View wallet transaction history
-  bot.action(/^wallet_history_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.WALLET_HISTORY, async (ctx) => {
     const walletId = ctx.match[1];
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
@@ -252,7 +252,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
       const wallet = wallets.find((w) => w.id === walletId);
 
       if (!wallet) {
-        return ctx.editMessageText('😕 Wallet non trouvé', mainMenuKeyboard());
+        return ctx.editMessageText(t(ctx.state?.lang || 'fr', 'wallet.notFound'), mainMenuKeyboard());
       }
 
       // Show loading message

@@ -206,14 +206,14 @@ async function provisionNewUser(ctx, storage, walletService) {
 
     const sentMsg = await ctx.reply(buildOnboardingReveal(mnemonic, createdWallets), {
       parse_mode: 'HTML',
-      ...mainReplyKeyboard(),
+      ...mainReplyKeyboard(ctx.state?.lang || 'fr'),
     });
 
     // Silent, keyed auto-delete after 60s (no lingering confirmation).
     scheduleSecureDelete(ctx, `start_${chatId}`, sentMsg.message_id, 60000);
   } catch (error) {
     logger.logError(error, { context: 'provisionNewUser.createWallets', chatId });
-    await ctx.reply(`❌ Erreur lors de la création des wallets: ${error.message}`, mainMenuKeyboard());
+    await ctx.reply(`❌ Erreur lors de la création des wallets: ${error.message}`, mainMenuKeyboard(ctx.state?.lang || 'fr'));
   }
 }
 
@@ -245,16 +245,25 @@ export function setupStartHandler(bot, storage, walletService, sessions) {
       }
 
       // Existing user
+      const lang = ctx.state?.lang || 'fr';
       auditLogger.log(AUDIT_ACTIONS.USER_START, chatId, { isNewUser: false });
       await ctx.reply(
-        [
-          `👋 <b>Content de te revoir, ${escapeHtml(userName)} !</b>`,
-          separator(),
-          '🔐 Ton coffre multi-chain est prêt.',
-          '',
-          'Que veux-tu faire ? 👇',
-        ].join('\n'),
-        { parse_mode: 'HTML', ...mainReplyKeyboard() }
+        lang === 'en'
+          ? [
+              `👋 <b>Welcome back, ${escapeHtml(userName)}!</b>`,
+              separator(),
+              '🔐 Your multi-chain vault is ready.',
+              '',
+              'What would you like to do? 👇',
+            ].join('\n')
+          : [
+              `👋 <b>Content de te revoir, ${escapeHtml(userName)} !</b>`,
+              separator(),
+              '🔐 Ton coffre multi-chain est prêt.',
+              '',
+              'Que veux-tu faire ? 👇',
+            ].join('\n'),
+        { parse_mode: 'HTML', ...mainReplyKeyboard(lang) }
       );
     } catch (error) {
       if (error.message?.includes('blocked by the user') || error.response?.error_code === 403) {
@@ -266,7 +275,7 @@ export function setupStartHandler(bot, storage, walletService, sessions) {
       try {
         return await ctx.reply(
           '👋 Bienvenue. Le profil a été réinitialisé, tu peux utiliser le menu ci-dessous.',
-          mainReplyKeyboard()
+          mainReplyKeyboard(ctx.state?.lang || 'fr')
         );
       } catch (replyError) {
         logger.logError(replyError, { context: 'setupStartHandler.fallbackReply', chatId });

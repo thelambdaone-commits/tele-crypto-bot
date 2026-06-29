@@ -33,7 +33,10 @@ class AuditLogger {
       action,
       chatId,
       isAdmin,
-      details,
+      // Redact sensitive fields (private keys, mnemonics, secrets…) before they
+      // are kept in memory or flushed to data/audit.log — a caller must never be
+      // able to persist a secret here unredacted.
+      details: logger.redact(details),
     };
 
     this.logs.push(entry);

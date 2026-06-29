@@ -1,5 +1,5 @@
 import { Markup } from 'telegraf';
-import { CALLBACKS } from '../constants/callbacks.js';
+import { CALLBACKS, dynamicCallback } from '../constants/callbacks.js';
 import { CHAIN_EMOJIS } from '../ui/formatters.js';
 
 export function walletListKeyboard(wallets, prefix = 'wallet_') {
@@ -18,15 +18,15 @@ export function walletActionsKeyboard(walletId) {
   // 2-column grid: more compact on mobile than a single tall column.
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback('📋 Copier', `copy_addr_${walletId}`),
-      Markup.button.callback('📷 QR', `qr_addr_${walletId}`),
+      Markup.button.callback('📋 Copier', dynamicCallback.copyAddr(walletId)),
+      Markup.button.callback('📷 QR', dynamicCallback.qrAddr(walletId)),
     ],
     [
-      Markup.button.callback('🌱 Seed', `view_seed_${walletId}`),
-      Markup.button.callback('🔑 Clé privée', `view_privkey_${walletId}`),
+      Markup.button.callback('🌱 Seed', dynamicCallback.viewSeed(walletId)),
+      Markup.button.callback('🔑 Clé privée', dynamicCallback.viewPrivkey(walletId)),
     ],
     [
-      Markup.button.callback('📜 Historique', `wallet_history_${walletId}`),
+      Markup.button.callback('📜 Historique', dynamicCallback.walletHistory(walletId)),
       Markup.button.callback('🗑 Supprimer', `delete_wallet_${walletId}`),
     ],
     [Markup.button.callback('🔄 Échanger', `exch_w_${walletId}`)],

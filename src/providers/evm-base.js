@@ -381,6 +381,8 @@ export class EvmBaseProvider extends BaseProvider {
       matic: 'https://api.polygonscan.com/api',
       op: 'https://api-optimistic.etherscan.io/api',
       base: 'https://api.basescan.org/api',
+      avax: 'https://api.snowtrace.io/api',
+      bsc: 'https://api.bscscan.com/api',
     };
     return explorers[this.tokenConfigKey] || null;
   }

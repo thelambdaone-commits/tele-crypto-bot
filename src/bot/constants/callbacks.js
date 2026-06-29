@@ -9,6 +9,8 @@ export const CALLBACKS = {
   CLOSE_MENU: 'close_menu',
   CANCEL: 'cancel',
   MORE_MENU: 'more_menu',
+  SETTINGS_MENU: 'settings_menu',
+  LANGUAGE_MENU: 'language_menu',
   INVOICE_START: 'invoice_start',
   INVOICE_LN: 'pinv_ln',
 
@@ -57,6 +59,11 @@ export const CALLBACKS = {
   ADMIN_BROADCAST: 'admin_broadcast',
   ADMIN_BAN: 'admin_ban',
   ADMIN_UNBAN: 'admin_unban',
+
+  // Treasury (Lightning sweep admin)
+  TREASURY_OPEN: 'treasury_open',
+  TREASURY_PICK: 'treasury_pick',
+  TREASURY_SWEEP: 'treasury_sweep',
 };
 
 // Factory functions for dynamic callbacks
@@ -74,22 +81,36 @@ export const dynamicCallback = {
   tokenSelect: (chain, token) => `token_${chain}_${token}`,
   sendToAnalyzed: (chain) => `send_to_analyzed_${chain}`,
   adminUserKeys: (userId) => `admin_user_keys_${userId}`,
+  adminUsersPage: (page) => `admin_users_page_${page}`,
+  setLang: (lang) => `set_lang_${lang}`,
+
+  // Keys feature
+  keys: (walletId) => `keys_${walletId}`,
+  copyAddr: (walletId) => `copy_addr_${walletId}`,
+  qrAddr: (walletId) => `qr_addr_${walletId}`,
+  qrBack: (walletId) => `qr_back_${walletId}`,
+  viewSeed: (walletId) => `view_seed_${walletId}`,
+  viewPrivkey: (walletId) => `view_privkey_${walletId}`,
+  walletHistory: (walletId) => `wallet_history_${walletId}`,
+
+  // Deposit / receive feature (symbol / chain / walletId must be underscore-free)
+  depositAsset: (symbol) => `dep_a_${symbol}`,
+  depositNetwork: (symbol, chain) => `dep_n_${symbol}_${chain}`,
+  depositConfirm: (symbol, chain) => `dep_s_${symbol}_${chain}`,
+  depositWallet: (symbol, chain, walletId) => `dep_w_${symbol}_${chain}_${walletId}`,
+
+  // Payments / invoices / treasury feature
+  invoiceWallet: (walletId) => `pinv_w_${walletId}`,
+  invoiceLnWalletPrefix: 'pinv_lnw_',
+  invoiceAsset: (symbol) => `pinv_a_${symbol}`,
+  invoiceView: (id) => `inv_view_${id}`,
+  invoiceCancel: (id) => `inv_cancel_${id}`,
+  treasuryWalletPrefix: 'treasury_w_',
 };
 
 // Regex patterns for dynamic callbacks
 export const CALLBACK_REGEX = {
   AMOUNT_TYPE: /^amount_type_(.+)$/,
-  WALLET_ACTION: /^(.+)_(\d+)$/,
-  GENERATE_CHAIN: /^generate_(.+)$/,
-  IMPORT_KEY_CHAIN: /^import_key_(.+)$/,
-  IMPORT_SEED_CHAIN: /^import_seed_(.+)$/,
-  CHAIN_SELECT: /^chain_(.+)$/,
-  CONFIRM_DELETE: /^confirm_delete_(\d+)$/,
-  DELETE_WALLET: /^delete_wallet_(\d+)$/,
-  COPY_ADDR: /^copy_addr_(\d+)$/,
-  VIEW_SEED: /^view_seed_(\d+)$/,
-  VIEW_PRIVKEY: /^view_privkey_(\d+)$/,
-  WALLET_HISTORY: /^wallet_history_(\d+)$/,
   TOKEN_SELECT: /^token_(.+)_(.+)$/,
   SEND_FROM: /^send_from_(.+)$/,
   SEND_ANALYZED_FROM: /^send_analyzed_from_(.+)$/,
@@ -98,10 +119,34 @@ export const CALLBACK_REGEX = {
   FEE_SELECTION: /^fee_(.+)$/,
   QUICK_AMOUNT: /^quick_amount_(.+)$/,
   SEND_TO_ANALYZED: /^send_to_analyzed_(.+)$/,
-  ADMIN_USER_KEYS: /^admin_user_keys_(\d+)$/,
   EXCHANGE_WALLET: /^exch_w_(.+)$/,
   EXCHANGE_FROM_SYM: /^exch_fs_(.+)$/,
   EXCHANGE_TO_SYM: /^exch_ts_(.+)$/,
   EXCHANGE_FROM: /^exch_from_(.+)$/,
   EXCHANGE_TO: /^exch_to_(.+)$/,
+  ADMIN_USERS_PAGE: /^admin_users_page_(\d+)$/,
+  SET_LANG: /^set_lang_(fr|en)$/,
+
+  // Keys feature
+  KEYS: /^keys_(.+)$/,
+  COPY_ADDR: /^copy_addr_(.+)$/,
+  QR_ADDR: /^qr_addr_(.+)$/,
+  QR_BACK: /^qr_back_(.+)$/,
+  VIEW_SEED: /^view_seed_(.+)$/,
+  VIEW_PRIVKEY: /^view_privkey_(.+)$/,
+  WALLET_HISTORY: /^wallet_history_(.+)$/,
+
+  // Deposit / receive feature
+  DEPOSIT_ASSET: /^dep_a_(.+)$/,
+  DEPOSIT_NETWORK: /^dep_n_([^_]+)_([^_]+)$/,
+  DEPOSIT_CONFIRM: /^dep_s_([^_]+)_([^_]+)$/,
+  DEPOSIT_WALLET: /^dep_w_([^_]+)_([^_]+)_(.+)$/,
+
+  // Payments / invoices / treasury feature
+  INVOICE_WALLET: /^pinv_w_(.+)$/,
+  INVOICE_LN_WALLET: /^pinv_lnw_(.+)$/,
+  INVOICE_ASSET: /^pinv_a_(.+)$/,
+  INVOICE_VIEW: /^inv_view_(.+)$/,
+  INVOICE_CANCEL: /^inv_cancel_(.+)$/,
+  TREASURY_WALLET: /^treasury_w_(.+)$/,
 };

@@ -49,7 +49,7 @@ export function setupSendHandlers(bot, storage, walletService, sessions) {
       ctx.editMessageText(prompt, { parse_mode: 'HTML', ...quickAmountKeyboard() });
       sessions.setState(chatId, 'SELECT_QUICK_AMOUNT');
     } catch (error) {
-      ctx.editMessageText(`❌ Erreur: ${error.message}`, mainMenuKeyboard());
+      ctx.editMessageText(`❌ Erreur: ${error.message}`, mainMenuKeyboard()).catch(() => {});
     }
   });
 

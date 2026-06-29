@@ -27,6 +27,7 @@ export const fr = {
     generated: '✨ Ton wallet a été créé avec succès !',
     deleted: (label) => `🗑️ Wallet "${label}" supprimé.`,
     list: '💰 Mes Wallets',
+    notFound: '❌ Wallet non trouvé',
     noWallets: "🔍 Aucun wallet pour le moment. Utilise 'Nouveau Wallet' pour en créer un.",
     newWallet: '🆕 Nouveau Wallet',
     myKeys: '🔐 Mes Clés',
@@ -53,7 +54,7 @@ export const fr = {
     invalidAddress: "⚠️ Cette adresse n'est pas valide.",
     noAddress: 'Aucune adresse saisie.',
     addressAnalysis: "🔍 Analyse d'adresse",
-    addressAnalysisPrompt: 'Envoie-moi une adresse publique (ETH, BTC, LTC, BCH, SOL, ARB, MATIC, OP, BASE, AVAX, XMR, ZEC, TON) pour voir son solde et tous ses tokens.',
+
   },
 
   admin: {
@@ -103,6 +104,42 @@ export const fr = {
       '📊 Cours EUR - Prix en euros',
       '🔄 Échanger - Échanger une crypto contre une autre, sans KYC',
     ],
+  },
+
+  // Button labels + menu headers (localized navigation chrome).
+  menu: {
+    principal: '🎮 <b>Menu Principal</b>',
+    more: '☰ <b>Plus d’options</b>',
+    settings: '⚙️ <b>Paramètres</b>',
+    language: '🌐 <b>Langue</b>',
+    closed: '❌ Menu fermé.',
+    cancelled: '❌ <b>Opération annulée</b>',
+    wallets: '💰 Wallets',
+    new: '➕ Nouveau',
+    receive: '📥 Recevoir',
+    send: '📤 Envoyer',
+    balances: '💵 Soldes',
+    prices: '📊 Cours',
+    moreBtn: '☰ Plus',
+    close: '❌ Fermer',
+    cancelBtn: '❌ Annuler',
+    back: '↩️ Retour',
+    exchange: '🔄 Échanger',
+    invoice: '💳 Facture',
+    lightning: '⚡ Lightning',
+    analyze: '🔎 Analyser',
+    keys: '🔐 Mes Clés',
+    help: '❓ Aide',
+    settingsBtn: '⚙️ Paramètres',
+    languageBtn: '🌐 Langue',
+  },
+
+  settings: {
+    title: '⚙️ <b>Paramètres</b>\n\nChoisis une option 👇',
+    chooseLanguage: '🌐 <b>Langue</b>\n\nChoisis la langue du bot 👇',
+    langFr: '🇫🇷 Français',
+    langEn: '🇬🇧 English',
+    changed: '✅ Langue mise à jour : Français 🇫🇷',
   },
 
   exchange: {

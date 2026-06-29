@@ -120,20 +120,61 @@ export class TronChain extends BaseProvider {
     return { balance: sun / 1e6, balanceSun: String(sun), symbol: 'TRX' };
   }
 
-  async estimateFees(_fromAddress, _toAddress, _amount, tokenSymbol = null) {
+  async estimateFees(fromAddress, toAddress, _amount, tokenSymbol = null) {
     const isToken = String(tokenSymbol || 'TRX').toUpperCase() !== 'TRX';
-    // Tron charges bandwidth/energy, not a gas price. These are practical
-    // upper-bound estimates in TRX for a non-staked account.
-    const est = isToken ? 27 : 1.1;
-    const fee = est.toFixed(2);
-    return {
-      slow: { fee },
-      average: { fee },
-      fast: { fee },
-      feeNote: isToken
-        ? "Frais en énergie/bande passante (~27 TRX si le compte n'est pas staké)"
-        : '~1.1 TRX (bande passante)',
+    // `estimatedFee` is the native-denominated amount the send-confirmation
+    // screen reads (see formatTxDetails); `fee` is kept for compatibility.
+    const mk = (trx, feeNote) => {
+      const fee = Number(trx).toFixed(2);
+      return {
+        slow: { fee, estimatedFee: fee },
+        average: { fee, estimatedFee: fee },
+        fast: { fee, estimatedFee: fee },
+        feeNote,
+      };
     };
+
+    // Tron has no gas price. Native transfers burn *bandwidth* (~268 points/tx,
+    // 600 free/day → usually free), TRC-20 transfers burn *energy*, and the
+    // first transfer to a brand-new address must create it on-chain
+    // (1 TRX burned + ~0.1 TRX ≈ 1.1 TRX — a network rule, unavoidable). Probe
+    // the live account state so an already-activated destination with spare
+    // bandwidth isn't quoted the activation fee.
+    try {
+      const tw = this._client();
+      const dest = await this._schedule(() => tw.trx.getAccount(toAddress));
+      const destActivated = !!(dest && Object.keys(dest).length > 0);
+
+      if (isToken) {
+        // Energy cost, paid in burned TRX when the sender has no staked energy.
+        // Generous upper bound so a transfer never fails for lack of energy.
+        return destActivated
+          ? mk(27, "≈27 TRX d'énergie (0 si ton compte dispose d'énergie stakée)")
+          : mk(28, "≈27 TRX d'énergie + activation du compte destinataire");
+      }
+
+      if (!destActivated) {
+        return mk(
+          1.1,
+          "Activation d'un compte Tron neuf : 1 TRX (brûlé) + ~0.1 TRX. " +
+            'Inévitable au 1er envoi vers cette adresse ; ensuite ~0.27 TRX ou gratuit.'
+        );
+      }
+
+      // Activated destination → bandwidth only.
+      const res = await this._schedule(() => tw.trx.getAccountResources(fromAddress));
+      const freeAvail = (res?.freeNetLimit || 0) - (res?.freeNetUsed || 0);
+      const stakedAvail = (res?.NetLimit || 0) - (res?.NetUsed || 0);
+      const TRANSFER_BANDWIDTH = 268; // typical native TRX transfer size
+      return freeAvail + stakedAvail >= TRANSFER_BANDWIDTH
+        ? mk(0, 'Gratuit : couvert par ta bande passante (600 points gratuits/jour).')
+        : mk(0.27, '~0.27 TRX : bande passante quotidienne épuisée.');
+    } catch {
+      // Network error → safe upper-bound estimate.
+      return isToken
+        ? mk(27, "Frais en énergie/bande passante (~27 TRX si le compte n'est pas staké)")
+        : mk(1.1, '~1.1 TRX (bande passante / activation de compte)');
+    }
   }
 
   async sendTransaction(privateKey, toAddress, amount, _feeLevel = 'average', tokenSymbol = null) {

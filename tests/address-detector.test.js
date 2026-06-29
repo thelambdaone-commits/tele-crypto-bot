@@ -14,6 +14,15 @@ test('detects common chain address formats', () => {
   assert.equal(detectChain('So11111111111111111111111111111111111111112'), 'sol');
 });
 
+test('detects Tron base58check addresses before Solana', () => {
+  // Tron and Solana share the base58 alphabet and Tron's 34-char length fits
+  // Solana's 32-44 range, so this only resolves via base58check + 0x41 prefix.
+  assert.equal(detectChain('TM5n4iJYktXWaAPHwxxUns3XRTFSZXFwFc'), 'trx');
+  assert.equal(detectChain('TLKhqL4yXaRSkCSQ4vRncPVwvb3JdvdStr'), 'trx');
+  // A 34-char "T…" string with a bad checksum is not Tron — falls through to Solana.
+  assert.equal(detectChain('TMxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'), 'sol');
+});
+
 test('rejects unsupported address input', () => {
   assert.equal(detectChain('not-an-address'), null);
   assert.equal(detectChain(''), null);

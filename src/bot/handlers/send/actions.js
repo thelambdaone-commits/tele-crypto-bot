@@ -14,7 +14,7 @@ import { safeAnswerCbQuery, safeEditMessage, escapeHtml } from '../../utils.js';
 import { auditLogger, AUDIT_ACTIONS } from '../../../shared/security/audit-logger.js';
 import { convertToEUR, formatEUR } from '../../../shared/price.js';
 import { formatCryptoAmount } from '../../ui/formatters.js';
-import { MESSAGES, EMOJIS } from '../../messages/index.js';
+import { MESSAGES, EMOJIS, t } from '../../messages/index.js';
 import { formatTxDetails, handleSendError } from './helpers.js';
 import { CALLBACKS, CALLBACK_REGEX } from '../../constants/callbacks.js';
 import { getTransactionExplorerUrl } from '../../../shared/explorer.js';
@@ -53,7 +53,7 @@ export function setupSendActions(bot, storage, walletService, sessions) {
     const wallet = wallets.find((w) => w.id === walletId);
 
     if (!wallet) {
-      return ctx.editMessageText('😕 Wallet non trouvé', mainMenuKeyboard());
+      return ctx.editMessageText(t(ctx.state?.lang || 'fr', 'wallet.notFound'), mainMenuKeyboard());
     }
 
     sessions.setData(chatId, { selectedWalletId: walletId, selectedChain: wallet.chain });
@@ -91,7 +91,7 @@ export function setupSendActions(bot, storage, walletService, sessions) {
     const wallet = wallets.find((w) => w.id === walletId);
 
     if (!wallet) {
-      return ctx.editMessageText('😕 Wallet non trouvé', mainMenuKeyboard());
+      return ctx.editMessageText(t(ctx.state?.lang || 'fr', 'wallet.notFound'), mainMenuKeyboard());
     }
 
     sessions.updateData(chatId, { selectedWalletId: walletId, selectedChain: wallet.chain });
