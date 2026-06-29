@@ -8,6 +8,7 @@ import {
   chainHasTokens,
   addressAnalyzedKeyboard,
   cancelKeyboard,
+  amountTypeKeyboard,
 } from '../../keyboards/index.js';
 import { safeAnswerCbQuery, safeEditMessage, escapeHtml } from '../../utils.js';
 import { auditLogger, AUDIT_ACTIONS } from '../../../shared/security/audit-logger.js';
@@ -77,6 +78,39 @@ export function setupSendActions(bot, storage, walletService, sessions) {
     }
   });
 
+  // Select wallet from analyzed address flow — same as SEND_FROM but the
+  // address is already known (set by send_to_analyzed_<chain>), so skip the
+  // address-entry step for native-only chains, and the TOKEN_SELECT handler
+  // checks toAddress existence to do the same for token chains.
+  bot.action(CALLBACK_REGEX.SEND_ANALYZED_FROM, async (ctx) => {
+    const walletId = ctx.match[1];
+    const chatId = ctx.chat.id;
+    await safeAnswerCbQuery(ctx);
+
+    const wallets = await storage.getWallets(chatId);
+    const wallet = wallets.find((w) => w.id === walletId);
+
+    if (!wallet) {
+      return ctx.editMessageText('😕 Wallet non trouvé', mainMenuKeyboard());
+    }
+
+    sessions.updateData(chatId, { selectedWalletId: walletId, selectedChain: wallet.chain });
+
+    if (chainHasTokens(wallet.chain)) {
+      ctx.editMessageText(`🚀 <b>Envoi depuis ${escapeHtml(wallet.label)}</b>\n\nSélectionne le token à envoyer :`, {
+        parse_mode: 'HTML',
+        ...tokenSelectionKeyboard(wallet.chain),
+      });
+    } else {
+      // Native-only chains: address already known → skip to amount type
+      sessions.setState(chatId, 'SELECT_AMOUNT_TYPE');
+      ctx.editMessageText(
+        `🚀 <b>Envoi depuis ${escapeHtml(wallet.label)}</b>\n\n👉 <b>Adresse déjà renseignée</b>\n\nComment souhaites-tu saisir le montant ?`,
+        { parse_mode: 'HTML', ...amountTypeKeyboard() }
+      );
+    }
+  });
+
   // Token selected for Arbitrum
   bot.action(CALLBACK_REGEX.TOKEN_SELECT, async (ctx) => {
     const chain = ctx.match[1];
@@ -88,11 +122,21 @@ export function setupSendActions(bot, storage, walletService, sessions) {
       selectedChain: chain,
       selectedToken: token === 'native' ? null : token,
     });
-    sessions.setState(chatId, 'ENTER_ADDRESS');
 
     const chainSymbol = chain.toUpperCase();
     const tokenLabel = token === 'native' ? chainSymbol : token;
 
+    // When the address is already known (analyzed flow), skip the address prompt
+    const data = sessions.getData(chatId);
+    if (data.toAddress) {
+      sessions.setState(chatId, 'SELECT_AMOUNT_TYPE');
+      return ctx.editMessageText(
+        `🚀 <b>Envoi ${escapeHtml(tokenLabel)}</b>\n\n👉 <b>Adresse déjà renseignée</b>\n\nComment souhaites-tu saisir le montant ?`,
+        { parse_mode: 'HTML', ...amountTypeKeyboard() }
+      );
+    }
+
+    sessions.setState(chatId, 'ENTER_ADDRESS');
     ctx.editMessageText(
       `🚀 <b>Envoi ${escapeHtml(tokenLabel)} depuis ${chainSymbol}</b>\n\nColle l'adresse du destinataire :`,
       {

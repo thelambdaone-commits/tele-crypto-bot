@@ -61,9 +61,7 @@ export function setupWalletList(bot, storage, walletService) {
     // Show loading first
     await ctx.editMessageText(
       `${chainEmoji} <b>${escapeHtml(wallet.label)}</b>\n\n⏳ Chargement du solde...`,
-      {
-        parse_mode: 'HTML',
-      }
+      { parse_mode: 'HTML' }
     );
 
     // Fetch balance
@@ -88,6 +86,6 @@ export function setupWalletList(bot, storage, walletService) {
         parse_mode: 'HTML',
         ...walletActionsKeyboard(walletId),
       }
-    );
+    ).catch(() => {});
   });
 }

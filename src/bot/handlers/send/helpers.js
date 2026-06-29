@@ -101,5 +101,5 @@ export async function handleSendError(ctx, error, mainMenuKeyboard) {
   return ctx.editMessageText(message, {
     parse_mode: 'HTML',
     ...mainMenuKeyboard(),
-  });
+  }).catch(() => {});
 }
