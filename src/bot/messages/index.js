@@ -1,7 +1,22 @@
 import { fr } from './fr.js';
+import { en } from './en.js';
 
-const locales = { fr };
+const locales = { fr, en };
 const DEFAULT_LANG = 'fr';
+
+export const SUPPORTED_LANGS = ['fr', 'en'];
+
+/**
+ * Normalize an arbitrary language hint (a stored preference or a Telegram
+ * `language_code` like 'en-US') to a supported locale code. Anything that
+ * isn't clearly English falls back to French.
+ */
+export function resolveLang(hint) {
+  const code = String(hint || '').toLowerCase();
+  if (SUPPORTED_LANGS.includes(code)) return code;
+  if (code.startsWith('en')) return 'en';
+  return DEFAULT_LANG;
+}
 
 /**
  * Translate a key from the messages bundle.
@@ -37,6 +52,7 @@ export function tt(path, ...args) {
 }
 
 export { fr } from './fr.js';
+export { en } from './en.js';
 
 // ── Backward compatibility — legacy MESSAGES / EMOJIS ──
 

@@ -1,6 +1,6 @@
 import { Markup } from 'telegraf';
 import { mainMenuKeyboard } from '../../keyboards/index.js';
-import { CALLBACKS } from '../../constants/callbacks.js';
+import { CALLBACKS, CALLBACK_REGEX, dynamicCallback } from '../../constants/callbacks.js';
 import { adminGuard, isAdmin } from '../../middlewares/auth.middleware.js';
 import { safeAnswerCbQuery, safeEditMessage, escapeHtml } from '../../../shared/utils/telegram.js';
 import { generateAddressQR } from '../../../shared/qr.js';
@@ -18,9 +18,9 @@ const fmt = (n) => String(Number(Number(n).toPrecision(8)));
 // merchant's on-chain wallets.
 function methodKeyboard(wallets, lnEnabled) {
   const rows = [];
-  if (lnEnabled) rows.push([Markup.button.callback('⚡ Lightning (BTC · instantané)', 'pinv_ln')]);
+  if (lnEnabled) rows.push([Markup.button.callback('⚡ Lightning (BTC · instantané)', CALLBACKS.INVOICE_LN)]);
   for (const w of wallets) {
-    rows.push([Markup.button.callback(`${CHAIN_EMOJIS[w.chain] || '●'} ${w.label}`, `pinv_w_${w.id}`)]);
+    rows.push([Markup.button.callback(`${CHAIN_EMOJIS[w.chain] || '●'} ${w.label}`, dynamicCallback.invoiceWallet(w.id))]);
   }
   rows.push([Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)]);
   return Markup.inlineKeyboard(rows);
@@ -29,8 +29,8 @@ function methodKeyboard(wallets, lnEnabled) {
 // /treasury actions: manual sweep, and (unless a cold address is forced by env)
 // a button to choose which BTC wallet receives swept Lightning funds.
 function treasuryKeyboard(coldForced) {
-  const rows = [[Markup.button.callback('🧹 Balayer maintenant', 'treasury_sweep')]];
-  if (!coldForced) rows.push([Markup.button.callback('💰 Changer le wallet de réception', 'treasury_pick')]);
+  const rows = [[Markup.button.callback('🧹 Balayer maintenant', CALLBACKS.TREASURY_SWEEP)]];
+  if (!coldForced) rows.push([Markup.button.callback('💰 Changer le wallet de réception', CALLBACKS.TREASURY_PICK)]);
   rows.push([Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)]);
   return Markup.inlineKeyboard(rows);
 }
@@ -102,7 +102,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
       qr = await generateAddressQR(inv.address, inv.chain);
     }
     const rows = [];
-    if (open) rows.push([Markup.button.callback('🗑 Annuler la facture', `inv_cancel_${inv.id}`)]);
+    if (open) rows.push([Markup.button.callback('🗑 Annuler la facture', dynamicCallback.invoiceCancel(inv.id))]);
     rows.push([Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)]);
     await ctx.replyWithPhoto({ source: qr }, { caption, parse_mode: 'HTML', ...Markup.inlineKeyboard(rows) });
   };
@@ -168,7 +168,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
         '⚡ <b>Facture Lightning</b>\n\nSur quel wallet BTC veux-tu être payé ?\n<i>(destination du balayage Lightning)</i>',
         {
           parse_mode: 'HTML',
-          ...sweepWalletPickKeyboard(wallets, 'pinv_lnw_', Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)),
+          ...sweepWalletPickKeyboard(wallets, dynamicCallback.invoiceLnWalletPrefix, Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)),
         }
       );
     }
@@ -176,7 +176,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
   });
 
   // A receiving BTC wallet was chosen for the Lightning invoice → set it, then ask amount.
-  bot.action(/^pinv_lnw_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.INVOICE_LN_WALLET, async (ctx) => {
     if (!adminGuard(ctx)) return;
     await safeAnswerCbQuery(ctx);
     try {
@@ -201,7 +201,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
 
   // Wallet chosen → pick the asset (native + tokens) when the chain has tokens,
   // else go straight to the amount.
-  bot.action(/^pinv_w_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.INVOICE_WALLET, async (ctx) => {
     const walletId = ctx.match[1];
     await safeAnswerCbQuery(ctx);
     const wallet = (await storage.getWallets(ctx.chat.id)).find((w) => w.id === walletId);
@@ -211,7 +211,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     sessions.setData(ctx.chat.id, { invoiceChain: wallet.chain });
     if (!tokens.length) return askAmount(ctx, wallet.chain, native);
 
-    const btns = [native, ...tokens].map((s) => Markup.button.callback(s, `pinv_a_${s}`));
+    const btns = [native, ...tokens].map((s) => Markup.button.callback(s, dynamicCallback.invoiceAsset(s)));
     const rows = [];
     for (let i = 0; i < btns.length; i += 3) rows.push(btns.slice(i, i + 3));
     rows.push([Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)]);
@@ -223,7 +223,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
   });
 
   // Asset chosen → ask the amount. The chain is already in session.
-  bot.action(/^pinv_a_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.INVOICE_ASSET, async (ctx) => {
     await safeAnswerCbQuery(ctx);
     const chain = sessions.getData(ctx.chat.id)?.invoiceChain;
     if (!chain) return;
@@ -260,8 +260,8 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
               parse_mode: 'HTML',
               ...Markup.inlineKeyboard([
                 [
-                  Markup.button.callback('👁 Voir', `inv_view_${existing.id}`),
-                  Markup.button.callback('🗑 Annuler', `inv_cancel_${existing.id}`),
+                  Markup.button.callback('👁 Voir', dynamicCallback.invoiceView(existing.id)),
+                  Markup.button.callback('🗑 Annuler', dynamicCallback.invoiceCancel(existing.id)),
                 ],
                 [Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)],
               ]),
@@ -275,7 +275,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
   });
 
   // Re-display an existing invoice (its BOLT11/address + QR).
-  bot.action(/^inv_view_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.INVOICE_VIEW, async (ctx) => {
     await safeAnswerCbQuery(ctx);
     const inv = (await storage.getInvoices(ctx.chat.id)).find((i) => i.id === ctx.match[1]);
     if (!inv) return ctx.reply('🤷 Facture introuvable.');
@@ -283,7 +283,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
   });
 
   // Cancel an open invoice → frees the slot; offer to create a fresh one.
-  bot.action(/^inv_cancel_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.INVOICE_CANCEL, async (ctx) => {
     await safeAnswerCbQuery(ctx);
     let canceled;
     try {
@@ -315,8 +315,8 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     );
     const openInvoices = list.filter((i) => OPEN_STATUS.includes(i.status));
     const rows = openInvoices.map((i) => [
-      Markup.button.callback(`👁 ${i.chain === 'lightning' ? '⚡' : i.symbol} ${fmt(i.amountCrypto)}`, `inv_view_${i.id}`),
-      Markup.button.callback('🗑 Annuler', `inv_cancel_${i.id}`),
+      Markup.button.callback(`👁 ${i.chain === 'lightning' ? '⚡' : i.symbol} ${fmt(i.amountCrypto)}`, dynamicCallback.invoiceView(i.id)),
+      Markup.button.callback('🗑 Annuler', dynamicCallback.invoiceCancel(i.id)),
     ]);
     rows.push([Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)]);
     await ctx.reply(
@@ -352,14 +352,14 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     await renderTreasury(ctx);
   });
 
-  bot.action('treasury_open', async (ctx) => {
+  bot.action(CALLBACKS.TREASURY_OPEN, async (ctx) => {
     if (!adminGuard(ctx)) return safeAnswerCbQuery(ctx);
     await safeAnswerCbQuery(ctx);
     await renderTreasury(ctx);
   });
 
   // Picker: choose WHICH BTC wallet receives swept Lightning funds.
-  bot.action('treasury_pick', async (ctx) => {
+  bot.action(CALLBACKS.TREASURY_PICK, async (ctx) => {
     if (!adminGuard(ctx)) return safeAnswerCbQuery(ctx);
     await safeAnswerCbQuery(ctx);
     const { coldForced, wallets } = await payments.sweepWalletOptions();
@@ -370,14 +370,14 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
       '💰 <b>Wallet de réception Lightning</b>\nOù veux-tu que les sats balayés depuis le nœud soient envoyés ?',
       {
         parse_mode: 'HTML',
-        ...sweepWalletPickKeyboard(wallets, 'treasury_w_', Markup.button.callback('↩️ Retour', 'treasury_open')),
+        ...sweepWalletPickKeyboard(wallets, dynamicCallback.treasuryWalletPrefix, Markup.button.callback('↩️ Retour', CALLBACKS.TREASURY_OPEN)),
       }
     );
   });
 
-  const treasuryBackKb = Markup.inlineKeyboard([[Markup.button.callback('↩️ Trésorerie', 'treasury_open')]]);
+  const treasuryBackKb = Markup.inlineKeyboard([[Markup.button.callback('↩️ Trésorerie', CALLBACKS.TREASURY_OPEN)]]);
 
-  bot.action(/^treasury_w_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.TREASURY_WALLET, async (ctx) => {
     if (!adminGuard(ctx)) return safeAnswerCbQuery(ctx);
     await safeAnswerCbQuery(ctx);
     try {
@@ -392,7 +392,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     }
   });
 
-  bot.action('treasury_sweep', async (ctx) => {
+  bot.action(CALLBACKS.TREASURY_SWEEP, async (ctx) => {
     if (!adminGuard(ctx)) return safeAnswerCbQuery(ctx);
     await safeAnswerCbQuery(ctx);
     const r = await payments.sweepLightningBalance();

@@ -10,7 +10,7 @@
  */
 import { Markup } from 'telegraf';
 import { safeAnswerCbQuery, escapeHtml } from '../../utils.js';
-import { CALLBACKS } from '../../constants/callbacks.js';
+import { CALLBACKS, CALLBACK_REGEX, dynamicCallback } from '../../constants/callbacks.js';
 import {
   getDepositAssets,
   getAssetNetworks,
@@ -78,7 +78,7 @@ function assetsKeyboard() {
   const assets = getDepositAssets();
   const stables = assets.filter((a) => a.type === 'stablecoin');
   const coins = assets.filter((a) => a.type !== 'stablecoin');
-  const btn = (a) => Markup.button.callback(`${a.icon} ${a.symbol}`, `dep_a_${a.symbol}`);
+  const btn = (a) => Markup.button.callback(`${a.icon} ${a.symbol}`, dynamicCallback.depositAsset(a.symbol));
 
   const rows = [];
   // Stablecoins first (common, error-prone deposit), then the rest. No header
@@ -95,7 +95,7 @@ function networksKeyboard(symbol, networks) {
     const fee = feeEmoji(n.chain);
     const sym = CHAIN_EMOJIS[n.chain] ? `${CHAIN_EMOJIS[n.chain]} ` : '';
     const text = `${fee ? fee + ' ' : ''}${sym}${netLabel(n)}${n.bridged ? ' • bridged' : ''}`;
-    return [Markup.button.callback(text, `dep_n_${symbol}_${n.chain}`)];
+    return [Markup.button.callback(text, dynamicCallback.depositNetwork(symbol, n.chain))];
   });
   rows.push([Markup.button.callback('↩️ Retour', CALLBACKS.DEPOSIT)]);
   return Markup.inlineKeyboard(rows);
@@ -103,17 +103,17 @@ function networksKeyboard(symbol, networks) {
 
 function confirmKeyboard(symbol, net, multiNetwork) {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('✅ Continuer', `dep_s_${symbol}_${net.chain}`)],
-    [Markup.button.callback('↩️ Retour', multiNetwork ? `dep_a_${symbol}` : CALLBACKS.DEPOSIT)],
+    [Markup.button.callback('✅ Continuer', dynamicCallback.depositConfirm(symbol, net.chain))],
+    [Markup.button.callback('↩️ Retour', multiNetwork ? dynamicCallback.depositAsset(symbol) : CALLBACKS.DEPOSIT)],
   ]);
 }
 
 // Shown only when the user holds several wallets able to receive on this chain.
 function walletPickKeyboard(symbol, chain, wallets) {
   const rows = wallets.map((w) => [
-    Markup.button.callback(`💰 ${walletLabel(w)}`, `dep_w_${symbol}_${chain}_${w.id}`),
+    Markup.button.callback(`💰 ${walletLabel(w)}`, dynamicCallback.depositWallet(symbol, chain, w.id)),
   ]);
-  rows.push([Markup.button.callback('↩️ Retour', `dep_n_${symbol}_${chain}`)]);
+  rows.push([Markup.button.callback('↩️ Retour', dynamicCallback.depositNetwork(symbol, chain))]);
   return Markup.inlineKeyboard(rows);
 }
 
@@ -272,12 +272,12 @@ export function setupDepositHandlers(bot, storage) {
   bot.command('recevoir', openReceive);
   bot.command('receive', openReceive); // English alias
 
-  bot.hears('📥 Recevoir', async (ctx) => {
+  bot.hears(['📥 Recevoir', '📥 Receive'], async (ctx) => {
     await ctx.reply(HOME_TEXT, { parse_mode: 'HTML', ...assetsKeyboard() });
   });
 
   // Asset chosen → pick network (or skip straight to confirmation if single).
-  bot.action(/^dep_a_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.DEPOSIT_ASSET, async (ctx) => {
     await safeAnswerCbQuery(ctx);
     const symbol = ctx.match[1];
     const networks = getAssetNetworks(symbol);
@@ -294,7 +294,7 @@ export function setupDepositHandlers(bot, storage) {
   });
 
   // Network chosen → confirmation step.
-  bot.action(/^dep_n_([^_]+)_([^_]+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.DEPOSIT_NETWORK, async (ctx) => {
     await safeAnswerCbQuery(ctx);
     const symbol = ctx.match[1];
     const chain = ctx.match[2];
@@ -307,7 +307,7 @@ export function setupDepositHandlers(bot, storage) {
   });
 
   // Confirmed → pick a wallet (if several) then show the address + QR.
-  bot.action(/^dep_s_([^_]+)_([^_]+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.DEPOSIT_CONFIRM, async (ctx) => {
     await safeAnswerCbQuery(ctx);
     const symbol = ctx.match[1];
     const chain = ctx.match[2];
@@ -331,7 +331,7 @@ export function setupDepositHandlers(bot, storage) {
   });
 
   // A specific wallet was chosen from the picker → show its address + QR.
-  bot.action(/^dep_w_([^_]+)_([^_]+)_(.+)$/, async (ctx) => {
+  bot.action(CALLBACK_REGEX.DEPOSIT_WALLET, async (ctx) => {
     await safeAnswerCbQuery(ctx);
     const symbol = ctx.match[1];
     const chain = ctx.match[2];

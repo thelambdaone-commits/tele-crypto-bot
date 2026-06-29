@@ -64,7 +64,7 @@ export function setupBalanceHandlers(bot, storage, walletService) {
     });
   });
 
-  bot.hears(['📊 Cours', '📊 Cours EUR', '📊 Prix'], async (ctx) => {
+  bot.hears(['📊 Cours', '📊 Cours EUR', '📊 Prix', '📊 Prices'], async (ctx) => {
     try {
       clearPriceCache();
       const prices = await getPricesEUR(true);
@@ -72,11 +72,11 @@ export function setupBalanceHandlers(bot, storage, walletService) {
 
       await ctx.reply(text, { parse_mode: 'HTML', ...pricesKeyboard() });
     } catch (error) {
-      ctx.reply('❌ Erreur lors de la recuperation des prix.');
+      ctx.reply('❌ Erreur lors de la recuperation des prix.').catch(() => {});
     }
   });
 
-  bot.hears('💵 Soldes', async (ctx) => {
+  bot.hears(['💵 Soldes', '💵 Balances'], async (ctx) => {
     const chatId = ctx.chat.id;
     const wallets = await storage.getWallets(chatId);
     if (wallets.length === 0) {

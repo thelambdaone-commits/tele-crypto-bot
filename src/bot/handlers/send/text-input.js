@@ -21,7 +21,7 @@ const EVM_NETWORKS = SUPPORTED_CHAINS.filter(isEvmChain).map((chain) => ({
 // Networks the analyze flow accepts, for the "address not recognized" hint. The
 // EVM half is derived from EVM_NETWORKS (so a new EVM chain shows up here too);
 // the non-EVM half mirrors the formats detectChain() can resolve.
-const ANALYZE_ACCEPTED_LABELS = ['BTC', 'LTC', 'BCH', 'SOL', 'XMR', 'ZEC', 'TON']
+const ANALYZE_ACCEPTED_LABELS = ['BTC', 'LTC', 'BCH', 'SOL', 'XMR', 'ZEC', 'TON', 'TRX']
   .concat(EVM_NETWORKS.map((n) => n.name))
   .join(', ');
 
@@ -171,14 +171,26 @@ export function setupSendTextInput(bot, storage, walletService, sessions) {
           '💰 Wallets',
           '💰 Mes Wallets',
           '💸 Envoyer',
+          '📤 Envoyer',
+          '📤 Send',
+          '📥 Recevoir',
+          '📥 Receive',
           '💵 Soldes',
+          '💵 Balances',
           '🔍 Analyser',
           '🔎 Analyser',
+          '🔎 Analyze',
+          '📊 Cours',
           '📊 Cours EUR',
+          '📊 Prices',
+          '➕ Nouveau',
+          '➕ New',
           '❓ Aide',
           '🆘 Help',
+          '❓ Help',
           '➕ Nouveau Wallet',
           '❌ Fermer',
+          '❌ Close',
           '👑 Admin',
           'Stop',
           'Annuler',
@@ -254,7 +266,7 @@ export function setupSendTextInput(bot, storage, walletService, sessions) {
           address: text,
           chatId,
         });
-        ctx.reply(`❌ Erreur d'analyse : ${error.message}`);
+        ctx.reply(`❌ Erreur d'analyse : ${error.message}`).catch(() => {});
       }
       return;
     }

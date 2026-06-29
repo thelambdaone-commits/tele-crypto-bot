@@ -5,7 +5,7 @@ import {
 } from '../../keyboards/index.js';
 import { CALLBACKS } from '../../constants/callbacks.js';
 import { safeAnswerCbQuery, escapeHtml } from '../../utils.js';
-import { MESSAGES, EMOJIS } from '../../messages/index.js';
+import { MESSAGES, EMOJIS, t } from '../../messages/index.js';
 import { convertToEUR, formatEUR } from '../../../shared/price.js';
 import { CHAIN_EMOJIS } from '../../ui/formatters.js';
 
@@ -53,7 +53,7 @@ export function setupWalletList(bot, storage, walletService) {
     const wallet = wallets.find((w) => w.id === walletId);
 
     if (!wallet) {
-      return ctx.editMessageText('😕 Wallet non trouvé', mainMenuKeyboard());
+      return ctx.editMessageText(t(ctx.state?.lang || 'fr', 'wallet.notFound'), mainMenuKeyboard());
     }
 
     const chainEmoji = CHAIN_EMOJIS[wallet.chain] || '💎';

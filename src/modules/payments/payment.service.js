@@ -250,6 +250,11 @@ export class PaymentService {
     }
 
     if (next.status !== invoice.status || next.receivedCrypto !== invoice.receivedCrypto) {
+      // For Lightning, credit the merchant's INTERNAL balance BEFORE persisting
+      // SETTLED. The credit is idempotent per invoice id, so a crash between the
+      // credit and the status write just re-settles next cycle and re-credits as
+      // a no-op — eliminating the under-credit window without risking a double.
+      if (next.status === INVOICE_STATES.SETTLED) await this._creditLightning(next);
       await this.storage.updateInvoice(invoice.merchantId, next);
       if (next.status === INVOICE_STATES.SETTLED) await this._onSettled(next);
       else if (next.status === INVOICE_STATES.EXPIRED) await this._notify(next, `⌛ Facture expirée (${next.symbol}).`);
@@ -257,18 +262,29 @@ export class PaymentService {
     return next;
   }
 
+  // Lightning: funds pool in the node — credit the merchant's INTERNAL balance
+  // (accounting), decoupled from the physical treasury sweep. Idempotent per id.
+  async _creditLightning(invoice) {
+    if (invoice.chain !== LN) return;
+    const sat = Math.round((invoice.receivedCrypto || 0) * SATS_PER_BTC);
+    try {
+      await this.storage.creditLnBalance(invoice.merchantId, sat, invoice.id);
+    } catch (e) {
+      logger.warn('[Payments] creditLnBalance failed', { id: invoice.id, error: e.message });
+    }
+  }
+
   async _onSettled(invoice) {
     this.ledger.push(...settlementEntries(invoice));
-    // Lightning: funds pool in the node — credit the merchant's INTERNAL balance
-    // (accounting), decoupled from the physical treasury sweep.
+    // The LN balance was already credited (idempotently) before the status write;
+    // read it back for the notification line.
     let lnLine = '';
     if (invoice.chain === LN) {
-      const sat = Math.round((invoice.receivedCrypto || 0) * SATS_PER_BTC);
       try {
-        const bal = await this.storage.creditLnBalance(invoice.merchantId, sat);
+        const bal = await this.storage.getLnBalance(invoice.merchantId);
         lnLine = `\n💼 Solde Lightning : <b>${bal} sats</b>`;
       } catch (e) {
-        logger.warn('[Payments] creditLnBalance failed', { id: invoice.id, error: e.message });
+        logger.warn('[Payments] getLnBalance failed', { id: invoice.id, error: e.message });
       }
     }
     const fiat = invoice.amountFiat != null ? ` (${formatEUR(invoice.amountFiat)})` : '';

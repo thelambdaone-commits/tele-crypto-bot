@@ -28,6 +28,7 @@ import { adminGuard } from '../middlewares/auth.middleware.js';
 import { adminExtendedKeyboard } from '../keyboards/index.js';
 import { initPatterns } from '../patterns/index.js';
 import { logger } from '../../shared/logger.js';
+import { resolveLang } from '../messages/index.js';
 
 /**
  * Setup all handlers
@@ -72,15 +73,21 @@ export async function setupHandlers(bot, storage) {
 
     if (chatType === 'private' && ctx.from) {
       try {
-        await storage.updateUserProfile(
+        // Seed the UI language from Telegram on first contact; the stored
+        // preference (set here or via Settings) wins afterward. The resolved
+        // language is exposed as ctx.state.lang for downstream handlers.
+        const lang = await storage.updateUserProfile(
           chatId,
           ctx.from.first_name || 'N/A',
-          ctx.from.username || null
+          ctx.from.username || null,
+          resolveLang(ctx.from.language_code)
         );
+        ctx.state.lang = resolveLang(lang);
       } catch (e) {
         logger.warn('[PROFILE] Failed to update user profile', { chatId, error: e.message });
       }
     }
+    if (!ctx.state.lang) ctx.state.lang = 'fr';
 
     if (
       (chatType === 'group' || chatType === 'supergroup') &&

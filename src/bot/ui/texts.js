@@ -6,10 +6,58 @@
 import { sectionTitle, separator } from './formatters.js';
 
 /**
- * Texte d'aide complet pour /help
+ * Full help text for /help.
+ * @param {string} [lang] - 'fr' (default) or 'en'
  * @returns {string}
  */
-export function getFullHelpText() {
+export function getFullHelpText(lang = 'fr') {
+  if (lang === 'en') {
+    return `
+🎮 <b>Bot Help</b>
+
+${sectionTitle('🔐', 'WALLETS')}
+<code>/wallet</code> — 💰 Show my wallets
+<code>/gen &lt;network&gt;</code> — 🆕 Generate a wallet (<code>/gen</code> for the list)
+<code>/receive</code> — 📥 Address + QR (per asset/network)
+<code>/bal &lt;network&gt; &lt;address&gt;</code> — 💰 Check a balance
+
+${sectionTitle('💸', 'TRANSACTIONS')}
+<code>/send &lt;network&gt; &lt;address&gt; &lt;amount&gt;</code> — 📤 Send crypto
+<code>/tx &lt;network&gt; &lt;address&gt; [limit]</code> — 📜 Transaction history
+
+${sectionTitle('📊', 'MARKET INFO')}
+<code>/price</code> — 💹 Prices in EUR
+<code>/gas [eth|btc|sol|trx]</code> — ⛽ Transaction fees
+<code>/graph &lt;token&gt; [7|30|90|365]</code> — 📈 Chart (default 365d)
+↳ or the <b>📈 Chart</b> button on <code>/price</code> (grid of all coins) &amp; in 🔎 Analyze
+
+${sectionTitle('🔢', 'UNIT CONVERSION')}
+<code>/unit &lt;amount&gt; &lt;unit&gt;</code> — Convert crypto units
+BTC ↔ satoshi · ETH ↔ gwei/wei · SOL ↔ lamport
+XMR ↔ piconero · ZEC ↔ zatoshi · TRX ↔ sun
+
+<i>e.g. /unit 1 btc → 100,000,000 satoshis</i>
+
+${sectionTitle('💱', 'EXCHANGE')}
+<code>/list</code> — 📋 Supported coins &amp; tokens
+<code>/swaps</code> — 💱 No-KYC swap (cross-chain)
+<code>/invoice</code> — 💳 Create an invoice (receive a payment)
+<code>/invoices</code> — 🧾 My invoices
+
+${sectionTitle('📚', 'LEARN')}
+<code>/learn</code> — 📖 Coin vs Token
+
+${sectionTitle('🆘', 'GENERAL')}
+<code>/start</code> — 🚀 Start
+<code>/menu</code> — 🎮 Main menu
+<code>/chains</code> — 🔗 Supported blockchains
+<code>/id</code> — 🆔 Your ChatID / UserID
+<code>/help</code> — ❓ This help
+
+💡 <b>Tip:</b> Use the menu buttons to navigate more easily
+  `.trim();
+  }
+
   return `
 🎮 <b>Aide du Bot</b>
 
@@ -25,7 +73,7 @@ ${sectionTitle('💸', 'TRANSACTIONS')}
 
 ${sectionTitle('📊', 'INFOS MARCHÉ')}
 <code>/price</code> — 💹 Prix en EUR
-<code>/gas [eth|btc|sol]</code> — ⛽ Frais de transaction
+<code>/gas [eth|btc|sol|trx]</code> — ⛽ Frais de transaction
 <code>/graph &lt;token&gt; [7|30|90|365]</code> — 📈 Graphique (défaut 365j)
 ↳ ou bouton <b>📈 Graphique</b> sur <code>/price</code> (grille de toutes les cryptos) &amp; dans 🔍 Analyser
 

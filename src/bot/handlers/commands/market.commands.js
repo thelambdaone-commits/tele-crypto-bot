@@ -137,6 +137,25 @@ export function setupMarketCommands(bot) {
         );
       }
 
+      if (chain === 'trx') {
+        return ctx.reply(
+          '🔴 <b>Frais Tron (TRX)</b>\n\n' +
+            "Tron n'a pas de « gas price ». Les frais se paient en <b>ressources</b> :\n\n" +
+            '📶 <b>Bande passante</b> (transferts TRX)\n' +
+            '   • <b>600 points gratuits/jour</b> par compte\n' +
+            '   • Un transfert TRX consomme ~268 points → <b>souvent gratuit</b>\n' +
+            '   • Au-delà : ~<b>0.27 TRX</b> (1000 sun/octet)\n\n' +
+            '⚡️ <b>Énergie</b> (jetons TRC-20 : USDT, USDC…)\n' +
+            '   • Sans énergie stakée, le réseau brûle des TRX (~<b>13–27 TRX</b> selon le destinataire)\n\n' +
+            '🆕 <b>Activation de compte</b>\n' +
+            '   • 1er envoi vers une adresse <b>jamais utilisée</b> : <b>1 TRX brûlé + ~0.1 TRX</b> ≈ <b>1.1 TRX</b>\n' +
+            '   • Règle du réseau, <b>inévitable</b> — une seule fois par adresse ; les envois suivants reviennent à ~0.27 TRX ou gratuit\n\n' +
+            '💡 <b>Astuce :</b> geler (staker) des TRX donne de la bande passante / énergie gratuites → 0 frais.\n\n' +
+            "ℹ️ Le bot estime le coût réel à l'envoi selon l'état du compte destinataire.",
+          { parse_mode: 'HTML' }
+        );
+      }
+
       // Summary across all chains.
       const [eth, btc, sol] = await Promise.all([
         getEthFees().catch(() => null),
@@ -177,7 +196,7 @@ export function setupMarketCommands(bot) {
 
       text +=
         `🕒 Mis à jour à ${nowLabel()}\n` +
-        '<i>Détails :</i> <code>/gas eth</code> · <code>/gas btc</code> · <code>/gas sol</code>';
+        '<i>Détails :</i> <code>/gas eth</code> · <code>/gas btc</code> · <code>/gas sol</code> · <code>/gas trx</code>';
 
       await ctx.reply(text, { parse_mode: 'HTML' });
     } catch (error) {
@@ -188,7 +207,7 @@ export function setupMarketCommands(bot) {
       }
       ctx.reply(`❌ Impossible de récupérer les frais : ${escapeHtml(error.message)}`, {
         parse_mode: 'HTML',
-      });
+      }).catch(() => {});
     }
   });
 
@@ -218,9 +237,9 @@ export function setupMarketCommands(bot) {
           }
         );
       }
-      ctx.reply('❌ Crypto non supportée.');
+      ctx.reply('❌ Crypto non supportée.').catch(() => {});
     } catch (error) {
-      ctx.reply(`❌ Erreur : ${escapeHtml(error.message)}`, { parse_mode: 'HTML' });
+      ctx.reply(`❌ Erreur : ${escapeHtml(error.message)}`, { parse_mode: 'HTML' }).catch(() => {});
     }
   });
 

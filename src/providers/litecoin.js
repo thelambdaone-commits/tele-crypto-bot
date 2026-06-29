@@ -249,17 +249,26 @@ export class LitecoinChain extends BaseProvider {
 
     const avgFeeRate = feeEstimates['6'] || 1;
     const txVbytes = 140 + utxos.length * 50;
-    const estimatedFee = avgFeeRate * txVbytes;
+    const feeLitoshis = avgFeeRate * txVbytes;
 
+    // `fee`/`feeSats` are in litoshis (base units); `estimatedFee` is the
+    // native-LTC amount the send-confirmation screen (formatTxDetails) reads —
+    // without it the displayed fee renders as 0.
     return {
-      slow: { fee: estimatedFee.toFixed(0), feeSats: Math.floor(estimatedFee).toString() },
+      slow: {
+        fee: feeLitoshis.toFixed(0),
+        feeSats: Math.floor(feeLitoshis).toString(),
+        estimatedFee: (feeLitoshis / 1e8).toFixed(8),
+      },
       average: {
-        fee: (estimatedFee * 1.5).toFixed(0),
-        feeSats: Math.floor(estimatedFee * 1.5).toString(),
+        fee: (feeLitoshis * 1.5).toFixed(0),
+        feeSats: Math.floor(feeLitoshis * 1.5).toString(),
+        estimatedFee: ((feeLitoshis * 1.5) / 1e8).toFixed(8),
       },
       fast: {
-        fee: (estimatedFee * 2).toFixed(0),
-        feeSats: Math.floor(estimatedFee * 2).toString(),
+        fee: (feeLitoshis * 2).toFixed(0),
+        feeSats: Math.floor(feeLitoshis * 2).toString(),
+        estimatedFee: ((feeLitoshis * 2) / 1e8).toFixed(8),
       },
       feeRate: avgFeeRate,
     };

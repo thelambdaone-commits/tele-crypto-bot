@@ -1,3 +1,22 @@
+import bs58check from 'bs58check';
+
+// Tron base58 addresses share Solana's base58 alphabet and length range, so a
+// plain regex can't tell them apart. A Tron address is the base58check encoding
+// of a 21-byte payload whose first byte is 0x41 ("T…"). Validating the checksum
+// + version byte distinguishes a real Tron address from a coincidental 34-char
+// Solana key, so Tron MUST be probed before the Solana branch below.
+function isTronAddress(address) {
+  if (!/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address)) {
+    return false;
+  }
+  try {
+    const decoded = bs58check.decode(address);
+    return decoded.length === 21 && decoded[0] === 0x41;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Detect blockchain from address format
  */
@@ -57,6 +76,12 @@ export function detectChain(address) {
   // Checked before Solana: TON's '_'/'-' and 48-char length don't fit base58.
   if (/^[EU]Q[A-Za-z0-9_-]{46}$/.test(address)) {
     return 'ton';
+  }
+
+  // Tron: base58check, 21-byte payload prefixed with 0x41 ("T…", 34 chars).
+  // Must precede Solana — both use base58 and Tron's length fits Solana's range.
+  if (isTronAddress(address)) {
+    return 'trx';
   }
 
   // Solana: Base58, 32-44 chars

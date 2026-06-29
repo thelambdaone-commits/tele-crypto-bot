@@ -56,6 +56,7 @@ export class StorageService {
       pendingTransactions: [],
       settings: {
         defaultFeeLevel: 'average',
+        language: null, // resolved lazily from the Telegram language_code, then user-overridable
       },
       createdAt: new Date().toISOString(),
     };
@@ -172,14 +173,24 @@ export class StorageService {
   }
 
   /**
-   * Update user profile information (name, username)
+   * Update user profile information (name, username) and seed the UI language
+   * on first contact only — once set (here or via the Settings menu) the stored
+   * preference wins. `defaultLanguage` must already be a normalized code
+   * ('fr'/'en'); the bot layer resolves it from the Telegram `language_code`.
+   * Returns the effective language so the caller can populate `ctx.state.lang`
+   * without a reload.
    */
-  async updateUserProfile(chatId, firstName, username) {
+  async updateUserProfile(chatId, firstName, username, defaultLanguage = null) {
     return this._withLock(chatId, async () => {
       const userData = await this.loadUserData(chatId);
       userData.firstName = firstName;
       userData.username = username;
+      if (!userData.settings) userData.settings = {};
+      if (!userData.settings.language && defaultLanguage) {
+        userData.settings.language = defaultLanguage;
+      }
       await this.saveUserData(chatId, userData);
+      return userData.settings.language || null;
     });
   }
 
@@ -478,9 +489,24 @@ export class StorageService {
 
   // ── Lightning internal balance (per merchant) — accounting, decoupled from the
   // physical node funds. Credited on settlement; the treasury sweep is separate.
-  async creditLnBalance(chatId, sat) {
+  // Idempotent per-invoice credit: passing the settling invoice's id makes a
+  // repeat call (e.g. a crash-retry that re-settles the same invoice) a no-op,
+  // so the credit can be applied BEFORE the SETTLED status is persisted without
+  // risking a double-credit. Recently-credited ids are remembered (capped).
+  async creditLnBalance(chatId, sat, invoiceId = null) {
     return this._withLock(chatId, async () => {
       const data = await this.loadUserData(chatId);
+      if (invoiceId) {
+        data.lnCreditedInvoices = data.lnCreditedInvoices || [];
+        if (data.lnCreditedInvoices.includes(invoiceId)) {
+          return data.lnBalanceSat || 0; // already credited — idempotent no-op
+        }
+        data.lnCreditedInvoices.push(invoiceId);
+        // Bound the dedupe set; a re-settle only ever re-checks a very recent id.
+        if (data.lnCreditedInvoices.length > 500) {
+          data.lnCreditedInvoices = data.lnCreditedInvoices.slice(-500);
+        }
+      }
       data.lnBalanceSat = (data.lnBalanceSat || 0) + Math.round(Number(sat) || 0);
       await this.saveUserData(chatId, data);
       return data.lnBalanceSat;
@@ -574,22 +600,45 @@ export class StorageService {
     });
   }
 
+  // The global stats file gets its own derived subkey (like per-user files),
+  // instead of the raw master key, to keep the master key off any data file.
+  _statsKey() {
+    return deriveUserKey(this.masterKey, 'global-stats');
+  }
+
+  _emptyStats() {
+    return {
+      totalWallets: 0,
+      totalTransactions: 0,
+      volumeByChain: {},
+      userCount: 0,
+    };
+  }
+
   async loadStats() {
+    let encryptedData;
     try {
-      const encryptedData = await fs.readFile(this.statsPath, 'utf8');
-      return JSON.parse(decrypt(encryptedData, this.masterKey));
+      encryptedData = await fs.readFile(this.statsPath, 'utf8');
     } catch {
-      return {
-        totalWallets: 0,
-        totalTransactions: 0,
-        volumeByChain: {},
-        userCount: 0,
-      };
+      return this._emptyStats(); // no stats file yet
+    }
+    try {
+      return JSON.parse(decrypt(encryptedData, this._statsKey()));
+    } catch {
+      // Legacy files were encrypted with the raw master key — read them once,
+      // then re-save under the derived subkey so the migration is transparent.
+      try {
+        const stats = JSON.parse(decrypt(encryptedData, this.masterKey));
+        await this.saveStats(stats).catch(() => {});
+        return stats;
+      } catch {
+        return this._emptyStats();
+      }
     }
   }
 
   async saveStats(stats) {
-    const encryptedData = encrypt(JSON.stringify(stats), this.masterKey);
+    const encryptedData = encrypt(JSON.stringify(stats), this._statsKey());
     await fs.writeFile(this.statsPath, encryptedData, 'utf8');
   }
 

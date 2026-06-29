@@ -228,19 +228,27 @@ export class ZcashChain extends BaseProvider {
 
         const baseFee = mempool?.usage ? Math.ceil(mempool.usage / 100000) : 10;
 
+        // `estimatedFee` mirrors the native-ZEC `fee` so the send-confirmation
+        // screen (formatTxDetails) renders a non-zero fee.
+        const slowFee = ((baseFee * txSize) / 100000000).toFixed(8);
+        const avgFee = ((baseFee * 1.5 * txSize) / 100000000).toFixed(8);
+        const fastFee = ((baseFee * 2 * txSize) / 100000000).toFixed(8);
         return {
           slow: {
-            fee: ((baseFee * txSize) / 100000000).toFixed(8),
+            fee: slowFee,
+            estimatedFee: slowFee,
             feeSats: Math.ceil(baseFee * txSize),
             confBlocks: '~144 blocs (~24h)',
           },
           average: {
-            fee: ((baseFee * 1.5 * txSize) / 100000000).toFixed(8),
+            fee: avgFee,
+            estimatedFee: avgFee,
             feeSats: Math.ceil(baseFee * 1.5 * txSize),
             confBlocks: '~6 blocs (~1h)',
           },
           fast: {
-            fee: ((baseFee * 2 * txSize) / 100000000).toFixed(8),
+            fee: fastFee,
+            estimatedFee: fastFee,
             feeSats: Math.ceil(baseFee * 2 * txSize),
             confBlocks: '~1 bloc (~10m)',
           },
@@ -251,9 +259,9 @@ export class ZcashChain extends BaseProvider {
     }
 
     return {
-      slow: { fee: '0.00001000', feeSats: 1000, confBlocks: '~144 blocs' },
-      average: { fee: '0.00005000', feeSats: 5000, confBlocks: '~6 blocs' },
-      fast: { fee: '0.00010000', feeSats: 10000, confBlocks: '~1 bloc' },
+      slow: { fee: '0.00001000', estimatedFee: '0.00001000', feeSats: 1000, confBlocks: '~144 blocs' },
+      average: { fee: '0.00005000', estimatedFee: '0.00005000', feeSats: 5000, confBlocks: '~6 blocs' },
+      fast: { fee: '0.00010000', estimatedFee: '0.00010000', feeSats: 10000, confBlocks: '~1 bloc' },
     };
   }
 

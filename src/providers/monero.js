@@ -211,16 +211,20 @@ export class MoneroChain extends BaseProvider {
       const estimatedFee = perByte * estimatedTxSize;
       const feeXmr = estimatedFee / 1e12;
 
+      // `estimatedFee` mirrors the native-XMR `fee` so the send-confirmation
+      // screen (formatTxDetails) renders a non-zero fee.
+      const slowFee = feeXmr.toFixed(12);
+      const fastFee = (feeXmr * 2).toFixed(12);
       return {
-        slow: { fee: feeXmr.toFixed(12), feeAtomic: Math.floor(estimatedFee * 0.8), confBlocks: '~30 min' },
-        average: { fee: feeXmr.toFixed(12), feeAtomic: Math.floor(estimatedFee), confBlocks: '~20 min' },
-        fast: { fee: (feeXmr * 2).toFixed(12), feeAtomic: Math.floor(estimatedFee * 2), confBlocks: '~10 min' },
+        slow: { fee: slowFee, estimatedFee: slowFee, feeAtomic: Math.floor(estimatedFee * 0.8), confBlocks: '~30 min' },
+        average: { fee: slowFee, estimatedFee: slowFee, feeAtomic: Math.floor(estimatedFee), confBlocks: '~20 min' },
+        fast: { fee: fastFee, estimatedFee: fastFee, feeAtomic: Math.floor(estimatedFee * 2), confBlocks: '~10 min' },
       };
     } catch {
       return {
-        slow: { fee: '0.000030000000', feeAtomic: 30000, confBlocks: '~30 min' },
-        average: { fee: '0.000060000000', feeAtomic: 60000, confBlocks: '~20 min' },
-        fast: { fee: '0.000120000000', feeAtomic: 120000, confBlocks: '~10 min' },
+        slow: { fee: '0.000030000000', estimatedFee: '0.000030000000', feeAtomic: 30000, confBlocks: '~30 min' },
+        average: { fee: '0.000060000000', estimatedFee: '0.000060000000', feeAtomic: 60000, confBlocks: '~20 min' },
+        fast: { fee: '0.000120000000', estimatedFee: '0.000120000000', feeAtomic: 120000, confBlocks: '~10 min' },
       };
     }
   }

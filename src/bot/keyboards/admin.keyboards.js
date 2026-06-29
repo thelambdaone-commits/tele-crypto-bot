@@ -23,6 +23,22 @@ export function adminExtendedKeyboard() {
   ]);
 }
 
+// Users-list navigation: ⬅️/➡️ shown only when there's an adjacent page, plus
+// a back-to-panel row. `page`/`totalPages` are 0-indexed / count.
+export function adminUsersListKeyboard(page, totalPages) {
+  const nav = [];
+  if (page > 0) {
+    nav.push(Markup.button.callback('⬅️ Précédent', dynamicCallback.adminUsersPage(page - 1)));
+  }
+  if (page < totalPages - 1) {
+    nav.push(Markup.button.callback('Suivant ➡️', dynamicCallback.adminUsersPage(page + 1)));
+  }
+  const rows = [];
+  if (nav.length) rows.push(nav);
+  rows.push([Markup.button.callback('↩️ Retour Panel Admin', CALLBACKS.ADMIN_PANEL)]);
+  return Markup.inlineKeyboard(rows);
+}
+
 export function adminSecurityKeyboard() {
   return Markup.inlineKeyboard([
     [Markup.button.callback('🧪 Audit complet', CALLBACKS.ADMIN_AUDIT)],

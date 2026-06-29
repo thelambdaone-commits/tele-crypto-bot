@@ -273,7 +273,7 @@ export function setupAdminActions(bot, storage, sessions) {
       }, 15000);
       deleteTimer.unref();
     } catch (error) {
-      ctx.reply(`❌ Erreur : ${error.message}`, adminExtendedKeyboard());
+      ctx.reply(`❌ Erreur : ${error.message}`, adminExtendedKeyboard()).catch(() => {});
     }
   });
 
@@ -295,9 +295,9 @@ export function setupAdminActions(bot, storage, sessions) {
           parse_mode: 'HTML',
           ...adminExtendedKeyboard(),
         }
-      );
+      ).catch(() => {});
     } catch (error) {
-      ctx.reply(`❌ Erreur : ${error.message}`, adminExtendedKeyboard());
+      ctx.reply(`❌ Erreur : ${error.message}`, adminExtendedKeyboard()).catch(() => {});
     }
   });
 }

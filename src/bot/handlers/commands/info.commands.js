@@ -1,6 +1,7 @@
 import { Markup } from 'telegraf';
 import { mainMenuKeyboard, mainReplyKeyboard } from '../../keyboards/index.js';
 import { getFullHelpText } from '../../ui/index.js';
+import { t } from '../../messages/index.js';
 import { CALLBACKS } from '../../constants/callbacks.js';
 import { CHAIN_REGISTRY } from '../../../shared/chains.js';
 import { TOKEN_CONFIGS } from '../../../core/tokens.config.js';
@@ -27,17 +28,19 @@ function tokensSection() {
 export function setupInfoCommands(bot) {
   // 🆘 /help - Menu d'aide complet
   bot.command('help', async (ctx) => {
-    await ctx.reply(getFullHelpText(), {
+    const lang = ctx.state?.lang || 'fr';
+    await ctx.reply(getFullHelpText(lang), {
       parse_mode: 'HTML',
-      ...mainReplyKeyboard(),
+      ...mainReplyKeyboard(lang),
     });
   });
 
   // 🎮 /menu - Menu principal interactif (inline)
   bot.command('menu', async (ctx) => {
-    await ctx.reply('🎮 <b>Menu Principal</b>', {
+    const lang = ctx.state?.lang || 'fr';
+    await ctx.reply(t(lang, 'menu.principal'), {
       parse_mode: 'HTML',
-      ...mainMenuKeyboard(),
+      ...mainMenuKeyboard(lang),
     });
   });
 

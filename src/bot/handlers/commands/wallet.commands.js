@@ -143,7 +143,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       const deleteTimer = setTimeout(async () => {
         try {
           await ctx.telegram.deleteMessage(chatId, sentMsg.message_id);
-          ctx.reply('🔒 <i>Message de sécurité supprimé.</i>', { parse_mode: 'HTML' });
+          ctx.reply('🔒 <i>Message de sécurité supprimé.</i>', { parse_mode: 'HTML' }).catch(() => {});
         } catch (e) {}
       }, 60000);
       deleteTimer.unref();
@@ -151,7 +151,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       try {
         await ctx.telegram.deleteMessage(chatId, loadingMsg.message_id);
       } catch (e) {}
-      ctx.reply(`❌ Oups ! Erreur : ${error.message}`);
+      ctx.reply(`❌ Oups ! Erreur : ${error.message}`).catch(() => {});
     }
   });
 
@@ -201,7 +201,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       try {
         await ctx.telegram.deleteMessage(ctx.chat.id, loadingMsg.message_id);
       } catch (e) {}
-      ctx.reply(`❌ Impossible de récupérer le solde : ${error.message}`);
+      ctx.reply(`❌ Impossible de récupérer le solde : ${error.message}`).catch(() => {});
     }
   });
 
@@ -279,7 +279,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       );
     } catch (error) {
       sessions.clearState(chatId);
-      ctx.reply(`❌ Erreur : ${error.message}`);
+      ctx.reply(`❌ Erreur : ${error.message}`).catch(() => {});
     }
   });
 
@@ -328,7 +328,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       try {
         await ctx.telegram.deleteMessage(ctx.chat.id, loadingMsg.message_id);
       } catch (e) {}
-      ctx.reply(`❌ Impossible de récupérer l'historique : ${error.message}`);
+      ctx.reply(`❌ Impossible de récupérer l'historique : ${error.message}`).catch(() => {});
     }
   });
 
