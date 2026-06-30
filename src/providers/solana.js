@@ -27,41 +27,43 @@ export class SolanaChain extends BaseProvider {
   constructor(rpcUrl, fallbackRpcUrls = []) {
     super('Solana', 'SOL');
     this.primaryRpcUrl = rpcUrl;
-    this.connection = new Connection(rpcUrl, 'confirmed');
 
     const configuredFallbacks = Array.isArray(fallbackRpcUrls) ? fallbackRpcUrls : [fallbackRpcUrls];
-    const endpoints = [
-      rpcUrl,
-      ...configuredFallbacks,
-      // Keyless public fallbacks (verified live, juin 2026). rpc.ankr.com/solana
-      // was removed: Ankr dropped keyless access and it now requires an API key.
-      // solana.drpc.org was NOT added: dRPC's Solana is paid-tier only.
+    const staticFallbacks = [
       'https://solana-rpc.publicnode.com',
       'https://api.mainnet-beta.solana.com',
-    ].filter(Boolean);
+    ];
+    const allUrls = [rpcUrl, ...configuredFallbacks, ...staticFallbacks].filter(Boolean);
+    this.endpoints = [...new Set(allUrls)];
 
-    this.balanceRpc = new RpcManager(endpoints, async (endpoint, { address }) => {
-      const conn = new Connection(endpoint, {
-        commitment: 'confirmed',
-        confirmTransactionInitialTimeout: 10000,
-      });
+    this._connections = new Map();
+    this._getConnection = (url) => {
+      if (!this._connections.has(url)) {
+        this._connections.set(url, new Connection(url, {
+          commitment: 'confirmed',
+          confirmTransactionInitialTimeout: 30000,
+        }));
+      }
+      return this._connections.get(url);
+    };
+    this.connection = this._getConnection(rpcUrl);
+
+    this.balanceRpc = new RpcManager(this.endpoints, async (endpoint, { address }) => {
+      const conn = this._getConnection(endpoint);
       const balance = await conn.getBalance(new PublicKey(address));
       return {
         balance: (balance / LAMPORTS_PER_SOL).toString(),
         balanceLamports: balance.toString(),
         symbol: this.symbol,
       };
-    }, { requestTimeoutMs: 10000, failureThreshold: 3 });
+    }, { requestTimeoutMs: 10000, failureThreshold: 3, cacheTtlMs: 5000, rps: 20 });
 
-    this.tokenRpc = new RpcManager(endpoints, async (endpoint, { publicKey }) => {
-      const conn = new Connection(endpoint, {
-        commitment: 'confirmed',
-        confirmTransactionInitialTimeout: 10000,
-      });
+    this.tokenRpc = new RpcManager(this.endpoints, async (endpoint, { publicKey }) => {
+      const conn = this._getConnection(endpoint);
       return await conn.getParsedTokenAccountsByOwner(publicKey, {
         programId: TOKEN_PROGRAM_ID,
       });
-    }, { requestTimeoutMs: 15000, failureThreshold: 3 });
+    }, { requestTimeoutMs: 15000, failureThreshold: 3, cacheTtlMs: 10000, rps: 15 });
   }
 
   async createWallet() {
@@ -96,7 +98,6 @@ export class SolanaChain extends BaseProvider {
     const cleanKey = privateKey.trim();
     let formatTried = [];
 
-    // 1. Handle JSON Array format: [1, 2, 3, ...]
     if (cleanKey.startsWith('[') && cleanKey.endsWith(']')) {
       try {
         const arr = JSON.parse(cleanKey);
@@ -105,40 +106,31 @@ export class SolanaChain extends BaseProvider {
           formatTried.push('JSON');
         }
       } catch (e) {
-        // Not valid JSON, continue
       }
     }
 
-    // 2. Try Base58 (Phantom, Solflare, etc. export) - more lenient
     if (!secretKey) {
       try {
-        // Try decode directly, no regex check needed
         const decoded = bs58.decode(cleanKey);
-        // Valid Solana key is 64 bytes (private + public) or 32 bytes (private only)
         if (decoded.length === 64 || decoded.length === 32) {
           secretKey = decoded;
           formatTried.push('Base58');
         }
       } catch (e) {
-        // Not valid Base58, continue
       }
     }
 
-    // 3. Try Hex format (with or without 0x prefix)
     if (!secretKey) {
       try {
         let hex = cleanKey.startsWith('0x') ? cleanKey.slice(2) : cleanKey;
-        // Support both 64 char (32 bytes) and 128 char (64 bytes) hex
         if (/^[0-9a-fA-F]+$/.test(hex) && (hex.length === 64 || hex.length === 128)) {
           secretKey = Uint8Array.from(Buffer.from(hex, 'hex'));
           formatTried.push('Hex');
         }
       } catch (e) {
-        // Not valid hex
       }
     }
 
-    // 4. Try base64 format (sometimes used)
     if (!secretKey) {
       try {
         const decoded = Buffer.from(cleanKey, 'base64');
@@ -147,7 +139,6 @@ export class SolanaChain extends BaseProvider {
           formatTried.push('Base64');
         }
       } catch (e) {
-        // Not valid base64
       }
     }
 
@@ -159,10 +150,8 @@ export class SolanaChain extends BaseProvider {
 
     let keypair;
     if (secretKey.length === 64) {
-      // Full 64-byte secret key (32 bytes private + 32 bytes public)
       keypair = Keypair.fromSecretKey(secretKey);
     } else if (secretKey.length === 32) {
-      // 32-byte seed
       keypair = Keypair.fromSeed(secretKey);
     } else {
       throw new Error(`Longueur de clé invalide: ${secretKey.length} octets (attendu 32 ou 64)`);
@@ -194,11 +183,8 @@ export class SolanaChain extends BaseProvider {
   }
 
   async estimateFees(_fromAddress, _toAddress, _amount) {
-    // Solana has stable base fees (5000 lamports per signature)
-    // Recent blockhash is no longer used for fee calculation in modern web3 versions
     const baseFee = 5000;
 
-    // Solana doesn't have fee levels like ETH, but we can add priority fees
     const fees = {
       slow: {
         fee: baseFee,
@@ -220,9 +206,6 @@ export class SolanaChain extends BaseProvider {
     return fees;
   }
 
-  // Compute-budget priority instruction(s) for a fee level, if any. Centralised
-  // so the fee *estimate* and the real *send* compile an identical message —
-  // that's what makes getFeeForMessage exact enough to leave 0 dust on a sweep.
   _priorityInstructions(feeLevel) {
     const priorityFee = feeLevel === 'fast' ? 10000 : feeLevel === 'average' ? 1000 : 0;
     if (priorityFee <= 0) return [];
@@ -233,8 +216,6 @@ export class SolanaChain extends BaseProvider {
     ];
   }
 
-  // Exact network fee (base + priority) for a native SOL transfer at `feeLevel`,
-  // read from the cluster via getFeeForMessage on the real message shape.
   async _estimateNativeFeeLamports(fromPubkey, feeLevel) {
     const tx = new Transaction();
     for (const ix of this._priorityInstructions(feeLevel)) tx.add(ix);
@@ -246,18 +227,43 @@ export class SolanaChain extends BaseProvider {
       const res = await this.connection.getFeeForMessage(tx.compileMessage());
       if (res && Number.isFinite(res.value)) return res.value;
     } catch {
-      // fall through to the static per-signature base fee
     }
     return 5000;
   }
 
-  // Max lamports sweepable from `address` at `feeLevel`: full balance minus the
-  // exact fee, so the sender is left at exactly 0 (Cake-Wallet style, no dust).
   async getMaxSendableLamports(address, feeLevel = 'slow') {
     const fromPubkey = new PublicKey(address);
     const balanceLamports = await this.connection.getBalance(fromPubkey);
     const feeLamports = await this._estimateNativeFeeLamports(fromPubkey, feeLevel);
     return { balanceLamports, feeLamports, lamports: Math.max(0, balanceLamports - feeLamports) };
+  }
+
+  async _checkSignature(signature) {
+    try {
+      const status = await this.connection.getSignatureStatus(signature, {
+        searchTransactionHistory: true,
+      });
+      if (status.value && status.value.confirmationStatus) {
+        return status.value.confirmationStatus === 'confirmed' || status.value.confirmationStatus === 'finalized';
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  async _getFreshBlockhash() {
+    const endpoints = this.endpoints;
+    for (const url of endpoints) {
+      try {
+        const conn = this._getConnection(url);
+        const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
+        return { blockhash, lastValidBlockHeight };
+      } catch {
+        continue;
+      }
+    }
+    return this.connection.getLatestBlockhash('confirmed');
   }
 
   async sendTransaction(
@@ -272,7 +278,6 @@ export class SolanaChain extends BaseProvider {
     const fromKeypair = Keypair.fromSecretKey(secretKey);
     const toPublicKey = new PublicKey(toAddress);
 
-    // SPL token transfer (USDC, USDT, ...) — route away from the native path.
     const sym = tokenSymbol ? String(tokenSymbol).toUpperCase() : null;
     if (sym && sym !== 'SOL') {
       return await this._sendSplToken(fromKeypair, toPublicKey, amount, feeLevel, sym);
@@ -280,14 +285,12 @@ export class SolanaChain extends BaseProvider {
 
     const transaction = new Transaction();
 
-    // Add priority fees if specified
     for (const ix of this._priorityInstructions(feeLevel)) transaction.add(ix);
 
     let lamports;
     let sentAmount;
     let feeLamports = 5000;
     if (options.sendMax) {
-      // Sweep: entire balance minus the exact network fee → wallet left at 0.
       const balanceLamports = await this.connection.getBalance(fromKeypair.publicKey);
       feeLamports = await this._estimateNativeFeeLamports(fromKeypair.publicKey, feeLevel);
       lamports = balanceLamports - feeLamports;
@@ -311,29 +314,74 @@ export class SolanaChain extends BaseProvider {
       })
     );
 
-    try {
-      const signature = await sendAndConfirmTransaction(this.connection, transaction, [fromKeypair]);
+    return await this._sendWithRetry(transaction, fromKeypair, feeLamports, sentAmount, toAddress, sym);
+  }
 
-      return {
-        hash: signature,
-        from: fromKeypair.publicKey.toString(),
-        to: toAddress,
-        amount: sentAmount.toString(),
-        symbol: 'SOL',
-        fee: (feeLamports / LAMPORTS_PER_SOL).toString(),
-        status: 'success',
-      };
-    } catch (error) {
-      let code = ERROR_CODES.BROADCAST_FAILED;
-      if (error.message.includes('insufficient funds')) code = ERROR_CODES.INSUFFICIENT_FUNDS;
-      else if (error.message.includes('Simulation failed')) code = ERROR_CODES.SIMULATION_ERROR;
+  async _sendWithRetry(transaction, fromKeypair, feeLamports, sentAmount, toAddress, sym) {
+    const maxAttempts = this.endpoints.length;
+    let lastError;
 
-      throw new TransactionError(error.message, {
-        code,
-        chain: 'SOL',
-        details: error,
-      });
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const url = this.endpoints[attempt % this.endpoints.length];
+      const conn = this._getConnection(url);
+
+      try {
+        const { blockhash } = await conn.getLatestBlockhash('confirmed');
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = fromKeypair.publicKey;
+        transaction.signatures = [];
+        transaction.partialSign(fromKeypair);
+
+        const signature = await sendAndConfirmTransaction(conn, transaction, [fromKeypair], {
+          skipPreflight: false,
+          preflightCommitment: 'confirmed',
+          commitment: 'confirmed',
+        });
+
+        this.balanceRpc.invalidateCache('rpc', {
+          address: fromKeypair.publicKey.toString(),
+        });
+
+        return {
+          hash: signature,
+          from: fromKeypair.publicKey.toString(),
+          to: toAddress,
+          amount: sentAmount.toString(),
+          symbol: sym || 'SOL',
+          fee: (feeLamports / LAMPORTS_PER_SOL).toString(),
+          status: 'success',
+        };
+      } catch (error) {
+        lastError = error;
+        const sigMatch = error.message?.match(/signature: (\w+)/);
+        if (sigMatch) {
+          const sig = sigMatch[1];
+          const landed = await this._checkSignature(sig);
+          if (landed) {
+            return {
+              hash: sig,
+              from: fromKeypair.publicKey.toString(),
+              to: toAddress,
+              amount: sentAmount.toString(),
+              symbol: sym || 'SOL',
+              fee: (feeLamports / LAMPORTS_PER_SOL).toString(),
+              status: 'success',
+            };
+          }
+        }
+      }
     }
+
+    let code = ERROR_CODES.BROADCAST_FAILED;
+    const msg = (lastError && lastError.message) || 'Unknown error';
+    if (msg.includes('insufficient funds')) code = ERROR_CODES.INSUFFICIENT_FUNDS;
+    else if (msg.includes('Simulation failed')) code = ERROR_CODES.SIMULATION_ERROR;
+
+    throw new TransactionError(msg, {
+      code,
+      chain: 'SOL',
+      details: lastError,
+    });
   }
 
   async _sendSplToken(fromKeypair, toPublicKey, amount, feeLevel, sym) {
@@ -363,8 +411,6 @@ export class SolanaChain extends BaseProvider {
       }
     }
 
-    // Create the recipient's associated token account if it doesn't exist yet
-    // (the sender pays the small rent).
     try {
       await getAccount(this.connection, toAta);
     } catch {
@@ -404,11 +450,9 @@ export class SolanaChain extends BaseProvider {
   }
 
   async getTransactionHistory(address, limit = 5) {
-    // Solana - Get signatures first, then fetch details for each
     const rpcUrl = this.primaryRpcUrl || 'https://solana-rpc.publicnode.com';
 
     try {
-      // Step 1: Get recent signatures
       const sigResponse = await fetch(rpcUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -423,7 +467,6 @@ export class SolanaChain extends BaseProvider {
 
       if (!sigData.result?.length) return [];
 
-      // Step 2: Get transaction details for each signature in parallel
       const fetchTx = async (sig) => {
         try {
           const txResponse = await fetch(rpcUrl, {

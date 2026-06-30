@@ -6,6 +6,7 @@ import BIP32Factory from 'bip32';
 
 import { BaseProvider } from './base.provider.js';
 import { TransactionError, ERROR_CODES } from '../shared/errors.js';
+import { RpcManager } from '../shared/rpc/RpcManager.js';
 
 const ECPair = ECPairFactory(tinysecp);
 const bip32 = BIP32Factory(tinysecp);
@@ -30,6 +31,67 @@ export class BitcoinCashChain extends BaseProvider {
     this.apiUrl = apiUrl || 'https://api.blockchain.info/bch/stats';
     this.network = BCH_NETWORK;
     this.explorerApi = 'https://blockchain.info';
+
+    // Wallets are legacy (1…) p2pkh. Haskoin resolves legacy addresses directly
+    // and is primary; Bitcore only indexes cashaddr, so a legacy lookup there
+    // SILENTLY returns 0 (HTTP 200) — it sits last as a degraded fallback only.
+    // api.blockchain.info/bch was removed: its /bch routes now serve an HTML SPA
+    // (404 for the API), so it never returned a balance. Both kept endpoints
+    // answer GET /address/{addr}/balance with a `confirmed` field (sats).
+    this.balanceRpc = new RpcManager(
+      ['https://api.haskoin.com/bch', 'https://api.bitcore.io/api/BCH/mainnet'],
+      async (endpoint, { address }) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+
+        try {
+          const response = await fetch(`${endpoint}/address/${address}/balance`, {
+            signal: controller.signal,
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+          const data = await response.json();
+          const balanceSats = data.confirmed ?? data.balance ?? 0;
+
+          return {
+            balance: (balanceSats / 100000000).toString(),
+            balanceSats: balanceSats.toString(),
+            symbol: this.symbol,
+          };
+        } finally {
+          clearTimeout(timeout);
+        }
+      },
+      { requestTimeoutMs: 10000, failureThreshold: 2, baseDelayMs: 200, cacheTtlMs: 5000, rps: 10 }
+    );
+
+    // Haskoin /address/{addr}/unspent works for legacy AND cashaddr inputs and
+    // returns {txid,index,value,pkscript}. Normalise to the {txHash,index,value}
+    // shape sendTransaction consumes. (Replaces the dead api.blockchain.info/bch.)
+    this.utxoRpc = new RpcManager(
+      ['https://api.haskoin.com/bch'],
+      async (endpoint, { address }) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+
+        try {
+          const response = await fetch(`${endpoint}/address/${address}/unspent`, {
+            signal: controller.signal,
+          });
+          if (!response.ok) return [];
+          const data = await response.json();
+          return (Array.isArray(data) ? data : []).map((u) => ({
+            txHash: u.txid,
+            index: u.index,
+            value: u.value,
+            script: u.pkscript,
+          }));
+        } finally {
+          clearTimeout(timeout);
+        }
+      },
+      { requestTimeoutMs: 10000, failureThreshold: 2, baseDelayMs: 200, cacheTtlMs: 2000, rps: 10 }
+    );
   }
 
   toLegacyAddress(cashAddr) {
@@ -182,49 +244,12 @@ export class BitcoinCashChain extends BaseProvider {
   async getBalance(address, tokenSymbol = null) {
     if (tokenSymbol && tokenSymbol.toUpperCase() !== 'BCH')
       return { balance: '0', symbol: tokenSymbol };
-    try {
-      const response = await fetch(
-        `https://api.bitcore.io/api/BCH/mainnet/address/${address}/balance`
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        const balanceSats = data.confirmed ?? data.balance ?? 0;
-
-        return {
-          balance: (balanceSats / 100000000).toString(),
-          balanceSats: balanceSats.toString(),
-          symbol: this.symbol,
-        };
-      }
-    } catch {
-      // Try the legacy fallback below.
-    }
 
     try {
-      let lookupAddress = address;
-      if (/^(bitcoincash:)?[qp][ac-hj-np-z02-9]{41}$/i.test(address)) {
-        lookupAddress = this.cashAddrToLegacy(address);
-      }
-
-      const response = await fetch(`https://api.blockchain.info/bch/addr/${lookupAddress}/balance`);
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const balanceSats = data.final_balance || 0;
-      const balance = balanceSats / 100000000;
-
-      return {
-        balance: balance.toString(),
-        balanceSats: balanceSats.toString(),
-        symbol: this.symbol,
-      };
+      return await this.balanceRpc.execute({ address });
     } catch (error) {
       throw new TransactionError(error.message, {
-        code: error.message.includes('API error') ? ERROR_CODES.RPC_ERROR : ERROR_CODES.UNKNOWN,
+        code: ERROR_CODES.RPC_ERROR,
         chain: 'BCH'
       });
     }
@@ -317,19 +342,8 @@ export class BitcoinCashChain extends BaseProvider {
 
   async getUtxos(address) {
     try {
-      let lookupAddress = address;
-      if (/^(bitcoincash:)?[qp][ac-hj-np-z02-9]{41}$/i.test(address)) {
-        lookupAddress = this.cashAddrToLegacy(address);
-      }
-
-      const response = await fetch(`https://api.blockchain.info/bch/addr/${lookupAddress}/utxo`);
-
-      if (!response.ok) {
-        return [];
-      }
-
-      return await response.json();
-    } catch (error) {
+      return await this.utxoRpc.execute({ address });
+    } catch {
       return [];
     }
   }
@@ -356,76 +370,121 @@ export class BitcoinCashChain extends BaseProvider {
   }
 
   async broadcastTransaction(txHex) {
-    const apis = [
-      { url: 'https://api.blockchain.info/pushtx', method: 'POST' },
-      { url: 'https://blockchain.info/pushtx', method: 'POST' },
-    ];
-
-    for (const api of apis) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
-
-        const response = await fetch(api.url, {
+    // Haskoin relays the raw tx to the BCH mempool and returns {txid}; Blockchair
+    // is the form-encoded fallback ({data:{transaction_hash}}). Both verified
+    // reachable 30 juin 2026. (The old blockchain.info/pushtx routes are dead.)
+    const attempts = [
+      async (signal) => {
+        const r = await fetch('https://api.haskoin.com/bch/transactions', {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
           body: txHex,
-          signal: controller.signal,
+          signal,
         });
+        if (!r.ok) throw new Error(`haskoin HTTP ${r.status}`);
+        const j = await r.json();
+        if (!j.txid) throw new Error('haskoin: no txid in response');
+        return j.txid;
+      },
+      async (signal) => {
+        const r = await fetch('https://api.blockchair.com/bitcoin-cash/push/transaction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'data=' + txHex,
+          signal,
+        });
+        if (!r.ok) throw new Error(`blockchair HTTP ${r.status}`);
+        const j = await r.json();
+        const txid = j?.data?.transaction_hash;
+        if (!txid) throw new Error('blockchair: no transaction_hash');
+        return txid;
+      },
+    ];
 
-        clearTimeout(timeout);
-
-        if (response.ok) {
-          const result = await response.text();
-          if (result.includes('txid') || result.length >= 64) {
-            return result;
-          }
-        }
+    let lastError;
+    for (const attempt of attempts) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      try {
+        return await attempt(controller.signal);
       } catch (error) {
-        continue;
+        lastError = error;
+      } finally {
+        clearTimeout(timeout);
       }
     }
 
-    throw new Error('Broadcast failed - all APIs unavailable');
+    throw new Error(`BCH broadcast failed: ${lastError?.message || 'all endpoints unavailable'}`);
+  }
+
+  // BCH signs with the BIP143 digest (same as SegWit) but with SIGHASH_FORKID
+  // (0x40) set in the hashtype — for BCH the fork id is 0, so the committed
+  // nHashType is exactly 0x41 (SIGHASH_ALL | SIGHASH_FORKID). This commits to the
+  // input amount, which is why the legacy hashForSignature path can't be used.
+  static HASH_TYPE = 0x01 | 0x40; // 0x41
+
+  // Turn a destination (legacy 1…/3… or cashaddr) into a scriptPubKey buffer.
+  _toOutputScript(address) {
+    let legacy = address;
+    if (/^(bitcoincash:)?[qp][ac-hj-np-z02-9]{41}$/i.test(address)) {
+      legacy = this.cashAddrToLegacy(address);
+    }
+    return bitcoin.address.toOutputScript(legacy, this.network);
   }
 
   async sendTransaction(privateKey, toAddress, amount, feeLevel = 'average') {
     const keyPair = ECPair.fromWIF(privateKey, this.network);
+    const pubkey = Buffer.from(keyPair.publicKey);
     // Real P2PKH (legacy base58) address — NOT the hex public key. Used for UTXO
     // lookup, fees and the change output; a wrong change address loses funds.
-    const { address: fromAddress } = bitcoin.payments.p2pkh({
-      pubkey: keyPair.publicKey,
-      network: this.network,
-    });
+    const { address: fromAddress } = bitcoin.payments.p2pkh({ pubkey, network: this.network });
+    const prevScript = bitcoin.payments.p2pkh({ pubkey, network: this.network }).output;
 
     const utxos = await this.getUtxos(fromAddress);
-
     if (!utxos || utxos.length === 0) {
       throw new TransactionError('No UTXOs available', { code: ERROR_CODES.NO_UTXOS, chain: 'BCH' });
     }
 
+    const amountSats = Math.floor(Number(amount) * 100000000);
+    let totalInput = 0;
+    for (const utxo of utxos) totalInput += utxo.value;
+
+    // Size-based fee at the chosen sat/byte rate: ~148 B/P2PKH-input + 34 B/output
+    // + 10 B overhead (recipient + change). BCH fees are ~1 sat/B.
     const fees = await this.estimateFees(fromAddress, toAddress, amount);
-    const feeRate = fees[feeLevel]?.feeSats || fees.average.feeSats;
-    const feeSats = parseInt(feeRate);
-    const amountSats = Math.floor(amount * 100000000);
+    const feeRate = Math.max(1, Math.ceil(Number(fees.feeRate) || 1));
+    const feeSats = feeRate * (10 + utxos.length * 148 + 2 * 34);
+
+    if (totalInput < amountSats + feeSats) {
+      throw new TransactionError('Solde BCH insuffisant (frais inclus)', {
+        code: ERROR_CODES.INSUFFICIENT_FUNDS,
+        chain: 'BCH',
+      });
+    }
 
     const tx = new bitcoin.Transaction();
-    tx.version = 1;
-
-    let totalInput = 0;
+    tx.version = 2;
     for (const utxo of utxos) {
       tx.addInput(Buffer.from(utxo.txHash, 'hex').reverse(), utxo.index);
-      totalInput += utxo.value;
     }
-
-    tx.addOutput(Buffer.from(this.base58ToBytes(toAddress)), amountSats);
+    tx.addOutput(this._toOutputScript(toAddress), BigInt(amountSats));
 
     const changeAmount = totalInput - amountSats - feeSats;
-    if (changeAmount > 0) {
-      tx.addOutput(Buffer.from(this.base58ToBytes(fromAddress)), changeAmount);
+    if (changeAmount > 546) {
+      // above the dust limit — return change to ourselves (else it becomes fee)
+      tx.addOutput(this._toOutputScript(fromAddress), BigInt(changeAmount));
     }
 
-    tx.sign(keyPair, bitcoin.transactions.SIGHASH_ALL);
+    const HT = BitcoinCashChain.HASH_TYPE;
+    for (let i = 0; i < utxos.length; i++) {
+      const sighash = tx.hashForWitnessV0(i, prevScript, BigInt(utxos[i].value), HT);
+      const signature = keyPair.sign(sighash);
+      // bitcoinjs refuses to encode the non-standard 0x41 hashtype, so DER-encode
+      // with a standard type and overwrite the trailing (appended) hashtype byte.
+      const der = bitcoin.script.signature.encode(Buffer.from(signature), 0x01);
+      const encoded = Buffer.concat([der.subarray(0, der.length - 1), Buffer.from([HT])]);
+      tx.ins[i].script = bitcoin.script.compile([encoded, pubkey]);
+    }
 
     const txHex = tx.toHex();
     const txId = await this.broadcastTransaction(txHex);
@@ -438,7 +497,7 @@ export class BitcoinCashChain extends BaseProvider {
       symbol: 'BCH',
       fee: (feeSats / 100000000).toString(),
       blockNumber: 0,
-      status: 'success',
+      status: 'broadcast',
     };
   }
 

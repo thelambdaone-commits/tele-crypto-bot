@@ -92,7 +92,7 @@ for (const def of PROVIDERS) {
 // models without a live RPC. Picks Polygon as a representative EVM chain.
 const stubFeeData = (feeData) => {
   const p = new PolygonChain();
-  p.getProvider = () => ({ getFeeData: async () => feeData });
+  p.getFallbackProvider = () => ({ getFeeData: async () => feeData });
   return p;
 };
 

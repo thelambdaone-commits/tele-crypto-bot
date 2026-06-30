@@ -5,6 +5,7 @@ import * as bip39 from 'bip39';
 import BIP32Factory from 'bip32';
 
 import { BaseProvider } from './base.provider.js';
+import { RpcManager } from '../shared/rpc/RpcManager.js';
 
 const ECPair = ECPairFactory(tinysecp);
 const bip32 = BIP32Factory(tinysecp);
@@ -22,11 +23,112 @@ const LTC_NETWORK = {
   coinType: 2,
 };
 
+function buildApis(apiUrl) {
+  return [...new Set([
+    apiUrl || 'https://litecoinspace.org/api',
+    'https://litecoinspace.org/api',
+    'https://api.blockcypher.com/v1/ltc/main',
+  ].filter(Boolean))];
+}
+
 export class LitecoinChain extends BaseProvider {
   constructor(apiUrl = null) {
     super('Litecoin', 'LTC');
     this.apiUrl = apiUrl || 'https://litecoinspace.org/api';
     this.network = LTC_NETWORK;
+    this.apis = buildApis(apiUrl);
+
+    this.balanceRpc = new RpcManager(this.apis, async (endpoint, { address }) => {
+      const isBlockcypher = endpoint.includes('blockcypher');
+      const url = isBlockcypher
+        ? `${endpoint}/addrs/${address}/balance`
+        : `${endpoint}/address/${address}`;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+        let balanceSats;
+        if (isBlockcypher) {
+          balanceSats = data.final_balance ?? data.balance ?? 0;
+        } else {
+          const chainStats = data.chain_stats || data;
+          balanceSats = chainStats.funded_txo_sum - chainStats.spent_txo_sum;
+        }
+
+        return {
+          balance: (balanceSats / 100000000),
+          balanceSats: balanceSats.toString(),
+          symbol: this.symbol,
+        };
+      } finally {
+        clearTimeout(timeout);
+      }
+    }, { requestTimeoutMs: 10000, failureThreshold: 2, baseDelayMs: 200, cacheTtlMs: 5000, rps: 10 });
+
+    this.utxoRpc = new RpcManager(this.apis, async (endpoint, { address }) => {
+      const isBlockcypher = endpoint.includes('blockcypher');
+      const url = isBlockcypher
+        ? `${endpoint}/addrs/${address}?unspentOnly=true`
+        : `${endpoint}/address/${address}/utxo`;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        if (isBlockcypher) {
+          const data = await response.json();
+          return (data.txrefs || []).filter((t) => !t.spent).map((t) => ({
+            txid: t.tx_hash,
+            vout: t.tx_output_n,
+            value: t.value,
+          }));
+        }
+        return await response.json();
+      } finally {
+        clearTimeout(timeout);
+      }
+    }, { requestTimeoutMs: 10000, failureThreshold: 2, baseDelayMs: 200, cacheTtlMs: 2000, rps: 10 });
+
+    this.feeRpc = new RpcManager(this.apis, async (endpoint) => {
+      const isBlockcypher = endpoint.includes('blockcypher');
+      // litecoinspace is a mempool.space fork: it serves recommended fees (sat/vB)
+      // at /api/v1/fees/recommended and has NO esplora /fee-estimates route (that
+      // path 404s, which previously made every LTC send fall back to a hardcoded
+      // 0.5 sat/vB). estimateFees() consumes {slow,average,fast} as sat/vB.
+      const url = isBlockcypher ? endpoint : `${endpoint}/v1/fees/recommended`;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (isBlockcypher) {
+          // BlockCypher quotes sat/kB; the caller treats the rate as sat/vB → /1000.
+          return {
+            slow: (data.low_fee_per_kb || 1000) / 1000,
+            average: (data.medium_fee_per_kb || 2000) / 1000,
+            fast: (data.high_fee_per_kb || 3000) / 1000,
+          };
+        }
+        return {
+          slow: data.economyFee ?? data.hourFee ?? data.minimumFee ?? 1,
+          average: data.halfHourFee ?? data.hourFee ?? 1,
+          fast: data.fastestFee ?? data.halfHourFee ?? 1,
+        };
+      } finally {
+        clearTimeout(timeout);
+      }
+    }, { requestTimeoutMs: 10000, failureThreshold: 2, baseDelayMs: 200, cacheTtlMs: 30000, rps: 5 });
   }
 
   async createWallet() {
@@ -83,69 +185,17 @@ export class LitecoinChain extends BaseProvider {
   async getBalance(address, tokenSymbol = null) {
     if (tokenSymbol && tokenSymbol.toUpperCase() !== 'LTC')
       return { balance: '0', symbol: tokenSymbol };
-    const apis = [...new Set([this.apiUrl, 'https://litecoinspace.org/api'])];
-
-    for (const api of apis) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-
-        const response = await fetch(`${api}/address/${address}`, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-          throw new Error(`API responded with status ${response.status}`);
-        }
-
-        const data = await response.json();
-        const chainStats = data.chain_stats || data;
-
-        return {
-          balance: (chainStats.funded_txo_sum - chainStats.spent_txo_sum) / 100000000,
-          balanceSats: (chainStats.funded_txo_sum - chainStats.spent_txo_sum).toString(),
-          symbol: this.symbol,
-        };
-      } catch (error) {
-        continue;
-      }
-    }
 
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
-
-      const response = await fetch(
-        `https://api.blockcypher.com/v1/ltc/main/addrs/${address}/balance`,
-        {
-          signal: controller.signal,
-        }
-      );
-      clearTimeout(timeout);
-
-      if (!response.ok) {
-        throw new Error(`BlockCypher responded with status ${response.status}`);
-      }
-
-      const data = await response.json();
-      const balanceSats = data.final_balance ?? data.balance ?? 0;
-
-      return {
-        balance: balanceSats / 100000000,
-        balanceSats: balanceSats.toString(),
-        symbol: this.symbol,
-      };
+      return await this.balanceRpc.execute({ address });
     } catch {
-      // Fall through to the standard error response below.
+      return {
+        balance: '0',
+        balanceSats: '0',
+        symbol: this.symbol,
+        error: 'Unable to fetch balance',
+      };
     }
-
-    return {
-      balance: '0',
-      balanceSats: '0',
-      symbol: this.symbol,
-      error: 'Unable to fetch balance',
-    };
   }
 
   async getTransactionHistory(address, limit = 5) {
@@ -188,56 +238,21 @@ export class LitecoinChain extends BaseProvider {
   }
 
   async getUtxos(address) {
-    const apis = [...new Set([this.apiUrl, 'https://litecoinspace.org/api'])];
-
-    for (const api of apis) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-
-        const response = await fetch(`${api}/address/${address}/utxo`, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-          throw new Error(`API responded with status ${response.status}`);
-        }
-
-        return await response.json();
-      } catch (error) {
-        continue;
-      }
+    try {
+      return await this.utxoRpc.execute({ address });
+    } catch {
+      return [];
     }
-
-    return [];
   }
 
   async estimateFees(fromAddress, _toAddress, _amount) {
-    const apis = [...new Set([this.apiUrl, 'https://litecoinspace.org/api'])];
     let feeEstimates = null;
-
-    for (const api of apis) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-
-        const feeResponse = await fetch(`${api}/fee-estimates`, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-
-        if (feeResponse.ok) {
-          feeEstimates = await feeResponse.json();
-          break;
-        }
-      } catch (error) {
-        continue;
-      }
-    }
+    try {
+      feeEstimates = await this.feeRpc.execute({});
+    } catch {}
 
     if (!feeEstimates) {
-      feeEstimates = { 1: 1, 6: 0.5, 144: 0.1 };
+      feeEstimates = { slow: 1, average: 0.5, fast: 0.1 };
     }
 
     let utxos = [];
@@ -247,7 +262,7 @@ export class LitecoinChain extends BaseProvider {
       utxos = [{}];
     }
 
-    const avgFeeRate = feeEstimates['6'] || 1;
+    const avgFeeRate = feeEstimates.average || feeEstimates['6'] || 1;
     const txVbytes = 140 + utxos.length * 50;
     const feeLitoshis = avgFeeRate * txVbytes;
 

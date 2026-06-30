@@ -7,10 +7,13 @@ export class BaseChain extends EvmBaseProvider {
       symbol: 'BASE',
       nativeSymbol: 'ETH',
       rpcUrl: rpcUrl || 'https://mainnet.base.org',
+      // Keyless, load-tested 30 juin 2026 (concurrent burst of 12 → 12/12).
+      // Dropped: llamarpc (dead), meowrpc (collapses under burst). Tenderly held up.
       fallbackRpcUrls: [
         'https://mainnet.base.org',
-        'https://base.llamarpc.com',
         'https://base-rpc.publicnode.com',
+        'https://base.drpc.org',
+        'https://base.gateway.tenderly.co',
       ],
       tokenConfigKey: 'base',
       explorer: 'https://basescan.org',
