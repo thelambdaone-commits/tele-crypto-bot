@@ -432,7 +432,7 @@ export class BitcoinCashChain extends BaseProvider {
     return bitcoin.address.toOutputScript(legacy, this.network);
   }
 
-  async sendTransaction(privateKey, toAddress, amount, feeLevel = 'average') {
+  async sendTransaction(privateKey, toAddress, amount, _feeLevel = 'average') {
     const keyPair = ECPair.fromWIF(privateKey, this.network);
     const pubkey = Buffer.from(keyPair.publicKey);
     // Real P2PKH (legacy base58) address — NOT the hex public key. Used for UTXO

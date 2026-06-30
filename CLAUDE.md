@@ -19,7 +19,7 @@ npm run lint:fix       # eslint --fix
 npm run format         # prettier --write src/
 npm run precheck       # validate .env + encrypted-storage round-trip before running
 npm run config:check   # validate config
-npm run check:exports  # assert each handler module's expected exports exist
+npm run check:exports  # decrypt & list credential export files under data/exports/
 npm run ci             # lint + test + precheck (run before considering work done)
 ```
 
