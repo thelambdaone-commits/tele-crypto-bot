@@ -230,6 +230,39 @@ export async function buildAuditReport(storage, walletService) {
   }
   text += '\n';
 
+  // 6b. RPC-manager internal health (rates, cache, circuit-breaker)
+  text += '📊 <b>RPC Manager — Métriques Internes</b>\n';
+  if (walletService?.chains) {
+    for (const [key, provider] of Object.entries(walletService.chains)) {
+      const rpcs = [];
+      if (provider.balanceRpc) rpcs.push({ name: 'balance', mgr: provider.balanceRpc });
+      if (provider.sendRpc) rpcs.push({ name: 'send', mgr: provider.sendRpc });
+      if (provider.tokenRpc) rpcs.push({ name: 'token', mgr: provider.tokenRpc });
+      if (provider.feeRpc) rpcs.push({ name: 'fee', mgr: provider.feeRpc });
+      if (provider.utxoRpc) rpcs.push({ name: 'utxo', mgr: provider.utxoRpc });
+
+      for (const { name, mgr } of rpcs) {
+        const m = mgr.metrics;
+        const rateStats = mgr.rateLimitStats;
+        const line = [
+          `• ${key}.${name}`,
+          `state:${mgr.state}`,
+          `ok:${m.totalSuccesses}`,
+          `err:${m.totalFailures}`,
+          `lat:${m.avgLatencyMs ? m.avgLatencyMs.toFixed(0) : '-'}ms`,
+        ].join(' ');
+        text += `${line}\n`;
+        for (const [url, rs] of Object.entries(rateStats)) {
+          text += `  ⚡ ${new URL(url).hostname} tokens:${rs.tokens.toFixed(1)} pend:${rs.pending}\n`;
+          break;
+        }
+      }
+    }
+  } else {
+    text += '• walletService non disponible\n';
+  }
+  text += '\n';
+
   // 7. Recommendations
   const recos = [];
   const downRpc = rpcResults.filter((r) => !r.ok && !r.rateLimited).map((r) => r.label);
