@@ -6,16 +6,108 @@ import ECPairFactoryModule from 'ecpair';
 
 import { BaseProvider } from './base.provider.js';
 import { TransactionError, ERROR_CODES } from '../shared/errors.js';
+import { RpcManager } from '../shared/rpc/RpcManager.js';
 
 const bip32 = BIP32Factory(ecc);
 const ECPairFactory = ECPairFactoryModule.default || ECPairFactoryModule;
 const ECPair = ECPairFactory(ecc);
 
+// Keyless block explorers. mempool.space / blockstream.info / mempool.emzy.de
+// all speak the Esplora REST API (same /address & /utxo shapes, handled by the
+// esplora branch below); blockchain.info has its own shape (handled separately).
+// All four verified live 30 juin 2026.
+function buildApis(apiUrl) {
+  return [...new Set([
+    apiUrl,
+    'https://mempool.space/api',
+    'https://blockstream.info/api',
+    'https://mempool.emzy.de/api',
+    'https://blockchain.info',
+  ].filter(Boolean))];
+}
+
 export class BitcoinChain extends BaseProvider {
   constructor(apiUrl) {
     super('Bitcoin', 'BTC');
     this.apiUrl = apiUrl;
-    this.network = bitcoin.networks.bitcoin; // mainnet
+    this.network = bitcoin.networks.bitcoin;
+    this.apis = buildApis(apiUrl);
+
+    this.balanceRpc = new RpcManager(this.apis, async (endpoint, { address }) => {
+      const isBlockchain = endpoint.includes('blockchain.info');
+      const url = isBlockchain
+        ? `${endpoint}/rawaddr/${address}?limit=0`
+        : `${endpoint}/address/${address}`;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+        let balanceSats;
+        if (isBlockchain) {
+          balanceSats = data.final_balance;
+        } else {
+          balanceSats = data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum;
+        }
+
+        return {
+          balance: (balanceSats / 100000000).toString(),
+          balanceSats: balanceSats.toString(),
+          symbol: this.symbol,
+        };
+      } finally {
+        clearTimeout(timeout);
+      }
+    }, { requestTimeoutMs: 10000, failureThreshold: 2, baseDelayMs: 200, cacheTtlMs: 5000, rps: 10 });
+
+    this.utxoRpc = new RpcManager(this.apis, async (endpoint, { address }) => {
+      const isBlockchain = endpoint.includes('blockchain.info');
+      const url = isBlockchain
+        ? `${endpoint}/unspent?format=json&address=${address}`
+        : `${endpoint}/address/${address}/utxo`;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        if (isBlockchain) {
+          const data = await response.json();
+          return (data.unspent_outputs || []).map((u) => ({
+            txid: u.tx_hash,
+            vout: u.tx_output_n,
+            value: u.value,
+          }));
+        }
+        return await response.json();
+      } finally {
+        clearTimeout(timeout);
+      }
+    }, { requestTimeoutMs: 10000, failureThreshold: 2, baseDelayMs: 200, cacheTtlMs: 2000, rps: 10 });
+
+    this.feeRpc = new RpcManager(this.apis, async (endpoint) => {
+      const isBlockchain = endpoint.includes('blockchain.info');
+      const url = isBlockchain
+        ? `${endpoint}/blocks?format=json`
+        : `${endpoint}/fee-estimates`;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+      } finally {
+        clearTimeout(timeout);
+      }
+    }, { requestTimeoutMs: 10000, failureThreshold: 2, baseDelayMs: 200, cacheTtlMs: 30000, rps: 5 });
   }
 
   async createWallet() {
@@ -23,7 +115,6 @@ export class BitcoinChain extends BaseProvider {
     const seed = await bip39.mnemonicToSeed(mnemonic);
     const root = bip32.fromSeed(seed, this.network);
 
-    // BIP84 path for native SegWit (bech32)
     const path = "m/84'/0'/0'/0/0";
     const child = root.derivePath(path);
 
@@ -47,7 +138,6 @@ export class BitcoinChain extends BaseProvider {
     const seed = await bip39.mnemonicToSeed(seedPhrase);
     const root = bip32.fromSeed(seed, this.network);
 
-    // BIP84 path for native SegWit (bech32)
     const path = "m/84'/0'/0'/0/0";
     const child = root.derivePath(path);
 
@@ -81,113 +171,46 @@ export class BitcoinChain extends BaseProvider {
   async getBalance(address, tokenSymbol = null) {
     if (tokenSymbol && tokenSymbol.toUpperCase() !== 'BTC')
       return { balance: '0', symbol: tokenSymbol };
-    // Multiple API fallbacks to avoid rate limiting
-    const apis = [
-      { url: `${this.apiUrl}/address/${address}`, type: 'mempool' },
-      { url: `https://blockstream.info/api/address/${address}`, type: 'mempool' },
-      { url: `https://blockchain.info/rawaddr/${address}?limit=0`, type: 'blockchain' },
-    ];
 
-    for (const api of apis) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-        const response = await fetch(api.url, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-          throw new Error(`API responded with status ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        let balanceSats;
-        if (api.type === 'mempool') {
-          balanceSats = data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum;
-        } else if (api.type === 'blockchain') {
-          balanceSats = data.final_balance;
-        }
-
-        const balanceBTC = balanceSats / 100000000;
-
-        return {
-          balance: balanceBTC.toString(),
-          balanceSats: balanceSats.toString(),
-          symbol: this.symbol,
-        };
-      } catch (error) {
-        // Try next API silently (don't spam logs)
-        continue;
-      }
+    try {
+      return await this.balanceRpc.execute({ address });
+    } catch (error) {
+      throw new TransactionError('Unable to fetch balance - network issue', {
+        code: ERROR_CODES.RPC_ERROR,
+        chain: 'BTC',
+      });
     }
-
-    throw new TransactionError('Unable to fetch balance - network issue', {
-      code: ERROR_CODES.RPC_ERROR,
-      chain: 'BTC',
-    });
   }
 
   async getUtxos(address) {
-    const apis = [
-      { url: this.apiUrl, type: 'mempool' },
-      { url: 'https://blockstream.info/api', type: 'blockstream' },
-      { url: 'https://mempool.space/api', type: 'mempool2' },
-    ];
-
-    for (const api of apis) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-
-        const response = await fetch(`${api.url}/address/${address}/utxo`, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-          throw new Error(`API responded with status ${response.status}`);
-        }
-
-        return await response.json();
-      } catch (error) {
-        continue;
-      }
+    try {
+      return await this.utxoRpc.execute({ address });
+    } catch {
+      throw new Error('Unable to fetch UTXOs - all APIs failed');
     }
+  }
 
-    throw new Error('Unable to fetch UTXOs - all APIs failed');
+  async getFeeEstimates() {
+    try {
+      return await this.feeRpc.execute({});
+    } catch {
+      return null;
+    }
   }
 
   async estimateFees(fromAddress, _toAddress, _amount) {
-    const apis = [
-      { url: this.apiUrl, type: 'mempool' },
-      { url: 'https://mempool.space/api', type: 'mempool2' },
-    ];
-    let feeEstimates = null;
+    const feeEstimates = await this.getFeeEstimates();
 
-    for (const api of apis) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-
-        const feeResponse = await fetch(`${api.url}/fee-estimates`, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-
-        if (feeResponse.ok) {
-          feeEstimates = await feeResponse.json();
-          break;
-        }
-      } catch (error) {
-        continue;
-      }
-    }
-
-    if (!feeEstimates) {
-      feeEstimates = { 1: 20, 6: 10, 144: 2 };
+    let fees;
+    if (feeEstimates) {
+      const isBlockchain = (feeEstimates.blocks != null);
+      fees = {
+        slow: feeEstimates['144'] || (isBlockchain ? 2 : 1),
+        average: feeEstimates['6'] || feeEstimates['3'] || (isBlockchain ? 5 : 5),
+        fast: feeEstimates['1'] || feeEstimates['2'] || (isBlockchain ? 10 : 10),
+      };
+    } else {
+      fees = { slow: 2, average: 10, fast: 20 };
     }
 
     let utxos = [];
@@ -197,33 +220,61 @@ export class BitcoinChain extends BaseProvider {
       utxos = [{}];
     }
 
-    // Estimate transaction size (simplified)
     const inputCount = Math.max(1, Math.min(utxos.length, 5));
-    const outputCount = 2; // recipient + change
-    const txSize = inputCount * 68 + outputCount * 31 + 10; // P2WPKH estimation
+    const outputCount = 2;
+    const txSize = inputCount * 68 + outputCount * 31 + 10;
 
-    const fees = {
+    return {
       slow: {
-        satPerVbyte: Math.ceil(feeEstimates['144'] || 1),
-        estimatedFee: (((feeEstimates['144'] || 1) * txSize) / 100000000).toFixed(8),
-        estimatedFeeSats: Math.ceil((feeEstimates['144'] || 1) * txSize),
+        satPerVbyte: Math.ceil(fees.slow || 1),
+        estimatedFee: (((fees.slow || 1) * txSize) / 100000000).toFixed(8),
+        estimatedFeeSats: Math.ceil((fees.slow || 1) * txSize),
         confirmationBlocks: '~144 blocks (~24h)',
       },
       average: {
-        satPerVbyte: Math.ceil(feeEstimates['6'] || 5),
-        estimatedFee: (((feeEstimates['6'] || 5) * txSize) / 100000000).toFixed(8),
-        estimatedFeeSats: Math.ceil((feeEstimates['6'] || 5) * txSize),
+        satPerVbyte: Math.ceil(fees.average || 5),
+        estimatedFee: (((fees.average || 5) * txSize) / 100000000).toFixed(8),
+        estimatedFeeSats: Math.ceil((fees.average || 5) * txSize),
         confirmationBlocks: '~6 blocks (~1h)',
       },
       fast: {
-        satPerVbyte: Math.ceil(feeEstimates['1'] || 10),
-        estimatedFee: (((feeEstimates['1'] || 10) * txSize) / 100000000).toFixed(8),
-        estimatedFeeSats: Math.ceil((feeEstimates['1'] || 10) * txSize),
+        satPerVbyte: Math.ceil(fees.fast || 10),
+        estimatedFee: (((fees.fast || 10) * txSize) / 100000000).toFixed(8),
+        estimatedFeeSats: Math.ceil((fees.fast || 10) * txSize),
         confirmationBlocks: '~1 block (~10m)',
       },
     };
+  }
 
-    return fees;
+  async broadcastTx(txHex) {
+    const endpoints = [...new Set([
+      this.apiUrl,
+      'https://mempool.space/api',
+      'https://blockstream.info/api',
+      'https://mempool.emzy.de/api',
+    ])];
+
+    for (const url of endpoints) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        const response = await fetch(`${url}/tx`, {
+          method: 'POST',
+          body: txHex,
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (response.ok) {
+          return await response.text();
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    throw new Error('Broadcast failed - all APIs unavailable');
   }
 
   async sendTransaction(privateKeyWif, toAddress, amount, feeLevel = 'average') {
@@ -240,7 +291,6 @@ export class BitcoinChain extends BaseProvider {
     const amountSats = Math.floor(Number.parseFloat(amount) * 100000000);
     const feeSats = feeData.estimatedFeeSats;
 
-    // Select UTXOs
     let totalInput = 0;
     const selectedUtxos = [];
 
@@ -256,7 +306,6 @@ export class BitcoinChain extends BaseProvider {
 
     const psbt = new bitcoin.Psbt({ network: this.network });
 
-    // Add inputs
     for (const utxo of selectedUtxos) {
       psbt.addInput({
         hash: utxo.txid,
@@ -269,23 +318,19 @@ export class BitcoinChain extends BaseProvider {
       });
     }
 
-    // Add outputs
     psbt.addOutput({
       address: toAddress,
       value: amountSats,
     });
 
-    // Change output
     const change = totalInput - amountSats - feeSats;
     if (change > 546) {
-      // dust limit
       psbt.addOutput({
         address: fromAddress,
         value: change,
       });
     }
 
-    // Sign all inputs
     for (let i = 0; i < selectedUtxos.length; i++) {
       psbt.signInput(i, keyPair);
     }
@@ -295,17 +340,7 @@ export class BitcoinChain extends BaseProvider {
     const txHex = tx.toHex();
 
     try {
-      const broadcastResponse = await fetch(`${this.apiUrl}/tx`, {
-        method: 'POST',
-        body: txHex,
-      });
-
-      if (!broadcastResponse.ok) {
-        const errorText = await broadcastResponse.text();
-        throw new Error(`Broadcast failed: ${errorText}`);
-      }
-
-      const txid = await broadcastResponse.text();
+      const txid = await this.broadcastTx(txHex);
 
       return {
         hash: txid,
@@ -319,7 +354,7 @@ export class BitcoinChain extends BaseProvider {
     } catch (error) {
       let code = ERROR_CODES.BROADCAST_FAILED;
       if (error.message.includes('Insufficient balance')) code = ERROR_CODES.INSUFFICIENT_FUNDS;
-      
+
       throw new TransactionError(error.message, {
         code,
         chain: 'BTC',

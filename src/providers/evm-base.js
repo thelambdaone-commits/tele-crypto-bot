@@ -14,20 +14,34 @@ export class EvmBaseProvider extends BaseProvider {
     this.tokenConfigKey = config.tokenConfigKey;
     this.explorer = config.explorer || null;
     this._provider = null;
-    this._providers = new Map();
+    this._fallbackProvider = null;
     this.tokenAddresses = TOKEN_CONFIGS[this.tokenConfigKey]?.tokens || {};
+
+    // Read path: native-balance reads are cached (5s) and rate-limited; sends go
+    // through ethers' FallbackProvider (getFallbackProvider) which already does
+    // multi-endpoint broadcast/quorum, so there is no separate write RpcManager.
     this.balanceRpc = new RpcManager(
       this.rpcUrls,
       async (endpoint, { address }) => this._getNativeBalanceFromEndpoint(endpoint, address),
-      { requestTimeoutMs: 8000, failureThreshold: 2, baseDelayMs: 200 }
+      { requestTimeoutMs: 8000, failureThreshold: 2, baseDelayMs: 200, cacheTtlMs: 5000, rps: 20 }
     );
   }
 
-  getProvider(endpoint = this.rpcUrl) {
-    if (!this._providers.has(endpoint)) {
-      this._providers.set(endpoint, new ethers.JsonRpcProvider(endpoint));
+  // Single multi-endpoint provider for all ethers contract/signer work. quorum:1
+  // returns on the first healthy endpoint and transparently falls over on
+  // failure, so callers never pin a single RPC.
+  getFallbackProvider() {
+    if (!this._fallbackProvider) {
+      const providers = this.rpcUrls.map((url) => {
+        return new ethers.JsonRpcProvider(url, undefined, { staticNetwork: true });
+      });
+      this._fallbackProvider = new ethers.FallbackProvider(
+        providers.map((p) => ({ provider: p, priority: 1, stallTimeout: 2000 })),
+        undefined,
+        { quorum: 1 }
+      );
     }
-    return this._providers.get(endpoint);
+    return this._fallbackProvider;
   }
 
   async _rpcCall(endpoint, method, params) {
@@ -104,10 +118,9 @@ export class EvmBaseProvider extends BaseProvider {
   }
 
   async getBalance(address, tokenSymbol = null) {
-    const provider = this.getProvider();
-
     if (tokenSymbol && this.tokenAddresses[tokenSymbol]) {
       const token = this.tokenAddresses[tokenSymbol];
+      const provider = this.getFallbackProvider();
       const tokenContract = new ethers.Contract(token.address, ERC20_ABI, provider);
       const balance = await withTimeout(tokenContract.balanceOf(address), 10000);
       const decimals = await withTimeout(tokenContract.decimals(), 10000);
@@ -134,7 +147,7 @@ export class EvmBaseProvider extends BaseProvider {
   }
 
   async getAllTokens(address) {
-    const provider = this.getProvider();
+    const provider = this.getFallbackProvider();
 
     const results = await Promise.all(
       Object.entries(this.tokenAddresses).map(async ([symbol, token]) => {
@@ -168,7 +181,7 @@ export class EvmBaseProvider extends BaseProvider {
   }
 
   async estimateFees(fromAddress, toAddress, amount, tokenSymbol = null) {
-    const provider = this.getProvider();
+    const provider = this.getFallbackProvider();
     const feeData = await withTimeout(provider.getFeeData(), 15000);
 
     const isToken = tokenSymbol && this.tokenAddresses[tokenSymbol];
@@ -214,7 +227,7 @@ export class EvmBaseProvider extends BaseProvider {
   }
 
   async sendTransaction(privateKey, toAddress, amount, feeLevel = 'average', tokenSymbol = null) {
-    const provider = this.getProvider();
+    const provider = this.getFallbackProvider();
     const wallet = new ethers.Wallet(privateKey, provider);
 
     if (tokenSymbol && this.tokenAddresses[tokenSymbol]) {
@@ -231,15 +244,16 @@ export class EvmBaseProvider extends BaseProvider {
    */
   async sendRaw(privateKey, { to, data = '0x', value = 0n, gasLimit } = {}) {
     if (!to) throw new Error('sendRaw: missing "to"');
-    const provider = this.getProvider();
+    const provider = this.getFallbackProvider();
     const wallet = new ethers.Wallet(privateKey, provider);
     const txRequest = { to, data, value: BigInt(value || 0) };
     if (gasLimit) txRequest.gasLimit = BigInt(gasLimit);
 
     const tx = await withTimeout(wallet.sendTransaction(txRequest), 30000);
+    const txHash = tx.hash;
     const receipt = await withTimeout(tx.wait(), 120000);
     return {
-      hash: tx.hash,
+      hash: txHash,
       from: wallet.address,
       to,
       blockNumber: receipt.blockNumber,
@@ -249,13 +263,13 @@ export class EvmBaseProvider extends BaseProvider {
 
   /** ERC-20 allowance (bigint) of `owner` toward `spender` for `tokenAddress`. */
   async getTokenAllowance(owner, spender, tokenAddress) {
-    const contract = new ethers.Contract(tokenAddress, ERC20_ABI, this.getProvider());
+    const contract = new ethers.Contract(tokenAddress, ERC20_ABI, this.getFallbackProvider());
     return await withTimeout(contract.allowance(owner, spender), 10000);
   }
 
   /** Approve `spender` to move `amount` (bigint) of `tokenAddress`. For swaps. */
   async approveSpender(privateKey, tokenAddress, spender, amount) {
-    const wallet = new ethers.Wallet(privateKey, this.getProvider());
+    const wallet = new ethers.Wallet(privateKey, this.getFallbackProvider());
     const contract = new ethers.Contract(tokenAddress, ERC20_ABI, wallet);
     const tx = await withTimeout(contract.approve(spender, amount), 30000);
     const receipt = await withTimeout(tx.wait(), 120000);
@@ -282,28 +296,42 @@ export class EvmBaseProvider extends BaseProvider {
     const fees = await this.estimateFees(wallet.address, toAddress, amount);
     const feeData = fees[feeLevel];
 
-    const tx = await withTimeout(
-      wallet.sendTransaction({
-        to: toAddress,
-        value: ethers.parseEther(amount.toString()),
-        gasLimit: BigInt(feeData.gasLimit),
-        ...this._gasOverrides(feeData),
-      }),
-      30000
-    );
-
-    const receipt = await withTimeout(tx.wait(), 60000);
-
-    return {
-      hash: tx.hash,
-      from: wallet.address,
+    const txReq = {
       to: toAddress,
-      amount: amount.toString(),
-      symbol: this.nativeSymbol,
-      fee: ethers.formatEther(receipt.gasUsed * receipt.gasPrice),
-      blockNumber: receipt.blockNumber,
-      status: receipt.status === 1 ? 'success' : 'failed',
+      value: ethers.parseEther(amount.toString()),
+      gasLimit: BigInt(feeData.gasLimit),
+      ...this._gasOverrides(feeData),
     };
+
+    try {
+      const tx = await withTimeout(wallet.sendTransaction(txReq), 30000);
+      const txHash = tx.hash;
+
+      // Funds just left this address — drop its cached balance so the next read
+      // reflects the spend instead of serving a stale (pre-send) value.
+      this.balanceRpc.invalidateCache('rpc', { address: wallet.address });
+
+      const receipt = await withTimeout(tx.wait(), 60000);
+
+      return {
+        hash: txHash,
+        from: wallet.address,
+        to: toAddress,
+        amount: amount.toString(),
+        symbol: this.nativeSymbol,
+        fee: ethers.formatEther(receipt.gasUsed * receipt.gasPrice),
+        blockNumber: receipt.blockNumber,
+        status: receipt.status === 1 ? 'success' : 'failed',
+      };
+    } catch (error) {
+      if (error.message && error.message.includes('nonce too low')) {
+        throw new TransactionError('Transaction déjà envoyée (nonce trop bas)', {
+          code: ERROR_CODES.DUPLICATE_TX,
+          chain: this.symbol,
+        });
+      }
+      throw error;
+    }
   }
 
   async sendToken(wallet, toAddress, amount, feeLevel, tokenSymbol) {
@@ -324,6 +352,8 @@ export class EvmBaseProvider extends BaseProvider {
       30000
     );
 
+    this.balanceRpc.invalidateCache('rpc', { address: wallet.address });
+
     const receipt = await withTimeout(tx.wait(), 60000);
 
     return {
@@ -340,7 +370,7 @@ export class EvmBaseProvider extends BaseProvider {
   }
 
   async getGasPrice() {
-    const provider = this.getProvider();
+    const provider = this.getFallbackProvider();
     const feeData = await provider.getFeeData();
     return {
       gasPrice: feeData.gasPrice ? Number(feeData.gasPrice) / 1e9 : 0,

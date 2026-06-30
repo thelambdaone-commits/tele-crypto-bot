@@ -120,6 +120,41 @@ export class TronChain extends BaseProvider {
     return { balance: sun / 1e6, balanceSun: String(sun), symbol: 'TRX' };
   }
 
+  /**
+   * Scan every configured TRC-20 token (USDT, USDC) for `address` and return the
+   * ones with a non-zero balance, in the same shape as EvmBaseProvider.getAllTokens
+   * — this is what the public-address analyze flow calls, so without it a Tron
+   * address would only ever show its native TRX.
+   */
+  async getAllTokens(address) {
+    const tw = this._client();
+    tw.setAddress(address);
+
+    const results = [];
+    for (const [symbol, token] of Object.entries(this.tokens)) {
+      try {
+        // Both the ABI fetch (.at) and the balanceOf read go through _schedule:
+        // TronGrid's keyless tier 429s if these fire back-to-back unspaced.
+        const contract = await this._schedule(() => tw.contract().at(token.address));
+        const raw = await this._schedule(() => contract.balanceOf(address).call());
+        const amount = Number(raw.toString()) / 10 ** token.decimals;
+        if (amount > 0) {
+          results.push({
+            symbol,
+            address: token.address,
+            amount,
+            decimals: token.decimals,
+            icon: token.icon || '💵',
+            isKnown: true,
+          });
+        }
+      } catch {
+        // skip tokens that fail to read (RPC hiccup / unactivated account)
+      }
+    }
+    return results;
+  }
+
   async estimateFees(fromAddress, toAddress, _amount, tokenSymbol = null) {
     const isToken = String(tokenSymbol || 'TRX').toUpperCase() !== 'TRX';
     // `estimatedFee` is the native-denominated amount the send-confirmation

@@ -76,9 +76,9 @@ export const config = {
   },
 
   rpc: {
-    eth: vault.get('ethRpc') || process.env.ETH_RPC_URL || 'https://eth.llamarpc.com',
+    eth: vault.get('ethRpc') || process.env.ETH_RPC_URL || 'https://ethereum.publicnode.com',
     sol: vault.get('solRpc') || process.env.SOL_RPC_URL,
-    solFallbacks: parseUrlList(process.env.SOL_RPC_FALLBACK_URLS),
+    solFallbacks: parseUrlList(vault.get('solFallbackUrls') || process.env.SOL_RPC_FALLBACK_URLS),
     btcApi: vault.get('btcApi') || process.env.BTC_API_URL || 'https://mempool.space/api',
     arb: vault.get('arbRpc') || process.env.ARB_RPC_URL || 'https://arb1.arbitrum.io/rpc',
     ltcApi: vault.get('ltcApi') || process.env.LTC_API_URL || 'https://litecoinspace.org/api',

@@ -7,13 +7,16 @@ export class EthereumChain extends EvmBaseProvider {
       symbol: 'ETH',
       nativeSymbol: 'ETH',
       rpcUrl: rpcUrl || 'https://ethereum.publicnode.com',
-      // Keyless public fallbacks (verified live, juin 2026). rpc.ankr.com/eth was
-      // removed: Ankr dropped keyless access and it now requires an API key.
-      // PublicNode + dRPC verified working; llamarpc kept last (intermittent).
+      // Keyless fallbacks, load-tested 30 juin 2026 against a concurrent burst of
+      // 12 calls (the real pattern: getAllTokens fires every balanceOf in
+      // parallel). Kept only 12/12 survivors. Dropped: ankr (needs key), llamarpc
+      // (dead), cloudflare-eth + meowrpc (collapse under burst — "Internal error"
+      // / "Too Many Requests"), 1rpc.io (2/12).
       fallbackRpcUrls: [
         'https://ethereum.publicnode.com',
         'https://eth.drpc.org',
-        'https://eth.llamarpc.com',
+        'https://eth.api.onfinality.io/public',
+        'https://eth-mainnet.public.blastapi.io',
       ],
       tokenConfigKey: 'eth',
     });

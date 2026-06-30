@@ -7,10 +7,12 @@ export class OptimismChain extends EvmBaseProvider {
       symbol: 'OP',
       nativeSymbol: 'ETH',
       rpcUrl: rpcUrl || 'https://mainnet.optimism.io',
+      // Keyless, verified live 30 juin 2026 (optimism.llamarpc.com dropped — dead).
       fallbackRpcUrls: [
         'https://mainnet.optimism.io',
-        'https://optimism.llamarpc.com',
         'https://optimism-rpc.publicnode.com',
+        'https://optimism.drpc.org',
+        'https://optimism.gateway.tenderly.co',
       ],
       tokenConfigKey: 'op',
       explorer: 'https://optimism.io',
