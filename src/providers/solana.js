@@ -42,12 +42,20 @@ export class SolanaChain extends BaseProvider {
         this._connections.set(url, new Connection(url, {
           commitment: 'confirmed',
           confirmTransactionInitialTimeout: 30000,
+          // web3.js otherwise retries every 429 up to 5× (multiplying load on the
+          // already-rate-limited free endpoints) and logs each retry. Disable it:
+          // a 429 throws cleanly, RpcManager falls over to the next endpoint, and
+          // the per-endpoint token bucket below paces requests under the limit.
+          disableRetryOnRateLimit: true,
         }));
       }
       return this._connections.get(url);
     };
     this.connection = this._getConnection(rpcUrl);
 
+    // Conservative rps/burst: the keyless fallbacks (mainnet-beta, publicnode)
+    // throttle hard, so pacing here keeps the deposit-monitor sweep under their
+    // limits instead of generating a 429 storm.
     this.balanceRpc = new RpcManager(this.endpoints, async (endpoint, { address }) => {
       const conn = this._getConnection(endpoint);
       const balance = await conn.getBalance(new PublicKey(address));
@@ -56,14 +64,14 @@ export class SolanaChain extends BaseProvider {
         balanceLamports: balance.toString(),
         symbol: this.symbol,
       };
-    }, { requestTimeoutMs: 10000, failureThreshold: 3, cacheTtlMs: 5000, rps: 20 });
+    }, { requestTimeoutMs: 10000, failureThreshold: 3, cacheTtlMs: 5000, rps: 10, rpsBurst: 10 });
 
     this.tokenRpc = new RpcManager(this.endpoints, async (endpoint, { publicKey }) => {
       const conn = this._getConnection(endpoint);
       return await conn.getParsedTokenAccountsByOwner(publicKey, {
         programId: TOKEN_PROGRAM_ID,
       });
-    }, { requestTimeoutMs: 15000, failureThreshold: 3, cacheTtlMs: 10000, rps: 15 });
+    }, { requestTimeoutMs: 15000, failureThreshold: 3, cacheTtlMs: 10000, rps: 5, rpsBurst: 5 });
   }
 
   async createWallet() {
