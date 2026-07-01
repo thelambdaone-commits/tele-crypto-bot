@@ -29,7 +29,19 @@ export class SolanaChain extends BaseProvider {
     this.primaryRpcUrl = rpcUrl;
 
     const configuredFallbacks = Array.isArray(fallbackRpcUrls) ? fallbackRpcUrls : [fallbackRpcUrls];
+    // Keyless public RPCs, ordered by load-test results (concurrent getBalance
+    // burst — the exact deposit-monitor sweep that caused the 429 storm; a
+    // single ping is meaningless). Most "public" Solana RPCs have gone paid or
+    // key-gated (drpc/ankr/onfinality/blastapi/rpcpool/blockeden) or 429 on the
+    // first burst (1rpc/leorpc), so the keyless survivor set is small:
+    //  • Lava — open-source decentralized RPC gateway; 99% over a 200-req burst,
+    //    0×429, and (unlike publicnode) it serves getTokenAccountsByOwner, so it
+    //    also backs the token-scan path.
+    //  • publicnode — rock-solid for getBalance, but BLOCKS the token-scan
+    //    method (programId filter is rejected), hence balance-only.
+    //  • mainnet-beta — official, but 429s ~half of a burst; last resort.
     const staticFallbacks = [
+      'https://solana.lava.build',
       'https://solana-rpc.publicnode.com',
       'https://api.mainnet-beta.solana.com',
     ];
