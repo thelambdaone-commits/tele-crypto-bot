@@ -15,11 +15,16 @@ let priceCache = {
 
 const CACHE_TTL = 60000; // 1 minute
 
+// Coalesces concurrent cache misses into a single CoinGecko request
+// (e.g. the multi-EVM analysis fires 7 chains in parallel on a cold cache).
+let inFlightFetch = null;
+
 /**
  * Clear price cache to force refresh
  */
 export function clearPriceCache() {
   priceCache = { prices: {}, lastUpdate: 0 };
+  inFlightFetch = null;
 }
 
 /**
@@ -38,6 +43,20 @@ export async function getPricesEUR(force = false) {
     return priceCache.prices;
   }
 
+  if (!force && inFlightFetch) {
+    return inFlightFetch;
+  }
+
+  const fetchPromise = fetchPricesEUR(now);
+  inFlightFetch = fetchPromise;
+  try {
+    return await fetchPromise;
+  } finally {
+    if (inFlightFetch === fetchPromise) inFlightFetch = null;
+  }
+}
+
+async function fetchPricesEUR(now) {
   try {
     const ids = Object.values(COIN_IDS).join(',');
     const response = await fetchWithFallback(`${COINGECKO_API}/simple/price?ids=${ids}&vs_currencies=eur`);

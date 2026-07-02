@@ -371,17 +371,26 @@ export class PaymentService {
     this._polling = true;
     try {
       const users = await this.storage.getAllUsers();
-      for (const user of users) {
-        let invoices;
-        try {
-          invoices = await this.storage.getInvoices(user.chatId);
-        } catch {
-          continue;
-        }
-        for (const inv of invoices.filter((i) => OPEN.includes(i.status))) {
-          await this.checkInvoice(inv, now);
-        }
-      }
+      // Merchants are independent (one encrypted file each) so they are polled
+      // in parallel; within a merchant, invoices stay sequential — their checks
+      // read-modify-write the same user file (settle, LN credit).
+      await Promise.all(
+        users.map(async (user) => {
+          try {
+            const invoices = await this.storage.getInvoices(user.chatId);
+            for (const inv of invoices.filter((i) => OPEN.includes(i.status))) {
+              await this.checkInvoice(inv, now);
+            }
+          } catch (e) {
+            // Contain per-merchant failures: a rejection must not release the
+            // _polling guard while other merchants are still being checked.
+            logger.warn('[Payments] merchant poll failed', {
+              chatId: user.chatId,
+              error: e.message,
+            });
+          }
+        })
+      );
     } finally {
       this._polling = false;
     }

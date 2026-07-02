@@ -1,5 +1,5 @@
-import { appendFileSync, existsSync, mkdirSync } from 'fs';
-import { rename, stat } from 'fs/promises';
+import { existsSync, mkdirSync } from 'fs';
+import { appendFile, rename, stat } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -39,6 +39,8 @@ class Logger {
   constructor(logFile = 'bot.log') {
     this.logPath = join(LOG_DIR, logFile);
     this.errorLogPath = join(LOG_DIR, 'errors.log');
+    // Serializes file appends so entries stay ordered without blocking the event loop
+    this._writeQueue = Promise.resolve();
     this.redactKeys = new Set([
       'privateKey', 'encryptedPrivateKey',
       'seedPhrase', 'mnemonic', 'encryptedMnemonic',
@@ -110,15 +112,12 @@ class Logger {
    * Console output is filtered by LOG_LEVEL.
    */
   write(level, message, context = {}) {
-    this.rotateIfNeeded(this.logPath).catch(() => {});
-
     const entry = this.formatEntry(level, message, context);
-    appendFileSync(this.logPath, entry + '\n');
+    this._append(this.logPath, entry);
 
     // Also write errors to separate file
     if (level === LogLevel.ERROR) {
-      this.rotateIfNeeded(this.errorLogPath).catch(() => {});
-      appendFileSync(this.errorLogPath, entry + '\n');
+      this._append(this.errorLogPath, entry);
     }
 
     // Console output filtered by LOG_LEVEL
@@ -132,6 +131,24 @@ class Logger {
         console.log(consoleMsg);
       }
     }
+  }
+
+  /**
+   * Queue an async append; rotation runs in-queue so it never races a write.
+   * Log-file I/O failures are swallowed — logging must never crash the bot.
+   */
+  _append(logPath, entry) {
+    this._writeQueue = this._writeQueue
+      .then(() => this.rotateIfNeeded(logPath))
+      .then(() => appendFile(logPath, entry + '\n'))
+      .catch(() => {});
+  }
+
+  /**
+   * Wait for all queued file writes to land (used by tests / shutdown).
+   */
+  async flush() {
+    await this._writeQueue;
   }
 
   error(message, context = {}) {
