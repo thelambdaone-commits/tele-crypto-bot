@@ -183,6 +183,17 @@ export class StorageService {
   async updateUserProfile(chatId, firstName, username, defaultLanguage = null) {
     return this._withLock(chatId, async () => {
       const userData = await this.loadUserData(chatId);
+      // Called on every incoming private message: skip the encrypt+write
+      // round-trip when nothing would change (profile identical and no
+      // language left to seed).
+      const storedLanguage = userData.settings?.language || null;
+      if (
+        userData.firstName === firstName &&
+        userData.username === username &&
+        (storedLanguage || !defaultLanguage)
+      ) {
+        return storedLanguage;
+      }
       userData.firstName = firstName;
       userData.username = username;
       if (!userData.settings) userData.settings = {};

@@ -222,18 +222,25 @@ export function setupSendTextInput(bot, storage, walletService, sessions) {
             `📬 <code>${text}</code>\n` +
             '<i>Même adresse scannée sur tous les réseaux EVM.</i>\n';
 
+          // Each chain has its own RpcManager/endpoints, so the networks are
+          // scanned in parallel; sections are appended in registry order.
+          const sections = await Promise.all(
+            EVM_NETWORKS.map(async (net) => {
+              try {
+                return await buildChainSection(walletService, net.chain, text);
+              } catch (e) {
+                logger.warn('EVM network scan failed', { chain: net.chain, error: e.message });
+                return { text: '   ⚠️ <i>Réseau indisponible</i>\n', valueEUR: 0 };
+              }
+            })
+          );
+
           let total = 0;
-          for (const net of EVM_NETWORKS) {
+          EVM_NETWORKS.forEach((net, i) => {
             message += `\n${net.emoji} <b>${net.name}</b>\n`;
-            try {
-              const section = await buildChainSection(walletService, net.chain, text);
-              message += section.text;
-              total += section.valueEUR;
-            } catch (e) {
-              message += '   ⚠️ <i>Réseau indisponible</i>\n';
-              logger.warn('EVM network scan failed', { chain: net.chain, error: e.message });
-            }
-          }
+            message += sections[i].text;
+            total += sections[i].valueEUR;
+          });
           message += `\n💶 <b>Valeur totale (EVM):</b> ${formatEUR(total)}`;
         } else {
           const section = await buildChainSection(walletService, chain, text);

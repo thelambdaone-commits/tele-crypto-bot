@@ -25,6 +25,8 @@ npm run ci             # lint + test + precheck (run before considering work don
 
 Prettier: single quotes, semicolons required (enforced by ESLint too).
 
+Production runs under pm2 (`ecosystem.config.cjs`, 500 MB memory-restart cap); pm2 logs land in `logs/`.
+
 ## Configuration
 
 Config is centralized in `src/core/config.js`, loaded from `.env` (see `.env.example`). It **throws at startup** if `BOT_TOKEN`, `MASTER_ENCRYPTION_KEY` (64-char hex), `SOL_RPC_URL`, or `ADMIN_USER_ID` are missing/invalid. RPC URLs resolve from the encrypted `SecretVault` first, then env, then a hardcoded default — admins can override RPC endpoints at runtime via the admin panel (`src/core/secret-vault.js`, `src/bot/handlers/admin/secrets.js`) without redeploying.

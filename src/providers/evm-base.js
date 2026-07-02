@@ -15,6 +15,11 @@ export class EvmBaseProvider extends BaseProvider {
     this.explorer = config.explorer || null;
     this._provider = null;
     this._fallbackProvider = null;
+    // A send flow calls estimateFees up to 3× (validation → confirm →
+    // broadcast) within seconds; fee data is address-independent so a short
+    // cache collapses those into one getFeeData round-trip.
+    this._feeCache = { data: null, ts: 0 };
+    this._feeCacheTtlMs = 15000;
     this.tokenAddresses = TOKEN_CONFIGS[this.tokenConfigKey]?.tokens || {};
 
     // Read path: native-balance reads are cached (5s) and rate-limited; sends go
@@ -180,9 +185,22 @@ export class EvmBaseProvider extends BaseProvider {
     return results.filter(Boolean);
   }
 
-  async estimateFees(fromAddress, toAddress, amount, tokenSymbol = null) {
+  async _getFeeData() {
+    const now = Date.now();
+    if (this._feeCache.data && now - this._feeCache.ts < this._feeCacheTtlMs) {
+      return this._feeCache.data;
+    }
     const provider = this.getFallbackProvider();
     const feeData = await withTimeout(provider.getFeeData(), 15000);
+    // Only cache usable data — never pin an RPC hiccup for the TTL window.
+    if (feeData && (feeData.maxFeePerGas != null || feeData.gasPrice != null)) {
+      this._feeCache = { data: feeData, ts: now };
+    }
+    return feeData;
+  }
+
+  async estimateFees(fromAddress, toAddress, amount, tokenSymbol = null) {
+    const feeData = await this._getFeeData();
 
     const isToken = tokenSymbol && this.tokenAddresses[tokenSymbol];
     const gasLimit = isToken ? 65000n : 21000n;

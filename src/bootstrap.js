@@ -163,6 +163,7 @@ export class App {
         await this.sessions.stop();
       }
       await auditLogger.flush();
+      await logger.flush();
       this.bot.stop(signal);
     };
 
