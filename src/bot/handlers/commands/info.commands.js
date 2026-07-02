@@ -44,15 +44,173 @@ export function setupInfoCommands(bot) {
     });
   });
 
-  // 📚 /learn - Leçon éducative
+  // 📚 /learn [sujet] - Leçons éducatives. Menu inline sans argument, accès
+  // direct sinon ("/learn btc", "/learn spl"…). Les leçons vivent dans les
+  // bundles i18n (learn.lessons) — le menu et l'accès direct en sont dérivés,
+  // donc ajouter une leçon = ajouter une clé dans fr.js + en.js (parité).
+  const learnMenuKeyboard = (lang) => {
+    const entries = Object.entries(t(lang, 'learn.lessons'));
+    const rows = [];
+    for (let i = 0; i < entries.length; i += 2) {
+      rows.push(
+        entries.slice(i, i + 2).map(([key, l]) => Markup.button.callback(l.title, `learn_l_${key}`))
+      );
+    }
+    return Markup.inlineKeyboard(rows);
+  };
+  const lessonBackKeyboard = (lang) =>
+    Markup.inlineKeyboard([
+      [Markup.button.callback(t(lang, 'learn.backToMenu'), CALLBACKS.LEARN_MENU)],
+    ]);
+
+  // Vocabulaire → clé de leçon ("spl" → sol, "bip39" → seed…). Les entrées et
+  // la saisie passent par normalizeTopic : minuscules, accents et séparateurs
+  // retirés ("TRC-20" → "trc20", "réseau" → "reseau").
+  const LESSON_ALIASES = {
+    bitcoin: 'btc',
+    sat: 'btc',
+    sats: 'btc',
+    satoshi: 'btc',
+    utxo: 'btc',
+    litecoin: 'ltc',
+    bitcoincash: 'bch',
+    cashaddr: 'bch',
+    ethereum: 'eth',
+    gwei: 'eth',
+    wei: 'eth',
+    smartcontract: 'eth',
+    avalanche: 'avax',
+    cchain: 'avax',
+    bsc: 'bnb',
+    binance: 'bnb',
+    bep20: 'bnb',
+    solana: 'sol',
+    spl: 'sol',
+    lamport: 'sol',
+    zcash: 'zec',
+    zksnark: 'zec',
+    zatoshi: 'zec',
+    monero: 'xmr',
+    piconero: 'xmr',
+    privacy: 'xmr',
+    toncoin: 'ton',
+    jetton: 'ton',
+    jettons: 'ton',
+    memo: 'ton',
+    tron: 'trx',
+    trc20: 'trx',
+    sun: 'trx',
+    layer1: 'l1',
+    blockchain: 'l1',
+    mainnet: 'l1',
+    layer2: 'l2',
+    arb: 'l2',
+    arbitrum: 'l2',
+    op: 'l2',
+    optimism: 'l2',
+    base: 'l2',
+    matic: 'l2',
+    polygon: 'l2',
+    pol: 'l2',
+    rollup: 'l2',
+    bip39: 'seed',
+    mnemonic: 'seed',
+    mnemonique: 'seed',
+    seedphrase: 'seed',
+    phrase: 'seed',
+    recovery: 'seed',
+    keys: 'key',
+    cle: 'key',
+    cles: 'key',
+    privatekey: 'key',
+    address: 'key',
+    adresse: 'key',
+    scam: 'security',
+    scams: 'security',
+    arnaque: 'security',
+    arnaques: 'security',
+    phishing: 'security',
+    securite: 'security',
+    rug: 'rugpull',
+    honeypot: 'rugpull',
+    ponzi: 'rugpull',
+    pump: 'rugpull',
+    pumpanddump: 'rugpull',
+    reseau: 'network',
+    reseaux: 'network',
+    networks: 'network',
+    fee: 'gas',
+    fees: 'gas',
+    frais: 'gas',
+    coin: 'token',
+    coins: 'token',
+    tokens: 'token',
+    erc20: 'token',
+    stablecoin: 'stable',
+    stablecoins: 'stable',
+    usdt: 'stable',
+    usdc: 'stable',
+    dai: 'stable',
+    wrapped: 'iou',
+    wbtc: 'iou',
+    ious: 'iou',
+    swaps: 'swap',
+    echange: 'swap',
+    exchange: 'swap',
+    trocador: 'swap',
+    nokyc: 'kyc',
+    lightning: 'ln',
+    bolt11: 'ln',
+    invoices: 'invoice',
+    facture: 'invoice',
+    factures: 'invoice',
+  };
+  const normalizeTopic = (raw) =>
+    String(raw || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '');
+
   bot.command('learn', async (ctx) => {
-    await ctx.reply(
-      '📌 <b>Coin vs Token</b>\n\n' +
-        '1️⃣ <b>Coins</b> 🪙 : Blockchains natives (BTC, ETH, SOL).\n' +
-        '2️⃣ <b>Tokens</b> 🎫 : Hébérgés (USDC, USDT).\n\n' +
-        '🚀 <b>Layer 2</b> (Polygon, Base, Optimism) : Moins cher, même adresse ETH.',
-      { parse_mode: 'HTML' }
-    );
+    const lang = ctx.state?.lang || 'fr';
+    const lessons = t(lang, 'learn.lessons');
+    const topic = normalizeTopic(ctx.message.text.split(/\s+/)[1]);
+    // Object.hasOwn : une saisie comme "constructor" ne doit pas remonter une
+    // propriété héritée du prototype à la place d'une leçon.
+    const key = Object.hasOwn(lessons, topic) ? topic : LESSON_ALIASES[topic];
+    if (key && Object.hasOwn(lessons, key)) {
+      return ctx.reply(lessons[key].body, { parse_mode: 'HTML', ...lessonBackKeyboard(lang) });
+    }
+    await ctx.reply(t(lang, 'learn.menuTitle'), { parse_mode: 'HTML', ...learnMenuKeyboard(lang) });
+  });
+
+  // 📚 Une leçon est choisie dans le menu → remplace le message en place.
+  bot.action(/^learn_l_(\w+)$/, async (ctx) => {
+    await ctx.answerCbQuery().catch(() => {});
+    const lang = ctx.state?.lang || 'fr';
+    const lessons = t(lang, 'learn.lessons');
+    const lesson = Object.hasOwn(lessons, ctx.match[1]) ? lessons[ctx.match[1]] : null;
+    if (!lesson) return;
+    try {
+      await ctx.editMessageText(lesson.body, { parse_mode: 'HTML', ...lessonBackKeyboard(lang) });
+    } catch {
+      /* message inchangé ou supprimé */
+    }
+  });
+
+  // 📚 Retour au menu des leçons.
+  bot.action(CALLBACKS.LEARN_MENU, async (ctx) => {
+    await ctx.answerCbQuery().catch(() => {});
+    const lang = ctx.state?.lang || 'fr';
+    try {
+      await ctx.editMessageText(t(lang, 'learn.menuTitle'), {
+        parse_mode: 'HTML',
+        ...learnMenuKeyboard(lang),
+      });
+    } catch {
+      /* message inchangé ou supprimé */
+    }
   });
 
   // 🔗 /chains - Liste des blockchains supportées (dérivée de CHAIN_REGISTRY)
