@@ -399,6 +399,20 @@ export const fr = {
           '• Multi-actifs : coin natif, stablecoins (USDT/USDC…), et ⚡ Lightning.\n\n' +
           '👉 <code>/invoice</code> pour créer, <code>/invoices</code> pour suivre.',
       },
+      shield: {
+        title: '🛡️ Confidentialité / ZK',
+        body:
+          '🛡️ <b>Shielding &amp; confidentialité (Solana)</b>\n\n' +
+          'Solana est <b>transparente par défaut</b> : soldes et montants sont publics. Le « shielding » désigne les techniques qui les masquent.\n\n' +
+          '• <b>Confidential Balances</b> (Token-2022) : extension <b>native</b> de Solana (mainnet 2025) — montants et soldes chiffrés (ElGamal + preuves ZK). Les adresses, elles, restent publiques.\n' +
+          "• <b>ZK-SNARK</b> : preuve cryptographique qui démontre qu'une transaction est valide <b>sans en révéler les détails</b>. Au cœur de Zcash (<code>/learn zec</code>) et d'Elusiv (protocole pionnier sur Solana, fermé en 2024).\n" +
+          "• <b>MPC</b> (calcul multi-parties) : des nœuds indépendants calculent sur des données chiffrées sans jamais les voir — la techno d'<b>Arcium</b> (né de l'équipe Elusiv). Arcium utilise du MPC, <b>pas</b> du FHE.\n" +
+          '• <b>FHE</b> (chiffrement homomorphe complet) : calculer directement sur des données chiffrées. Très puissant mais encore lent.\n' +
+          "• <b>Dark pools</b> : des marchés où les gros ordres s'exécutent hors carnet public (anti-MEV, anti-front-running) — HumidiFi, ou Zyga (exécution privée + zkKYC institutionnel).\n" +
+          '• <b>Adresses furtives</b> : une adresse à usage unique par transaction, pour casser le traçage du portefeuille.\n\n' +
+          "⚠️ Ne pas confondre : la <b>ZK Compression</b> (Light Protocol/Helius) utilise des preuves ZK pour <b>réduire les coûts de stockage</b>, pas pour l'anonymat. Idem, le <b>Seed Vault</b> (Solana Saga/Seeker) protège tes clés dans une puce dédiée — sécurité matérielle, pas confidentialité des transactions.\n\n" +
+          '🕵️ Confidentialité par défaut → <code>/learn xmr</code>.',
+      },
     },
   },
 

@@ -398,6 +398,20 @@ export const en = {
           '• Multi-asset: native coin, stablecoins (USDT/USDC…), and ⚡ Lightning.\n\n' +
           '👉 <code>/invoice</code> to create, <code>/invoices</code> to track.',
       },
+      shield: {
+        title: '🛡️ Privacy / ZK',
+        body:
+          '🛡️ <b>Shielding &amp; privacy (Solana)</b>\n\n' +
+          'Solana is <b>transparent by default</b>: balances and amounts are public. "Shielding" covers the techniques that hide them.\n\n' +
+          '• <b>Confidential Balances</b> (Token-2022): a <b>native</b> Solana extension (mainnet 2025) — amounts and balances encrypted (ElGamal + ZK proofs). Addresses themselves stay public.\n' +
+          '• <b>ZK-SNARK</b>: a cryptographic proof that a transaction is valid <b>without revealing its details</b>. At the heart of Zcash (<code>/learn zec</code>) and of Elusiv (pioneering Solana protocol, sunset in 2024).\n' +
+          '• <b>MPC</b> (multi-party computation): independent nodes compute over encrypted data without ever seeing it — the tech behind <b>Arcium</b> (born from the Elusiv team). Arcium uses MPC, <b>not</b> FHE.\n' +
+          '• <b>FHE</b> (fully homomorphic encryption): computing directly on encrypted data. Very powerful but still slow.\n' +
+          '• <b>Dark pools</b>: markets where large orders execute off the public order book (anti-MEV, anti-front-running) — HumidiFi, or Zyga (private execution + institutional zkKYC).\n' +
+          '• <b>Stealth addresses</b>: a one-time address per transaction, to break wallet tracing.\n\n' +
+          "⚠️ Don't confuse: <b>ZK Compression</b> (Light Protocol/Helius) uses ZK proofs to <b>cut storage costs</b>, not for anonymity. Likewise, the <b>Seed Vault</b> (Solana Saga/Seeker) protects your keys in a dedicated chip — hardware security, not transaction privacy.\n\n" +
+          '🕵️ Privacy by default → <code>/learn xmr</code>.',
+      },
     },
   },
 
