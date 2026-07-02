@@ -1,4 +1,4 @@
-import { logger } from '../logger.js';
+import { logger, redactUrl } from '../logger.js';
 
 const DEFAULT_OPTIONS = {
   checkIntervalMs: 60000,
@@ -56,9 +56,11 @@ export class RpcHealthMonitor {
     ep.isHealthy = true;
     ep.disabled = false;
     ep.disabledUntil = null;
+    // Cleared so a later unhealthy/quarantine log can't report a stale cause.
+    ep.lastError = null;
   }
 
-  recordError(url) {
+  recordError(url, cause) {
     const ep = this.endpoints.get(url);
     if (!ep) return;
     ep.samples.push({ success: false, latencyMs: 0, time: this._now() });
@@ -67,13 +69,25 @@ export class RpcHealthMonitor {
     ep.totalRequests++;
     ep.totalErrors++;
     ep.lastChecked = this._now();
+    // Scrub URLs at the source too (not just at log time): error messages from
+    // ethers/fetch embed the full keyed request URL, and lastError may later be
+    // surfaced outside the logger (stats panels).
+    if (cause) {
+      ep.lastError = String(cause)
+        .replace(/https?:\/\/[^\s"'<>)\]]+/g, (m) => redactUrl(m))
+        .slice(0, 200);
+    }
 
     // Edge-triggered: log the WARN only on the healthy -> unhealthy transition,
     // not on every subsequent failure (a dead endpoint would otherwise spam the
     // log on every retry, e.g. consecutiveFailures climbing to 255+).
     if (ep.isHealthy && ep.consecutiveFailures >= this.opts.unhealthyThreshold) {
       ep.isHealthy = false;
-      logger.warn('RPC endpoint marked unhealthy', { url, consecutiveFailures: ep.consecutiveFailures });
+      logger.warn('RPC endpoint marked unhealthy', {
+        url: redactUrl(url),
+        consecutiveFailures: ep.consecutiveFailures,
+        lastError: ep.lastError,
+      });
     }
 
     // Past a harder threshold, quarantine the endpoint: drop it from rotation
@@ -83,8 +97,9 @@ export class RpcHealthMonitor {
       ep.disabled = true;
       ep.disabledUntil = this._now() + this.opts.quarantineCooldownMs;
       logger.warn('RPC endpoint quarantined', {
-        url,
+        url: redactUrl(url),
         consecutiveFailures: ep.consecutiveFailures,
+        lastError: ep.lastError,
         cooldownMs: this.opts.quarantineCooldownMs,
       });
     }
@@ -178,8 +193,8 @@ export class RpcHealthMonitor {
           const start = Date.now();
           await pingFn(url);
           this.recordSuccess(url, Date.now() - start);
-        } catch {
-          this.recordError(url);
+        } catch (e) {
+          this.recordError(url, e?.message || 'health probe failed');
         }
       }
     }, this.opts.checkIntervalMs);

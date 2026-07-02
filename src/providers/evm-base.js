@@ -128,13 +128,13 @@ export class EvmBaseProvider extends BaseProvider {
       const provider = this.getFallbackProvider();
       const tokenContract = new ethers.Contract(token.address, ERC20_ABI, provider);
       const balance = await withTimeout(tokenContract.balanceOf(address), 10000);
-      const decimals = await withTimeout(tokenContract.decimals(), 10000);
-      const symbol = await withTimeout(tokenContract.symbol(), 10000);
 
+      // decimals/symbol are static config (tokens.config.js, locked by tests) —
+      // fetching them on-chain tripled the round-trips per token for nothing.
       return {
-        balance: ethers.formatUnits(balance, Number(decimals)),
+        balance: ethers.formatUnits(balance, token.decimals),
         balanceWei: balance.toString(),
-        symbol,
+        symbol: tokenSymbol,
         isToken: true,
         tokenAddress: token.address,
       };
@@ -158,10 +158,10 @@ export class EvmBaseProvider extends BaseProvider {
       Object.entries(this.tokenAddresses).map(async ([symbol, token]) => {
         try {
           const contract = new ethers.Contract(token.address, ERC20_ABI, provider);
-          const [balance, decimals] = await Promise.all([
-            withTimeout(contract.balanceOf(address), 10000),
-            withTimeout(contract.decimals(), 10000),
-          ]);
+          // decimals comes from config, not on-chain — halves the concurrent
+          // burst against public endpoints (they were load-tested at the old
+          // per-analysis call count).
+          const balance = await withTimeout(contract.balanceOf(address), 10000);
 
           if (balance > 0n) {
             return {
@@ -169,8 +169,8 @@ export class EvmBaseProvider extends BaseProvider {
               address: token.address,
               // formatUnits divides at full bigint precision; Number(balance)
               // would lose digits above 2^53 (e.g. any 18-decimals balance ≥ ~9).
-              amount: Number(ethers.formatUnits(balance, decimals)),
-              decimals,
+              amount: Number(ethers.formatUnits(balance, token.decimals)),
+              decimals: token.decimals,
               icon: token.icon || '💵',
               isKnown: true,
             };

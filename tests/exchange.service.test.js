@@ -120,11 +120,11 @@ test('wallet tokens are now covered: USDT quotable on many networks', async () =
 const EXCHANGE_EXCLUDED = {
   eth: ['sol'],
   trx: ['usdc'],
-  sol: ['weth', 'msol', 'wsol'],
+  sol: ['weth', 'msol', 'wsol', 'jitosol'],
   bsc: ['weth'],
   arb: ['arb'],
   op: ['op'],
-  base: ['usdt'],
+  base: ['usdt', 'cbbtc'],
   avax: ['wbtc', 'dai'],
 };
 

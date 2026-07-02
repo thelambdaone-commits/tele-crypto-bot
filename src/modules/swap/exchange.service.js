@@ -79,14 +79,18 @@ export const TOKEN_NETWORK = {
 //  - ARB/OP governance tokens: Trocador only lists them on network "Mainnet"
 //    (Ethereum-side), so routing them to an L2 address would deliver on the wrong
 //    chain — excluded as a safety measure, not offered as an exchange target.
+// July 2026 batch (stETH/SHIB/PEPE, WETH-matic, CAKE, JUP/BONK/PYTH/RAY/WIF/
+// TRUMP): every pair probed live against AnonPay — all render the checkout;
+// only jitosol (like msol) and cbbtc came back "Invalid ticker" and are
+// excluded below.
 const UNSUPPORTED_TOKENS = {
   eth: ['sol'],
   trx: ['usdc'],
-  sol: ['weth', 'msol', 'wsol'],
+  sol: ['weth', 'msol', 'wsol', 'jitosol'],
   bsc: ['weth'],
   arb: ['arb'],
   op: ['op'],
-  base: ['usdt'],
+  base: ['usdt', 'cbbtc'],
   avax: ['wbtc', 'dai'],
 };
 

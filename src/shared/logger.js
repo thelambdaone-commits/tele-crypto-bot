@@ -7,6 +7,20 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const LOG_DIR = join(__dirname, '../../logs');
 const MAX_LOG_SIZE = 10 * 1024 * 1024; // 10MB
 
+// Keyed RPC/API URLs embed the secret in the query string (Helius `?api-key=…`)
+// or the path (Alchemy `/v2/<key>`). Logs must identify the endpoint without
+// leaking the key: keep the host, mask long path segments and the whole query.
+const URL_IN_STRING = /https?:\/\/[^\s"'<>)\]]+/g;
+export function redactUrl(url) {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/[A-Za-z0-9_-]{16,}/g, '***');
+    return `${u.origin}${path === '/' ? '' : path}${u.search ? '?***' : ''}`;
+  } catch {
+    return String(url);
+  }
+}
+
 // Ensure logs directory exists
 if (!existsSync(LOG_DIR)) {
   mkdirSync(LOG_DIR, { recursive: true });
@@ -57,6 +71,11 @@ class Logger {
         clone[key] = '[REDACTED]';
       } else if (typeof clone[key] === 'object' && clone[key] !== null) {
         clone[key] = this.redact(clone[key]);
+      } else if (typeof clone[key] === 'string' && clone[key].includes('://')) {
+        // Key-name redaction can't catch secrets embedded INSIDE a string
+        // value: ethers/fetch error messages routinely quote the full request
+        // URL, API key included. Scrub every URL in any logged string.
+        clone[key] = clone[key].replace(URL_IN_STRING, (m) => redactUrl(m));
       }
     }
     return clone;

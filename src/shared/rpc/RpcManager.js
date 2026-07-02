@@ -139,7 +139,7 @@ export class RpcManager {
         try {
           await bucket.consume(1, 2000);
         } catch {
-          this.health.recordError(endpoint);
+          this.health.recordError(endpoint, 'local rate-limit wait timeout');
           continue;
         }
       }
@@ -153,7 +153,7 @@ export class RpcManager {
         this.health.recordSuccess(endpoint, Date.now() - attemptStart);
         return result;
       } catch (error) {
-        this.health.recordError(endpoint);
+        this.health.recordError(endpoint, error?.message);
 
         if (this.opts.isWrite && this.opts.idempotencyCheck) {
           const alreadyLanded = await this.opts.idempotencyCheck(args, error);
@@ -195,7 +195,7 @@ export class RpcManager {
           return r;
         })
         .catch((e) => {
-          this.health.recordError(endpoint);
+          this.health.recordError(endpoint, e?.message);
           throw e;
         });
     });
