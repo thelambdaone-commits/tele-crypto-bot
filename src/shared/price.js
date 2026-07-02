@@ -106,10 +106,28 @@ export async function convertToEUR(chain, amount) {
   };
 }
 
+const SUPERSCRIPTS = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', '-': '⁻' };
+const toSuperscript = (n) => String(n).split('').map((c) => SUPERSCRIPTS[c] ?? c).join('');
+
 /**
  * Format EUR amount (with more decimals for small amounts)
  */
 export function formatEUR(amount) {
+  // Les prix sub-0,0001 € (memecoins : SHIB/PEPE/BONK ≈ 10⁻⁶ €) s'arrondissaient
+  // tous à « 0,00000 € » — notation scientifique « 3,72 × 10⁻⁶ € » à la place.
+  if (amount > 0 && amount < 0.0001) {
+    let exp = Math.floor(Math.log10(amount));
+    let mantissa = amount / 10 ** exp;
+    if (mantissa >= 9.995) {
+      mantissa /= 10;
+      exp += 1;
+    }
+    const m = new Intl.NumberFormat('fr-FR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(mantissa);
+    return `${m} × 10${toSuperscript(exp)} €`;
+  }
   // Pour les petits montants, afficher plus de décimales
   const decimals = amount >= 0.01 ? 2 : amount >= 0.0001 ? 4 : 5;
   return new Intl.NumberFormat('fr-FR', {
