@@ -197,7 +197,7 @@ export const PRICE_GROUPS = [
     ['ray', '🌊', 'Raydium (RAY)'],
     ['cake', '🥞', 'PancakeSwap (CAKE)'],
   ]],
-  ['🐕 Memes', [
+  ['🪙 Memes', [
     ['shib', '🐕', 'Shiba Inu (SHIB)'],
     ['pepe', '🐸', 'Pepe (PEPE)'],
     ['bonk', '🐕', 'Bonk (BONK)'],
