@@ -67,6 +67,78 @@ export async function safeEditMessage(ctx, text, options = {}) {
   }
 }
 
+// Telegram rejects sendMessage/editMessageText payloads over this many chars
+// with "400: Bad Request: MESSAGE_TOO_LONG".
+export const TELEGRAM_MESSAGE_LIMIT = 4096;
+
+/**
+ * Split a message into parts that each fit Telegram's 4096-char limit.
+ * Splits on line boundaries — the HTML used by this bot (<b>, <i>, <code>)
+ * never spans a newline, so every part stays valid HTML. A single line longer
+ * than the limit (pathological) is hard-cut.
+ * @param {string} text
+ * @returns {string[]} at least one part
+ */
+export function splitTelegramMessage(text, limit = TELEGRAM_MESSAGE_LIMIT) {
+  const str = String(text ?? '');
+  if (str.length <= limit) return [str];
+  const parts = [];
+  let current = '';
+  for (const line of str.split('\n')) {
+    let rest = line;
+    while (rest.length > limit) {
+      if (current) {
+        parts.push(current);
+        current = '';
+      }
+      // Hard-cutting an over-long single line: prefer the last space within the
+      // window so an HTML tag/entity is not severed mid-token (e.g. the /audit
+      // blacklist renders many <code>id</code> spans on one line).
+      let cut = rest.lastIndexOf(' ', limit - 1);
+      if (cut < limit * 0.8) cut = limit - 1;
+      parts.push(rest.slice(0, cut + 1));
+      rest = rest.slice(cut + 1);
+    }
+    const candidate = current ? `${current}\n${rest}` : rest;
+    if (candidate.length > limit) {
+      parts.push(current);
+      current = rest;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) parts.push(current);
+  return parts;
+}
+
+/**
+ * Send a possibly-over-limit message safely. The text is split at 4096 chars;
+ * the inline keyboard (reply_markup) is attached to the LAST part only, so the
+ * buttons stay at the bottom. With `edit: true` the first part replaces the
+ * tapped message (editMessageText); with `messageId` it replaces that specific
+ * message (e.g. a "loading…" placeholder). Overflow parts are sent as new
+ * messages.
+ * @returns {Promise<object>} the last sent/edited message
+ */
+export async function sendChunked(ctx, text, options = {}, { edit = false, messageId = null } = {}) {
+  const { reply_markup: replyMarkup, ...base } = options;
+  const parts = splitTelegramMessage(text);
+  let last;
+  for (let i = 0; i < parts.length; i++) {
+    const opts = i === parts.length - 1 ? { ...base, reply_markup: replyMarkup } : base;
+    if (i > 0) {
+      last = await ctx.reply(parts[i], opts);
+    } else if (messageId) {
+      last = await ctx.telegram.editMessageText(ctx.chat.id, messageId, undefined, parts[i], opts);
+    } else if (edit) {
+      last = await safeEditMessage(ctx, parts[i], opts);
+    } else {
+      last = await ctx.reply(parts[i], opts);
+    }
+  }
+  return last;
+}
+
 /**
  * Send a temporary loading message
  */

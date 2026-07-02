@@ -8,6 +8,7 @@ import { convertToEUR, formatEUR } from '../../../shared/price.js';
 import { getTokenExplorerUrl } from '../../../shared/explorer.js';
 import { SUPPORTED_CHAINS, NETWORK_LABEL, CHAIN_EMOJIS, isEvmChain } from '../../../shared/chains.js';
 import { handleSendError } from './helpers.js';
+import { sendChunked } from '../../utils.js';
 
 // EVM addresses (0x…) are identical across all EVM networks, so an analyzed
 // 0x address is scanned on each of these and reported per-network. Derived from
@@ -260,7 +261,9 @@ export function setupSendTextInput(bot, storage, walletService, sessions) {
         });
 
         const { addressAnalyzedKeyboard } = await import('../../keyboards/index.js');
-        ctx.reply(message, {
+        // Awaited + chunked: an address holding many tokens across the EVM
+        // networks can push the report past Telegram's 4096-char limit.
+        await sendChunked(ctx, message, {
           parse_mode: 'HTML',
           ...addressAnalyzedKeyboard(chain, text),
         });
@@ -274,6 +277,9 @@ export function setupSendTextInput(bot, storage, walletService, sessions) {
           chatId,
         });
         ctx.reply(`❌ Erreur d'analyse : ${error.message}`).catch(() => {});
+        // The send is awaited now, so a failed report lands here: reset the
+        // state or every next text keeps being parsed as an address to analyze.
+        sessions.setState(chatId, 'IDLE');
       }
       return;
     }

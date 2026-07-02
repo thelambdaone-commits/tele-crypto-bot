@@ -4,6 +4,7 @@ import { getPricesEUR, formatCryptoPricesEUR, clearPriceCache } from '../../shar
 import { buildBalancesText } from '../ui/wallet-display.js';
 import { CALLBACKS } from '../constants/callbacks.js';
 import { logger } from '../../shared/logger.js';
+import { sendChunked, safeAnswerCbQuery } from '../utils.js';
 
 // Keyboard under the EUR price list: refresh, open the 📈 graph picker, menu/close.
 function pricesKeyboard() {
@@ -31,12 +32,11 @@ export function setupBalanceHandlers(bot, storage, walletService) {
 
     const text = '💰 <b>Soldes de tes Wallets</b>' + await buildBalancesText(walletService, storage, chatId);
 
-    ctx
-      .editMessageText(text, {
-        parse_mode: 'HTML',
-        ...mainMenuKeyboard(),
-      })
-      .catch((e) => logger.warn('balance.editMessageText failed', { chatId, error: e.message }));
+    // Chunked: the balance report grows with wallets × tokens and can exceed
+    // Telegram's 4096-char limit (the historical MESSAGE_TOO_LONG source).
+    await sendChunked(ctx, text, { parse_mode: 'HTML', ...mainMenuKeyboard() }, { edit: true }).catch(
+      (e) => logger.warn('balance.editMessageText failed', { chatId, error: e.message })
+    );
   });
 
   bot.action(CALLBACKS.PRICES_EUR, async (ctx) => {
@@ -84,7 +84,7 @@ export function setupBalanceHandlers(bot, storage, walletService) {
     }
 
     const text = '💰 <b>Soldes de tes Wallets</b>' + await buildBalancesText(walletService, storage, chatId);
-    await ctx.reply(text, { parse_mode: 'HTML', ...mainMenuKeyboard() });
+    await sendChunked(ctx, text, { parse_mode: 'HTML', ...mainMenuKeyboard() });
   });
 
   bot.action(CALLBACKS.REFRESH_PRICES, async (ctx) => {
@@ -104,6 +104,13 @@ export function setupBalanceHandlers(bot, storage, walletService) {
   });
 
   bot.action(CALLBACKS.CLOSE_MESSAGE, async (ctx) => {
-    await ctx.deleteMessage();
+    await safeAnswerCbQuery(ctx);
+    try {
+      await ctx.deleteMessage();
+    } catch (e) {
+      // Bots can't delete messages older than 48h — collapse the message instead.
+      logger.debug('close_message delete failed, editing instead', { error: e.message });
+      await ctx.editMessageText('✖️').catch(() => {});
+    }
   });
 }

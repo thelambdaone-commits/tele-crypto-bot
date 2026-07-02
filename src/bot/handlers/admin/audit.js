@@ -1,6 +1,6 @@
 import { adminSecurityKeyboard } from '../../keyboards/index.js';
 import { CALLBACKS } from '../../constants/callbacks.js';
-import { safeAnswerCbQuery } from '../../../shared/utils/telegram.js';
+import { safeAnswerCbQuery, sendChunked, escapeHtml } from '../../../shared/utils/telegram.js';
 import { adminGuard } from '../../middlewares/auth.middleware.js';
 import { getRateLimitStats, DAILY_VOLUME_LIMITS } from '../../middlewares/security.middleware.js';
 import { auditLogger } from '../../../shared/security/audit-logger.js';
@@ -196,8 +196,10 @@ export async function buildAuditReport(storage, walletService) {
   if (stats.global.blacklist.length === 0) {
     text += '• Aucun utilisateur blacklisté ✅\n\n';
   } else {
-    text += `• ${stats.global.blacklist.length} bloqué(s) : `;
-    text += stats.global.blacklist.map((id) => `<code>${id}</code>`).join(' ');
+    text += `• ${stats.global.blacklist.length} bloqué(s) :\n`;
+    // One id per line: a single giant line would force the message splitter
+    // into hard-cuts that can sever a <code> tag.
+    text += stats.global.blacklist.map((id) => `<code>${id}</code>`).join('\n');
     text += '\n\n';
   }
 
@@ -320,15 +322,18 @@ export function setupAdminAudit(bot, storage, sessions, walletService) {
       report = await buildAuditReport(storage, walletService);
     } catch (e) {
       logger.error('Audit report failed', { error: e.message });
-      report = `❌ <b>Audit échoué</b>\n\n<code>${e.message}</code>`;
+      report = `❌ <b>Audit échoué</b>\n\n<code>${escapeHtml(e.message)}</code>`;
     }
 
-    const options = { parse_mode: 'HTML', ...adminSecurityKeyboard() };
-    if (edit) {
-      await ctx.editMessageText(report, options);
-    } else {
-      await ctx.telegram.editMessageText(ctx.chat.id, placeholderId, undefined, report, options);
-    }
+    // The report grows with chains × RPC endpoints × blacklist entries, so it
+    // can exceed Telegram's 4096-char limit: the first part replaces the
+    // placeholder, overflow parts are sent as follow-ups, keyboard on the last.
+    await sendChunked(
+      ctx,
+      report,
+      { parse_mode: 'HTML', ...adminSecurityKeyboard() },
+      edit ? { edit: true } : { messageId: placeholderId }
+    );
   }
 
   bot.action(CALLBACKS.ADMIN_AUDIT, async (ctx) => {

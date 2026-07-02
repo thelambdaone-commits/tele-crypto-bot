@@ -4,7 +4,7 @@ import {
   adminUserKeyboard,
   adminCancelKeyboard,
 } from '../../keyboards/index.js';
-import { safeAnswerCbQuery, escapeHtml } from '../../../shared/utils/telegram.js';
+import { safeAnswerCbQuery, escapeHtml, splitTelegramMessage } from '../../../shared/utils/telegram.js';
 import { CALLBACKS } from '../../constants/callbacks.js';
 import { adminGuard } from '../../middlewares/auth.middleware.js';
 import {
@@ -16,19 +16,6 @@ import { auditLogger, AUDIT_ACTIONS } from '../../../shared/security/audit-logge
 import { logger } from '../../../shared/logger.js';
 
 
-
-const TELEGRAM_MESSAGE_LIMIT = 4096;
-
-function splitTelegramMessage(text) {
-  const value = String(text || '');
-  const chunks = [];
-
-  for (let i = 0; i < value.length; i += TELEGRAM_MESSAGE_LIMIT) {
-    chunks.push(value.slice(i, i + TELEGRAM_MESSAGE_LIMIT));
-  }
-
-  return chunks.length > 0 ? chunks : [''];
-}
 
 async function sendMessageWithMarkdownFallback(telegram, chatId, text) {
   try {

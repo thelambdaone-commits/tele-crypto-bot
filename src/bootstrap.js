@@ -144,8 +144,17 @@ export class App {
     process.on('unhandledRejection', (reason) => {
       const message = reason?.message || String(reason);
       if (BENIGN_TELEGRAM_ERROR.test(message)) return;
+      // Telegraf's TelegramError carries the failed API call in `on` — log the
+      // method, chat and text length (never the text itself: it can hold
+      // addresses/balances) so a MESSAGE_TOO_LONG points at the guilty flow.
+      const failedCall = reason?.on;
       logger.logError(reason instanceof Error ? reason : new Error(message), {
         context: 'unhandledRejection',
+        ...(failedCall && {
+          tgMethod: failedCall.method,
+          tgChatId: failedCall.payload?.chat_id,
+          tgTextLength: failedCall.payload?.text?.length,
+        }),
       });
     });
   }
