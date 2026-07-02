@@ -139,7 +139,10 @@ export class RpcManager {
         try {
           await bucket.consume(1, 2000);
         } catch {
-          this.health.recordError(endpoint);
+          // Local backpressure, not an endpoint failure: counting it against
+          // health made the PRIMARY (first-tried, so first-throttled) endpoint
+          // get marked unhealthy/quarantined during every deposit-monitor
+          // sweep. Just move on to the next endpoint.
           continue;
         }
       }
@@ -153,7 +156,7 @@ export class RpcManager {
         this.health.recordSuccess(endpoint, Date.now() - attemptStart);
         return result;
       } catch (error) {
-        this.health.recordError(endpoint);
+        this.health.recordError(endpoint, error?.message);
 
         if (this.opts.isWrite && this.opts.idempotencyCheck) {
           const alreadyLanded = await this.opts.idempotencyCheck(args, error);
@@ -195,7 +198,7 @@ export class RpcManager {
           return r;
         })
         .catch((e) => {
-          this.health.recordError(endpoint);
+          this.health.recordError(endpoint, e?.message);
           throw e;
         });
     });

@@ -16,25 +16,26 @@ export async function getWalletBalanceEUR(walletService, chatId, wallet) {
   return { balance, balanceNum, valueEUR };
 }
 
-// Non-zero token balances for a wallet, with their EUR value.
-async function getTokenBalances(walletService, chatId, wallet, prices) {
-  const symbols = Object.keys(getAllTokensForChain(wallet.chain));
-  if (symbols.length === 0) return [];
+// Non-zero token balances for a wallet, with their EUR value. One batched
+// provider call per wallet (getAllTokens / getTokenAccountsByOwner) instead of
+// one lookup per configured symbol — the per-symbol path fired an unmanaged
+// RPC call per token and grew linearly with the token catalog.
+async function getTokenBalances(walletService, wallet, prices) {
+  const configured = new Set(Object.keys(getAllTokensForChain(wallet.chain)));
+  if (configured.size === 0) return [];
 
-  const entries = await Promise.all(
-    symbols.map(async (symbol) => {
-      try {
-        const bal = await walletService.getBalance(chatId, wallet.id, symbol);
-        const num = Number.parseFloat(bal.balance) || 0;
-        if (num <= 0) return null;
-        const price = prices[symbol.toLowerCase()] || 0;
-        return { symbol, num, valueEUR: num * price };
-      } catch {
-        return null;
-      }
-    })
-  );
-  return entries.filter(Boolean);
+  try {
+    const tokens = await walletService.getPublicAddressTokens(wallet.chain, wallet.address);
+    return tokens
+      .filter((t) => configured.has(t.symbol) && t.amount > 0)
+      .map((t) => ({
+        symbol: t.symbol,
+        num: t.amount,
+        valueEUR: t.amount * (prices[t.symbol.toLowerCase()] || 0),
+      }));
+  } catch {
+    return [];
+  }
 }
 
 export async function buildBalancesText(walletService, storage, chatId) {
@@ -47,7 +48,7 @@ export async function buildBalancesText(walletService, storage, chatId) {
     wallets.map(async (wallet) => {
       try {
         const { balance, valueEUR } = await getWalletBalanceEUR(walletService, chatId, wallet);
-        const tokens = await getTokenBalances(walletService, chatId, wallet, prices);
+        const tokens = await getTokenBalances(walletService, wallet, prices);
         return { wallet, balance, valueEUR, tokens, error: null };
       } catch {
         return { wallet, balance: null, valueEUR: 0, tokens: [], error: true };

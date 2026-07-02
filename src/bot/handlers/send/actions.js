@@ -10,7 +10,7 @@ import {
   cancelKeyboard,
   amountTypeKeyboard,
 } from '../../keyboards/index.js';
-import { safeAnswerCbQuery, safeEditMessage, escapeHtml } from '../../utils.js';
+import { safeAnswerCbQuery, safeEditMessage, escapeHtml, sendChunked } from '../../utils.js';
 import { auditLogger, AUDIT_ACTIONS } from '../../../shared/security/audit-logger.js';
 import { convertToEUR, formatEUR } from '../../../shared/price.js';
 import { formatCryptoAmount } from '../../ui/formatters.js';
@@ -197,11 +197,17 @@ export function setupSendActions(bot, storage, walletService, sessions) {
     }
 
     // `analyzedMessage` is produced (as HTML) by send/text-input.js;
-    // keep its parse_mode in sync with that producer.
-    await safeEditMessage(ctx, data.analyzedMessage, {
-      parse_mode: 'HTML',
-      ...addressAnalyzedKeyboard(data.analyzedChain, data.analyzedAddress),
-    });
+    // keep its parse_mode in sync with that producer. Chunked because the
+    // stored analysis can exceed Telegram's 4096-char limit.
+    await sendChunked(
+      ctx,
+      data.analyzedMessage,
+      {
+        parse_mode: 'HTML',
+        ...addressAnalyzedKeyboard(data.analyzedChain, data.analyzedAddress),
+      },
+      { edit: true }
+    );
   });
 
   // Transaction history for an analyzed address - replaces the analysis page in place

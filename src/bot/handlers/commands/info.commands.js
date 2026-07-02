@@ -56,6 +56,7 @@ export function setupInfoCommands(bot) {
         entries.slice(i, i + 2).map(([key, l]) => Markup.button.callback(l.title, `learn_l_${key}`))
       );
     }
+    rows.push([Markup.button.callback(t(lang, 'menu.close'), CALLBACKS.CLOSE_MESSAGE)]);
     return Markup.inlineKeyboard(rows);
   };
   const lessonBackKeyboard = (lang) =>

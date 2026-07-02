@@ -6,6 +6,9 @@
 export {
   safeAnswerCbQuery,
   safeEditMessage,
+  sendChunked,
+  splitTelegramMessage,
+  TELEGRAM_MESSAGE_LIMIT,
   sendLoadingMessage,
   deleteLoadingMessage,
   scheduleSecureDelete,

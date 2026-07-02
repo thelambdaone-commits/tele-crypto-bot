@@ -4,7 +4,7 @@ import {
   walletActionsKeyboard,
 } from '../../keyboards/index.js';
 import { CALLBACKS } from '../../constants/callbacks.js';
-import { safeAnswerCbQuery, escapeHtml } from '../../utils.js';
+import { safeAnswerCbQuery, escapeHtml, sendChunked } from '../../utils.js';
 import { MESSAGES, EMOJIS, t } from '../../messages/index.js';
 import { convertToEUR, formatEUR } from '../../../shared/price.js';
 import { CHAIN_EMOJIS } from '../../ui/formatters.js';
@@ -34,10 +34,17 @@ export function setupWalletList(bot, storage, walletService) {
       text += `<code>${w.address}</code>\n\n`;
     });
 
-    ctx.editMessageText(text, {
-      parse_mode: 'HTML',
-      ...walletListKeyboard(wallets),
-    });
+    // Awaited + chunked: with many wallets the list exceeds Telegram's 4096-char
+    // limit, and a fire-and-forget send would surface as an unhandledRejection.
+    await sendChunked(
+      ctx,
+      text,
+      {
+        parse_mode: 'HTML',
+        ...walletListKeyboard(wallets),
+      },
+      { edit: true }
+    );
   });
 
   // Click on specific wallet -> show details with balance
