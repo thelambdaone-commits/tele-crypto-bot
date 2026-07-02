@@ -28,3 +28,20 @@ Opposition classique :
 - **IOU / wrapped** : wZEC sur Solana, WBTC sur Ethereum — une créance sur quelqu'un. Si l'émetteur fait faillite ou se fait hacker (cf. le bridge Wormhole en 2022), le token peut ne plus rien valoir.
 
 D'où l'adage *« not your keys, not your coins »* — qui s'étend aux wrapped : *« not the native chain, not really the coin »*.
+
+---
+
+## Shielding & confidentialité sur Solana (état vérifié juillet 2026)
+
+Solana est **transparente par défaut** : soldes, montants et flux sont publics. Le « shielding » regroupe les techniques qui les masquent.
+
+- **Confidential Balances (Token-2022)** : la solution **native**, en mainnet depuis avril 2025. Extensions Token-2022 qui chiffrent montants et soldes (twisted ElGamal + preuves ZK) ; les **adresses restent publiques**.
+- **Elusiv** : protocole ZK-SNARK pionnier (pool de confidentialité partagé), **fermé** — annonce février 2024, retraits possibles jusqu'à janvier 2025. ⚠️ Il n'a jamais eu de token « ELSV » (intox fréquente). L'équipe a relancé le projet sous le nom **Arcium**.
+- **Arcium (ARX)** : réseau de calcul confidentiel généraliste (« encrypted supercomputer »). ⚠️ La techno est du **MPC** (protocole Cerberus : chiffrement semi-homomorphe + calcul multi-parties), **pas du FHE** — Arcium se positionne justement comme des ordres de grandeur plus rapide que le FHE.
+- **FHE (chiffrement homomorphe complet)** : calculer sur des données restées chiffrées. Puissant mais lent ; à distinguer du ZK (qui *prouve* sans révéler) et du MPC (qui *répartit* le calcul).
+- **Dark pools** : exécution des gros ordres hors carnet public (anti-MEV, anti-front-running). Sur Solana : **HumidiFi** (devenu le plus gros DEX en volume, ~1,1 Md$/24 h fin 2025) et **Zyga** (Darklake Labs, racheté par SOL Strategies en avril 2026 — exécution privée + **zkKYC** pour les institutions).
+- **Stealth addresses (adresses furtives)** : une adresse à usage unique par transaction pour casser le traçage d'un portefeuille (concept popularisé par Monero ; ERC-5564 côté Ethereum).
+- **ZK Compression (Light Protocol + Helius)** : des preuves ZK pour **compresser l'état** et réduire les coûts de stockage. Ce n'est **pas** de la confidentialité — ne pas la vendre comme du shielding.
+- **Seed Vault (Solana Saga / Seeker)** : enclave matérielle des smartphones Solana Mobile qui isole les clés privées au niveau de la puce. Sécurité **physique** des clés, pas anonymat on-chain.
+
+Dans le bot : leçon `/learn shield` (alias : zk, zksnark, fhe, mpc, arcium, elusiv, darkpool, zyga, stealth, zkcompression, seedvault…). Voir aussi [[Zcash n'est PAS un token SPL Solana]] pour les zk-SNARK côté Zcash.
