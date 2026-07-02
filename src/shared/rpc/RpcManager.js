@@ -139,7 +139,10 @@ export class RpcManager {
         try {
           await bucket.consume(1, 2000);
         } catch {
-          this.health.recordError(endpoint, 'local rate-limit wait timeout');
+          // Local backpressure, not an endpoint failure: counting it against
+          // health made the PRIMARY (first-tried, so first-throttled) endpoint
+          // get marked unhealthy/quarantined during every deposit-monitor
+          // sweep. Just move on to the next endpoint.
           continue;
         }
       }
