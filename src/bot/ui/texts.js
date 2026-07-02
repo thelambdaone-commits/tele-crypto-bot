@@ -45,7 +45,9 @@ ${sectionTitle('💱', 'EXCHANGE')}
 <code>/invoices</code> — 🧾 My invoices
 
 ${sectionTitle('📚', 'LEARN')}
-<code>/learn</code> — 📖 Coin vs Token
+<code>/learn</code> — 📖 Crypto lessons (menu with buttons)
+<code>/learn &lt;topic&gt;</code> — direct access: btc · eth · sol · zec · xmr · ton · trx · ltc · bch · avax · bnb · l1 · l2 · seed · key · security · rugpull · network · gas · token · stable · iou · swap · kyc · ln · invoice
+↳ aliases work too: <i>spl, bip39, mnemonic, erc20, trc20, wrapped…</i>
 
 ${sectionTitle('🆘', 'GENERAL')}
 <code>/start</code> — 🚀 Start
@@ -91,7 +93,9 @@ ${sectionTitle('💱', 'EXCHANGE')}
 <code>/invoices</code> — 🧾 Mes factures
 
 ${sectionTitle('📚', 'ÉDUCATION')}
-<code>/learn</code> — 📖 Coin vs Token
+<code>/learn</code> — 📖 Leçons crypto (menu à boutons)
+<code>/learn &lt;sujet&gt;</code> — accès direct : btc · eth · sol · zec · xmr · ton · trx · ltc · bch · avax · bnb · l1 · l2 · seed · key · security · rugpull · network · gas · token · stable · iou · swap · kyc · ln · invoice
+↳ les alias marchent aussi : <i>spl, bip39, mnemonic, erc20, trc20, wrapped…</i>
 
 ${sectionTitle('🆘', 'GÉNÉRAL')}
 <code>/start</code> — 🚀 Démarrer

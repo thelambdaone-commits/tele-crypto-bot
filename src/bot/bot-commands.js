@@ -23,7 +23,7 @@ export const BOT_COMMANDS = [
   { command: 'swaps', description: '💱 Échange sans KYC' },
   { command: 'invoice', description: '💳 Créer une facture (recevoir un paiement)' },
   { command: 'invoices', description: '🧾 Mes factures' },
-  { command: 'learn', description: '📚 Leçon : Coin vs Token' },
+  { command: 'learn', description: '📚 Leçons crypto (btc, seed, iou, rugpull…)' },
   { command: 'help', description: '❓ Aide' },
   { command: 'id', description: '🆔 Mon ChatID / UserID' },
 ];

@@ -14,6 +14,9 @@ export const CALLBACKS = {
   INVOICE_START: 'invoice_start',
   INVOICE_LN: 'pinv_ln',
 
+  // Learn (les leçons individuelles utilisent le préfixe dynamique learn_l_<key>)
+  LEARN_MENU: 'learn_menu',
+
   // Wallet
   LIST_WALLETS: 'list_wallets',
   CREATE_WALLET: 'create_wallet',
