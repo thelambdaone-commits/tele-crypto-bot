@@ -214,7 +214,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
     const btns = [native, ...tokens].map((s) => Markup.button.callback(s, dynamicCallback.invoiceAsset(s)));
     const rows = [];
     for (let i = 0; i < btns.length; i += 3) rows.push(btns.slice(i, i + 3));
-    rows.push([Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)]);
+    rows.push([Markup.button.callback('↩️ Retour', CALLBACKS.INVOICE_START)]);
     await safeEditMessage(
       ctx,
       `💳 <b>Facture · ${CHAIN_REGISTRY[wallet.chain]?.name || wallet.chain}</b>\n\nQuel actif veux-tu recevoir ?`,

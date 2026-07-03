@@ -160,7 +160,7 @@ export function setupExchangeHandlers(bot, storage, walletService, sessions) {
     }
     await safeEditMessage(ctx, fr.exchange.pickFromNet(ctx.match[1].toUpperCase()), {
       parse_mode: 'HTML',
-      ...exchangeNetworkKeyboard(coins, 'exch_from_'),
+      ...exchangeNetworkKeyboard(coins, 'exch_from_', CALLBACKS.EXCHANGE),
     });
   });
 
@@ -185,8 +185,16 @@ export function setupExchangeHandlers(bot, storage, walletService, sessions) {
     if (coins.length === 1) return finalize(ctx, fromKey, coins[0].key);
     await safeEditMessage(ctx, fr.exchange.pickToNet(ctx.match[1].toUpperCase()), {
       parse_mode: 'HTML',
-      ...exchangeNetworkKeyboard(coins, 'exch_to_'),
+      ...exchangeNetworkKeyboard(coins, 'exch_to_', 'exch_back_to'),
     });
+  });
+
+  // Back to to-symbol picker.
+  bot.action('exch_back_to', async (ctx) => {
+    await safeAnswerCbQuery(ctx);
+    const fromKey = sessions.getData(ctx.chat.id)?.exchangeFrom;
+    if (!fromKey) return showFromSymbols(ctx);
+    await showToSymbols(ctx, fromKey);
   });
 
   // Destination network chosen → finalize.

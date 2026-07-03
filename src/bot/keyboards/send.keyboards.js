@@ -43,7 +43,7 @@ export function tokenSelectionKeyboard(chain) {
     buttons.push([Markup.button.callback(`${icon} ${symbol}`, `token_${chain}_${symbol}`)]);
   }
 
-  buttons.push([Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)]);
+  buttons.push([Markup.button.callback('↩️ Retour', CALLBACKS.SEND_FUNDS)]);
   return Markup.inlineKeyboard(buttons);
 }
 

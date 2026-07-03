@@ -56,12 +56,16 @@ export function setupInfoCommands(bot) {
         entries.slice(i, i + 2).map(([key, l]) => Markup.button.callback(l.title, `learn_l_${key}`))
       );
     }
-    rows.push([Markup.button.callback(t(lang, 'menu.close'), CALLBACKS.CLOSE_MESSAGE)]);
+    rows.push([
+      Markup.button.callback(t(lang, 'menu.close'), CALLBACKS.CLOSE_MESSAGE),
+      Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU),
+    ]);
     return Markup.inlineKeyboard(rows);
   };
   const lessonBackKeyboard = (lang) =>
     Markup.inlineKeyboard([
       [Markup.button.callback(t(lang, 'learn.backToMenu'), CALLBACKS.LEARN_MENU)],
+      [Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)],
     ]);
 
   // Vocabulaire → clé de leçon ("spl" → sol, "bip39" → seed…). Les entrées et

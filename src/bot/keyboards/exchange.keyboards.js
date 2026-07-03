@@ -21,13 +21,13 @@ export function exchangeSymbolKeyboard(symbols, prefix, exclude = null) {
  * prefix = 'exch_from_' | 'exch_to_'; each button resolves to a final coin key.
  * @param {{key:string, chainName:string, emoji:string}[]} coins
  */
-export function exchangeNetworkKeyboard(coins, prefix) {
+export function exchangeNetworkKeyboard(coins, prefix, backCallback = CALLBACKS.CANCEL) {
   const btns = coins.map((c) =>
     Markup.button.callback(`${c.emoji} ${c.chainName}`, `${prefix}${c.key}`)
   );
   const rows = [];
   for (let i = 0; i < btns.length; i += 2) rows.push(btns.slice(i, i + 2));
-  rows.push([Markup.button.callback('❌ Annuler', CALLBACKS.CANCEL)]);
+  rows.push([Markup.button.callback('↩️ Retour', backCallback)]);
   return Markup.inlineKeyboard(rows);
 }
 

@@ -222,6 +222,7 @@ async function showDepositAddress(ctx, symbol, net, wallet) {
 
   const backKb = Markup.inlineKeyboard([
     [Markup.button.callback('↩️ Recevoir autre chose', CALLBACKS.DEPOSIT)],
+    [Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)],
   ]);
 
   // For tokens, encode the contract/mint so the sender's wallet pre-selects
