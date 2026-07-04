@@ -5,6 +5,16 @@ import { withTimeout } from '../shared/rpc-timeout.js';
 import { RpcManager } from '../shared/rpc/RpcManager.js';
 import { TransactionError, ERROR_CODES } from '../shared/errors.js';
 
+// Multicall3 — same address on every chain this bot supports (eth, arb, op,
+// base, matic, avax, bsc). Lets getAllTokens read every configured token
+// balance in ONE eth_call instead of one per token: a multi-wallet balance
+// sweep used to fire wallets × tokens concurrent balanceOf calls, which
+// throttled the public endpoints until most scans died on the 10s timeout.
+const MULTICALL3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11';
+const MULTICALL3_ABI = [
+  'function tryAggregate(bool requireSuccess, (address target, bytes callData)[] calls) view returns (tuple(bool success, bytes returnData)[] returnData)',
+];
+
 export class EvmBaseProvider extends BaseProvider {
   constructor(config) {
     super(config.name, config.symbol);
@@ -152,10 +162,52 @@ export class EvmBaseProvider extends BaseProvider {
   }
 
   async getAllTokens(address) {
+    const entries = Object.entries(this.tokenAddresses);
+    if (entries.length === 0) return [];
+
+    try {
+      return await this._getAllTokensMulticall(address, entries);
+    } catch {
+      // Multicall unavailable/hiccuping — fall back to per-token reads.
+      return await this._getAllTokensPerToken(address, entries);
+    }
+  }
+
+  async _getAllTokensMulticall(address, entries) {
+    const provider = this.getFallbackProvider();
+    const erc20 = new ethers.Interface(ERC20_ABI);
+    const calls = entries.map(([, token]) => ({
+      target: token.address,
+      callData: erc20.encodeFunctionData('balanceOf', [address]),
+    }));
+    const multicall = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, provider);
+    const results = await withTimeout(multicall.tryAggregate(false, calls), 10000);
+
+    const tokens = [];
+    for (let i = 0; i < entries.length; i++) {
+      const [symbol, token] = entries[i];
+      const { success, returnData } = results[i];
+      if (!success || returnData === '0x') continue;
+      const balance = erc20.decodeFunctionResult('balanceOf', returnData)[0];
+      if (balance > 0n) {
+        tokens.push({
+          symbol,
+          address: token.address,
+          amount: Number(ethers.formatUnits(balance, token.decimals)),
+          decimals: token.decimals,
+          icon: token.icon || '💵',
+          isKnown: true,
+        });
+      }
+    }
+    return tokens;
+  }
+
+  async _getAllTokensPerToken(address, entries) {
     const provider = this.getFallbackProvider();
 
     const results = await Promise.all(
-      Object.entries(this.tokenAddresses).map(async ([symbol, token]) => {
+      entries.map(async ([symbol, token]) => {
         try {
           const contract = new ethers.Contract(token.address, ERC20_ABI, provider);
           // decimals comes from config, not on-chain — halves the concurrent
