@@ -135,6 +135,12 @@ export function setupInfoCommands(bot) {
     arnaques: 'security',
     phishing: 'security',
     securite: 'security',
+    dust: 'security',
+    dusting: 'security',
+    poussiere: 'security',
+    poisoning: 'security',
+    empoisonnement: 'security',
+    hameconnage: 'security',
     rug: 'rugpull',
     honeypot: 'rugpull',
     ponzi: 'rugpull',
@@ -238,6 +244,105 @@ export function setupInfoCommands(bot) {
       await ctx.editMessageText(t(lang, 'learn.menuTitle'), {
         parse_mode: 'HTML',
         ...learnMenuKeyboard(lang),
+      });
+    } catch {
+      /* message inchangé ou supprimé */
+    }
+  });
+
+  // ⁉️ /faq [sujet] - FAQ sécurité (dusting, empoisonnement d'adresse, arnaques).
+  // Même mécanique que /learn : menu inline sans argument, accès direct sinon
+  // ("/faq dust", "/faq memo"…). Les questions vivent dans les bundles i18n
+  // (faq.items) — le menu et l'accès direct en sont dérivés, donc ajouter une
+  // question = ajouter une clé dans fr.js + en.js (parité). Accessible aussi
+  // depuis ⚙️ Paramètres (bouton ⁉️ FAQ → CALLBACKS.FAQ_MENU).
+  const faqMenuKeyboard = (lang) => {
+    const entries = Object.entries(t(lang, 'faq.items'));
+    const rows = [];
+    for (let i = 0; i < entries.length; i += 2) {
+      rows.push(
+        entries.slice(i, i + 2).map(([key, q]) => Markup.button.callback(q.title, `faq_i_${key}`))
+      );
+    }
+    rows.push([
+      Markup.button.callback(t(lang, 'menu.back'), CALLBACKS.SETTINGS_MENU),
+      Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU),
+    ]);
+    return Markup.inlineKeyboard(rows);
+  };
+  const faqBackKeyboard = (lang) =>
+    Markup.inlineKeyboard([
+      [Markup.button.callback(t(lang, 'faq.backToMenu'), CALLBACKS.FAQ_MENU)],
+      [Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)],
+    ]);
+
+  // Vocabulaire → clé de question (normalisé par normalizeTopic, comme /learn).
+  const FAQ_ALIASES = {
+    poisoning: 'poison',
+    empoisonnement: 'poison',
+    adresse: 'poison',
+    address: 'poison',
+    dusting: 'dust',
+    poussiere: 'dust',
+    trx: 'tron',
+    airdrops: 'airdrop',
+    but: 'goals',
+    buts: 'goals',
+    objectifs: 'goals',
+    detecter: 'detect',
+    detection: 'detect',
+    bot: 'bots',
+    automatisation: 'bots',
+    cible: 'targets',
+    cibles: 'targets',
+    target: 'targets',
+    malveillant: 'benign',
+    tracable: 'trace',
+    tracage: 'trace',
+    memos: 'memo',
+    recu: 'react',
+    received: 'react',
+    verifier: 'verify',
+    verification: 'verify',
+    envoi: 'sent',
+    envoye: 'sent',
+    erreur: 'sent',
+  };
+
+  bot.command('faq', async (ctx) => {
+    const lang = ctx.state?.lang || 'fr';
+    const items = t(lang, 'faq.items');
+    const topic = normalizeTopic(ctx.message.text.split(/\s+/)[1]);
+    // Object.hasOwn : même garde anti-prototype que /learn.
+    const key = Object.hasOwn(items, topic) ? topic : FAQ_ALIASES[topic];
+    if (key && Object.hasOwn(items, key)) {
+      return ctx.reply(items[key].body, { parse_mode: 'HTML', ...faqBackKeyboard(lang) });
+    }
+    await ctx.reply(t(lang, 'faq.menuTitle'), { parse_mode: 'HTML', ...faqMenuKeyboard(lang) });
+  });
+
+  // ⁉️ Une question est choisie dans le menu → remplace le message en place.
+  bot.action(/^faq_i_(\w+)$/, async (ctx) => {
+    await ctx.answerCbQuery().catch(() => {});
+    const lang = ctx.state?.lang || 'fr';
+    const items = t(lang, 'faq.items');
+    const item = Object.hasOwn(items, ctx.match[1]) ? items[ctx.match[1]] : null;
+    if (!item) return;
+    try {
+      await ctx.editMessageText(item.body, { parse_mode: 'HTML', ...faqBackKeyboard(lang) });
+    } catch {
+      /* message inchangé ou supprimé */
+    }
+  });
+
+  // ⁉️ (Ré)ouvre le menu FAQ — depuis une question ou depuis ⚙️ Paramètres.
+  bot.action(CALLBACKS.FAQ_MENU, async (ctx) => {
+    await ctx.answerCbQuery().catch(() => {});
+    const lang = ctx.state?.lang || 'fr';
+    try {
+      await ctx.editMessageText(t(lang, 'faq.menuTitle'), {
+        parse_mode: 'HTML',
+        ...faqMenuKeyboard(lang),
       });
     } catch {
       /* message inchangé ou supprimé */

@@ -24,6 +24,7 @@ export const BOT_COMMANDS = [
   { command: 'invoice', description: '💳 Créer une facture (recevoir un paiement)' },
   { command: 'invoices', description: '🧾 Mes factures' },
   { command: 'learn', description: '📚 Leçons crypto (btc, seed, iou, rugpull…)' },
+  { command: 'faq', description: '⁉️ FAQ sécurité (dusting, arnaques…)' },
   { command: 'help', description: '❓ Aide' },
   { command: 'id', description: '🆔 Mon ChatID / UserID' },
 ];

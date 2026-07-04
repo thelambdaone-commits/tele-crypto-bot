@@ -19,10 +19,19 @@ import { CHAIN_REGISTRY } from '../../shared/chains.js';
 import { formatEUR } from '../../shared/price.js';
 import { config } from '../../core/config.js';
 import { logger } from '../../shared/logger.js';
+// i18n bundles are pure data — the service already talks to Telegram for its
+// watcher notifications, so localizing them here keeps the merchant's language
+// consistent outside a ctx.
+import { t, resolveLang } from '../../bot/messages/index.js';
 
 const OPEN = [INVOICE_STATES.NEW, INVOICE_STATES.PROCESSING];
 const LN = 'lightning';
 const SATS_PER_BTC = 100_000_000;
+
+// Errors carry a stable `code` (+ `meta` args) so the Telegram layer can render
+// them in the user's language (`payments.errors.<code>`); the French `message`
+// stays as the untranslated fallback.
+const err = (message, code, ...meta) => Object.assign(new Error(message), { code, meta });
 
 export class PaymentService {
   constructor(storage, walletService, bot, { intervalMs = 30_000, lightning, sweep, adminId } = {}) {
@@ -73,10 +82,11 @@ export class PaymentService {
   async sweepDestination() {
     const address = await this._resolveSweepAddress();
     if (!address) return null;
-    if (this.sweep.address) return { address, label: 'Adresse externe (cold)' };
+    // `cold: true` → the caller renders a localized "external address" label.
+    if (this.sweep.address) return { address, label: 'Adresse externe (cold)', cold: true };
     const adminId = this._adminId();
     const wallets = adminId ? await this.storage.getWallets(adminId).catch(() => []) : [];
-    return { address, label: wallets.find((w) => w.address === address)?.label || '' };
+    return { address, label: wallets.find((w) => w.address === address)?.label || '', cold: false };
   }
 
   /**
@@ -136,9 +146,9 @@ export class PaymentService {
 
   /** Persist the admin's chosen sweep wallet (must be one of their BTC wallets). */
   async setSweepWallet(walletId) {
-    if (this.sweep.address) throw new Error('Destination forcée par la config (LN_SWEEP_BTC_ADDRESS).');
+    if (this.sweep.address) throw err('Destination forcée par la config (LN_SWEEP_BTC_ADDRESS).', 'SWEEP_FORCED');
     const w = (await this._btcWallets()).find((x) => x.id === walletId);
-    if (!w) throw new Error('Wallet BTC introuvable.');
+    if (!w) throw err('Wallet BTC introuvable.', 'WALLET_NOT_FOUND');
     await this.storage.updateSettings(this._adminId(), { lnSweepWalletId: walletId });
     return { id: w.id, label: w.label || w.address, address: w.address };
   }
@@ -148,7 +158,7 @@ export class PaymentService {
    * Stores the BOLT11 + payment hash; no on-chain wallet/address.
    */
   async createLightningInvoice(merchantId, { amountFiat, amountCrypto, memo = '', expirySec = 900 } = {}) {
-    if (!this.lightningEnabled()) throw new Error('Lightning non configuré sur ce bot.');
+    if (!this.lightningEnabled()) throw err('Lightning non configuré sur ce bot.', 'LN_NOT_CONFIGURED');
 
     const invoice = await createInvoice({ merchantId, chain: LN, symbol: 'BTC', amountFiat, amountCrypto, memo, expirySec });
     const amountSat = Math.max(1, Math.round(invoice.amountCrypto * SATS_PER_BTC));
@@ -159,7 +169,7 @@ export class PaymentService {
     invoice.amountSat = amountSat;
     invoice.address = ln.bolt11; // the BOLT11 is what the payer scans
     const added = await this.storage.addInvoiceExclusive(merchantId, invoice, { chain: LN, symbol: 'BTC', openStatuses: OPEN });
-    if (!added) throw new Error('Une facture Lightning est déjà ouverte.');
+    if (!added) throw err('Une facture Lightning est déjà ouverte.', 'LN_ALREADY_OPEN');
     logger.info('[Payments] lightning invoice created', { id: invoice.id, amountSat });
     return invoice;
   }
@@ -179,14 +189,14 @@ export class PaymentService {
   async createInvoice(merchantId, chain, symbol, { amountFiat, amountCrypto, memo = '', expirySec } = {}) {
     const wallets = await this.storage.getWallets(merchantId);
     const wallet = wallets.find((w) => w.chain === chain && !w.isCorrupted);
-    if (!wallet?.address) throw new Error(`Aucun wallet ${chain.toUpperCase()} pour recevoir.`);
+    if (!wallet?.address) throw err(`Aucun wallet ${chain.toUpperCase()} pour recevoir.`, 'NO_WALLET_FOR_CHAIN', chain.toUpperCase());
 
     const invoice = await createInvoice({ merchantId, chain, symbol, amountFiat, amountCrypto, memo, expirySec });
     invoice.walletId = wallet.id;
     invoice.address = wallet.address;
     invoice.baseline = await this._balance(merchantId, wallet.id, chain, symbol);
     const added = await this.storage.addInvoiceExclusive(merchantId, invoice, { chain, symbol: invoice.symbol, openStatuses: OPEN });
-    if (!added) throw new Error(`Une facture ${symbol} sur ${chain.toUpperCase()} est déjà ouverte.`);
+    if (!added) throw err(`Une facture ${symbol} sur ${chain.toUpperCase()} est déjà ouverte.`, 'ALREADY_OPEN', symbol, chain.toUpperCase());
     logger.info('[Payments] invoice created', { id: invoice.id, chain, symbol });
     return invoice;
   }
@@ -209,7 +219,9 @@ export class PaymentService {
       canceledAt: new Date().toISOString(),
     });
     if (!res.ok) {
-      throw new Error(res.reason === 'not-found' ? 'Facture introuvable.' : 'Cette facture n’est plus ouverte.');
+      throw res.reason === 'not-found'
+        ? err('Facture introuvable.', 'INVOICE_NOT_FOUND')
+        : err('Cette facture n’est plus ouverte.', 'INVOICE_NOT_OPEN');
     }
     logger.info('[Payments] invoice canceled', { id: invoiceId, chain: res.invoice.chain });
     return res.invoice;
@@ -257,7 +269,9 @@ export class PaymentService {
       if (next.status === INVOICE_STATES.SETTLED) await this._creditLightning(next);
       await this.storage.updateInvoice(invoice.merchantId, next);
       if (next.status === INVOICE_STATES.SETTLED) await this._onSettled(next);
-      else if (next.status === INVOICE_STATES.EXPIRED) await this._notify(next, `⌛ Facture expirée (${next.symbol}).`);
+      else if (next.status === INVOICE_STATES.EXPIRED) {
+        await this._notify(next, t(await this._langOf(next.merchantId), 'payments.notifExpired', next.symbol));
+      }
     }
     return next;
   }
@@ -276,22 +290,23 @@ export class PaymentService {
 
   async _onSettled(invoice) {
     this.ledger.push(...settlementEntries(invoice));
+    const lang = await this._langOf(invoice.merchantId);
     // The LN balance was already credited (idempotently) before the status write;
     // read it back for the notification line.
     let lnLine = '';
     if (invoice.chain === LN) {
       try {
         const bal = await this.storage.getLnBalance(invoice.merchantId);
-        lnLine = `\n💼 Solde Lightning : <b>${bal} sats</b>`;
+        lnLine = t(lang, 'payments.lnBalanceLine', bal);
       } catch (e) {
         logger.warn('[Payments] getLnBalance failed', { id: invoice.id, error: e.message });
       }
     }
     const fiat = invoice.amountFiat != null ? ` (${formatEUR(invoice.amountFiat)})` : '';
-    const over = invoice.overpaid ? ' ⚠️ trop-perçu' : '';
+    const over = invoice.overpaid ? t(lang, 'payments.overpaid') : '';
     await this._notify(
       invoice,
-      `✅ <b>Paiement reçu</b>\n${invoice.receivedCrypto} ${invoice.symbol}${fiat}${over}\nFacture <code>${invoice.id}</code> réglée.${lnLine}`
+      t(lang, 'payments.notifPaid', { amount: invoice.receivedCrypto, symbol: invoice.symbol, fiat, over, id: invoice.id, lnLine })
     );
   }
 
@@ -338,8 +353,9 @@ export class PaymentService {
         await this.storage.updatePayout(payout);
         logger.info('[Payments] treasury swept', { amountSat: payout.amountSat, txid });
         if (this.adminId) {
+          const lang = await this._langOf(this._adminId());
           await this.bot.telegram
-            .sendMessage(this.adminId, `🏦 <b>Trésorerie balayée</b>\n${payout.amountSat} sats → <code>${payout.address}</code>\ntxid <code>${txid}</code>`, { parse_mode: 'HTML' })
+            .sendMessage(this.adminId, t(lang, 'payments.treasurySwept', { amountSat: payout.amountSat, address: payout.address, txid }), { parse_mode: 'HTML' })
             .catch(() => {});
         }
         return { swept: true, payout };
@@ -352,6 +368,16 @@ export class PaymentService {
       }
     } finally {
       this._sweeping = false;
+    }
+  }
+
+  /** The merchant's stored language ('fr'/'en'), French fallback — for watcher notifications. */
+  async _langOf(chatId) {
+    try {
+      const data = await this.storage.loadUserData(chatId);
+      return resolveLang(data?.settings?.language);
+    } catch {
+      return 'fr';
     }
   }
 

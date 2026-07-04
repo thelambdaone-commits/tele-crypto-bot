@@ -71,6 +71,12 @@ class AuditLogger {
    */
   async flush() {
     if (this.logs.length === 0) return;
+    // Under node:test, drop instead of appending — test fixtures must not
+    // pollute the production data/audit.log (same guard as shared/logger.js).
+    if (process.env.NODE_TEST_CONTEXT) {
+      this.logs = [];
+      return;
+    }
 
     // Take current batch and clear it from memory immediately to prevent duplicates
     const logsToWrite = [...this.logs];
