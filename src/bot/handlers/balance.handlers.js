@@ -4,7 +4,12 @@ import { getPricesEUR, formatCryptoPricesEUR, clearPriceCache } from '../../shar
 import { buildBalancesText } from '../ui/wallet-display.js';
 import { CALLBACKS } from '../constants/callbacks.js';
 import { logger } from '../../shared/logger.js';
-import { sendChunked, safeAnswerCbQuery } from '../utils.js';
+import {
+  sendChunked,
+  safeAnswerCbQuery,
+  safeEditMessage,
+  sendLoadingMessage,
+} from '../utils.js';
 
 // Keyboard under the EUR price list: refresh, open the 📈 graph picker, menu/close.
 function pricesKeyboard() {
@@ -29,6 +34,9 @@ export function setupBalanceHandlers(bot, storage, walletService) {
         .editMessageText("❌ Tu n'as pas encore de wallet.", mainMenuKeyboard())
         .catch((e) => logger.warn('balance.editMessageText failed', { chatId, error: e.message }));
     }
+
+    // Instant feedback: the multi-chain sweep takes a few seconds.
+    await safeEditMessage(ctx, '⌛ Calcul des soldes...').catch(() => {});
 
     const text = '💰 <b>Soldes de tes Wallets</b>' + await buildBalancesText(walletService, storage, chatId);
 
@@ -83,8 +91,16 @@ export function setupBalanceHandlers(bot, storage, walletService) {
       return ctx.reply("❌ Tu n'as pas encore de wallet.");
     }
 
+    // Instant feedback, then replace the placeholder with the report.
+    const loading = await sendLoadingMessage(ctx, '⌛ Calcul des soldes...');
+
     const text = '💰 <b>Soldes de tes Wallets</b>' + await buildBalancesText(walletService, storage, chatId);
-    await sendChunked(ctx, text, { parse_mode: 'HTML', ...mainMenuKeyboard() });
+    await sendChunked(
+      ctx,
+      text,
+      { parse_mode: 'HTML', ...mainMenuKeyboard() },
+      { messageId: loading?.message_id ?? null }
+    );
   });
 
   bot.action(CALLBACKS.REFRESH_PRICES, async (ctx) => {

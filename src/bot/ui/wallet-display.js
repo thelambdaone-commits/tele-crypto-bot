@@ -47,8 +47,12 @@ export async function buildBalancesText(walletService, storage, chatId) {
   const results = await Promise.all(
     wallets.map(async (wallet) => {
       try {
-        const { balance, valueEUR } = await getWalletBalanceEUR(walletService, chatId, wallet);
-        const tokens = await getTokenBalances(walletService, wallet, prices);
+        // Native balance and token scan are independent reads — run them
+        // together so a wallet costs one round-trip, not two.
+        const [{ balance, valueEUR }, tokens] = await Promise.all([
+          getWalletBalanceEUR(walletService, chatId, wallet),
+          getTokenBalances(walletService, wallet, prices),
+        ]);
         return { wallet, balance, valueEUR, tokens, error: null };
       } catch {
         return { wallet, balance: null, valueEUR: 0, tokens: [], error: true };
