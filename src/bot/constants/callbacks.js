@@ -17,6 +17,9 @@ export const CALLBACKS = {
   // Learn (les leçons individuelles utilisent le préfixe dynamique learn_l_<key>)
   LEARN_MENU: 'learn_menu',
 
+  // FAQ sécurité (les questions individuelles utilisent le préfixe dynamique faq_i_<key>)
+  FAQ_MENU: 'faq_menu',
+
   // Wallet
   LIST_WALLETS: 'list_wallets',
   CREATE_WALLET: 'create_wallet',

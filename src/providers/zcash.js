@@ -55,7 +55,17 @@ export class ZcashChain extends BaseProvider {
   }
 
   // Fetch a Blockchair address dashboard (balance + utxo + tx hashes in one call).
+  // Serialized: keyless Blockchair allows ~1 req/s per IP and answers a burst
+  // (e.g. the multi-wallet balance sweep) with a multi-second penalty window,
+  // so concurrent dashboards are chained instead of fired together.
   async _fetchDashboard(address, limit = 'utxo') {
+    const run = () => this._fetchDashboardNow(address, limit);
+    const result = (this._dashboardQueue ?? Promise.resolve()).then(run, run);
+    this._dashboardQueue = result.catch(() => {});
+    return result;
+  }
+
+  async _fetchDashboardNow(address, limit) {
     const url = this._withKey(`${this.apiUrl}/dashboards/address/${address}?limit=${limit}`);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);

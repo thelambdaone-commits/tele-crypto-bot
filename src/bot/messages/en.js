@@ -129,6 +129,7 @@ export const en = {
     analyze: '🔎 Analyze',
     keys: '🔐 My Keys',
     help: '❓ Help',
+    faqBtn: '⁉️ FAQ',
     settingsBtn: '⚙️ Settings',
     languageBtn: '🌐 Language',
   },
@@ -299,7 +300,8 @@ export const en = {
           '• <b>Address poisoning</b>: scammers send dust transactions from an address that looks like yours to pollute your history. Check the <b>whole</b> address, not just the start and end.\n' +
           '• For a large amount: send a <b>small test transfer</b> first.\n' +
           '• Always check the <b>network</b> before sending → <code>/learn network</code>.\n\n' +
-          '🛡️ Bot side: per-user <b>AES-256-GCM</b> encrypted storage, sensitive messages auto-deleted, audit log.',
+          '🛡️ Bot side: per-user <b>AES-256-GCM</b> encrypted storage, sensitive messages auto-deleted, audit log.\n\n' +
+          '⁉️ Deep-dive on dusting &amp; poisoning: <code>/faq</code>',
       },
       rugpull: {
         title: '🪤 Rug pull & co',
@@ -440,5 +442,252 @@ export const en = {
     quoteMarket: (fromSym, amt, toSym) =>
       `💱 1 ${fromSym} ≈ <b>${amt} ${toSym}</b> <i>(market rate, before fees)</i>`,
     netFee: (amt, sym) => `⛽ Sending network fee ≈ <b>${amt} ${sym}</b>`,
+  },
+
+  // ⁉️ Security FAQ (dusting / address poisoning / scams). Like the /learn
+  // lessons: the menu and direct access (/faq dust) are derived from `items` —
+  // adding an entry = adding the key here AND in fr.js (parity).
+  faq: {
+    menuTitle:
+      '⁉️ <b>Security FAQ</b>\n' +
+      '━━━━━━━━━━━━━━━\n\n' +
+      'Dusting, address poisoning, scams: pick a question 👇\n\n' +
+      '💡 Direct access: <code>/faq dust</code>, <code>/faq memo</code>…\n' +
+      '🎓 For the basics: <code>/learn security</code>',
+    backToMenu: '⁉️ All questions',
+    items: {
+      poison: {
+        title: '☠️ Address poisoning',
+        body:
+          '☠️ <b>What is address poisoning?</b>\n\n' +
+          'A scammer sends you a <b>dust</b> transaction (often &lt; $0.01) from an address that <b>visually mimics</b> one you have already interacted with (same first and last characters).\n\n' +
+          'The goal: get that fake address into your <b>transaction history</b>, so that one day you copy-paste it by mistake instead of the real one — and your funds go to the scammer.\n\n' +
+          'The three classic uses:\n' +
+          '• <b>Poisoning</b>: mimic a legitimate address from your history.\n' +
+          '• <b>Token spam</b>: clutter your history to cause mistakes or clicks into malicious contracts/links.\n' +
+          '• <b>De-anonymization</b>: trace how you move funds to cluster your wallets together.\n\n' +
+          '👉 Always verify an address <b>in full</b> before sending (see “✅ Verifying an address”).',
+      },
+      dust: {
+        title: '🌫 “Dusting”',
+        body:
+          '🌫 <b>Why is it called “dusting”?</b>\n\n' +
+          '“Dust” is a tiny amount of crypto (e.g. TRX) sent to your wallet — often too small to be traded or withdrawn.\n\n' +
+          'Dusting is used to:\n' +
+          '• obscure transaction histories,\n' +
+          '• promote scam tokens,\n' +
+          '• push users into unsafe interactions,\n' +
+          '• track wallets (blockchain analysis).\n\n' +
+          '🎓 Scam basics: <code>/learn security</code>',
+      },
+      tron: {
+        title: '🔺 The TRON case',
+        body:
+          '🔺 <b>How does it work on TRON?</b>\n\n' +
+          'Attackers send very small TRX amounts from addresses that <b>look like</b> those of your usual counterparties.\n\n' +
+          'Why TRON? Its <b>ultra-low-cost</b> infrastructure: microtransactions are practically free there, which makes very large-scale poisoning campaigns possible. Users call these “TRX dust” transactions.\n\n' +
+          '⚠️ The phenomenon exists on other chains too (EVM, Solana…), TRON is just the cheapest playground.\n\n' +
+          '🎓 More about TRON: <code>/learn trx</code>',
+      },
+      airdrop: {
+        title: '🎁 Dust vs airdrop',
+        body:
+          '🎁 <b>What is the difference between dusting and airdrops?</b>\n\n' +
+          'Both are <b>unsolicited</b> token transfers, but:\n\n' +
+          '• An <b>airdrop</b> is usually promotional and transparent (identifiable project, public announcement).\n' +
+          '• <b>Dusting</b> aims to confuse, deceive or surveil — phishing, de-anonymization, scam promotion.\n\n' +
+          'In practice: when in doubt, treat any unsolicited token as <b>suspicious</b> and do not interact with it.\n\n' +
+          '🎓 Fraudulent tokens: <code>/learn rugpull</code>',
+      },
+      goals: {
+        title: '🪤 What scammers want',
+        body:
+          '🪤 <b>What do scammers try to achieve with dusting?</b>\n\n' +
+          '• <b>Phishing</b>: trick you into sending funds to an address similar to a known one.\n' +
+          '• <b>Behavioral tracking</b>: watch how you handle these small balances to link your wallets together and spot high-value targets.\n' +
+          '• <b>Scam promotion</b>: embed phishing links or fake-token metadata to get you to interact.\n\n' +
+          '👉 The counter is simple: <b>ignore</b> the dust, never click, never trade those tokens.',
+      },
+      detect: {
+        title: '🔎 Detecting an attack',
+        body:
+          '🔎 <b>How do I know my wallet was dusted?</b>\n\n' +
+          'Typical signs:\n' +
+          '• a transfer worth a <b>fraction of a cent</b> from an unknown address;\n' +
+          '• an address that <b>closely resembles</b> one of your known contacts (same start/end);\n' +
+          '• unknown tokens appearing in your history for no reason.\n\n' +
+          'In this bot: the 🔍 <b>Analyze</b> button shows the history and tokens of any public address — useful for risk-free inspection.\n\n' +
+          '👉 Receiving dust is <b>harmless</b> in itself. The danger is <b>reacting</b> to it.',
+      },
+      bots: {
+        title: '🤖 Automated attacks',
+        body:
+          '🤖 <b>Can these attacks be automated?</b>\n\n' +
+          'Yes — most dusting campaigns are run by bots that:\n\n' +
+          '• monitor the blockchain for <b>newly active</b> or high-value wallets;\n' +
+          '• generate spoofed addresses with <b>vanity address</b> tools (same first/last characters as the mimicked target);\n' +
+          '• fire dust transactions <b>seconds</b> after your activity.\n\n' +
+          'That is why dust can arrive right after a real transaction — it is not a coincidence.',
+      },
+      targets: {
+        title: '🎯 Who gets targeted?',
+        body:
+          '🎯 <b>Who is most likely to be targeted?</b>\n\n' +
+          'Attackers tend to focus on:\n\n' +
+          '• wallets with <b>recent activity</b> or high value;\n' +
+          '• <b>first-time interactions</b> between two wallets (to insert their fake address at the right moment);\n' +
+          '• <b>non-custodial</b> wallets, which filter incoming transactions less.\n\n' +
+          'This bot is non-custodial: your keys stay encrypted on your side, but address vigilance remains <b>your</b> responsibility.',
+      },
+      benign: {
+        title: '⚖️ Always malicious?',
+        body:
+          '⚖️ <b>Is dusting always malicious?</b>\n\n' +
+          'Not necessarily — some uses are benign (tests, network messages). In practice though, dusting is <b>overwhelmingly</b> associated with scam infrastructure and deception tactics.\n\n' +
+          'The safe default: treat any unsolicited micro-deposit as <b>suspicious</b> and do not interact with the received tokens.',
+      },
+      trace: {
+        title: '🕵️ Can it be traced?',
+        body:
+          '🕵️ <b>Can dusting be traced?</b>\n\n' +
+          'Yes. Blockchain-intelligence tools can:\n\n' +
+          '• identify and cluster attacker infrastructure;\n' +
+          '• flag users who interacted with spoofed addresses;\n' +
+          '• link dusting wallets across scam campaigns.\n\n' +
+          'These signals support attribution and remediation — but they cannot undo a transaction: prevention remains the only real protection.',
+      },
+      memo: {
+        title: '📝 Booby-trapped memos',
+        body:
+          '📝 <b>What role do memo fields play in scams?</b>\n\n' +
+          'On TRON, TON and other chains, transactions can carry a <b>memo</b>: fraudsters embed phishing links or scam messages in them (“claim your airdrop here”…).\n\n' +
+          'These fields are visible in explorers (Tronscan…) and can redirect you to dangerous websites.\n\n' +
+          '👉 <b>Ignore any link</b> in a memo unless the source is confirmed through a trusted channel.\n\n' +
+          '🎓 What a legitimate memo is for: <code>/learn ton</code>',
+      },
+      react: {
+        title: '🚨 I received dust',
+        body:
+          '🚨 <b>What should I do if I receive dust?</b>\n\n' +
+          '1. <b>Do not touch it</b>: do not send it, trade it, or “claim” anything.\n' +
+          '2. Do not interact with unknown tokens or addresses (a swap/approval can trigger a malicious contract — honeypot).\n' +
+          '3. Ignore links in memo fields.\n' +
+          '4. Verify <b>every address in full</b> before any future send — especially if it “looks like” a contact.\n' +
+          '5. Treat any unsolicited micro-deposit as suspicious by default.\n\n' +
+          'Received dust compromises <b>neither your keys nor your seed</b>: it only becomes dangerous if you react to it.\n\n' +
+          '🎓 <code>/learn rugpull</code> · <code>/learn security</code>',
+      },
+      verify: {
+        title: '✅ Verifying an address',
+        body:
+          '✅ <b>How do I properly verify an address before sending?</b>\n\n' +
+          'Poisoning exploits a habit: only comparing the <b>first and last characters</b>. Vanity addresses mimic exactly those parts.\n\n' +
+          'The right reflexes:\n' +
+          '• Compare the address <b>in full</b>, not just the ends.\n' +
+          '• Get the address from the <b>source</b> (QR code, direct message from the recipient) — never from your transaction history.\n' +
+          '• For a large amount: send a small <b>test transaction</b> first, confirm receipt, then send the rest.\n' +
+          '• In this bot: 📥 <b>Receive</b> shows your full address + QR; 🔍 <b>Analyze</b> inspects an address before sending; every send shows a summary to confirm.\n\n' +
+          '🎓 Addresses & keys: <code>/learn key</code>',
+      },
+      sent: {
+        title: '😱 Sent to the wrong address',
+        body:
+          '😱 <b>I sent funds to a poisoned address — what now?</b>\n\n' +
+          'Be clear-eyed: a confirmed blockchain transaction is <b>irreversible</b> — nobody (not this bot, not any support) can cancel it. Also beware of “fund recovery services”: they are almost always second-layer scams.\n\n' +
+          'What you can do:\n' +
+          '1. <b>Stop</b> any pending sends to that address.\n' +
+          '2. Remove it from your habits (never copy it from your history again).\n' +
+          '3. Document everything: amount, txid, address — useful for a report (platform, police).\n' +
+          '4. If the address mimicked an exchange/service, warn that service.\n' +
+          '5. Your seed and keys are <b>not compromised</b> by this send — no need to migrate wallets.\n\n' +
+          '🎓 <code>/learn security</code> · <code>/learn seed</code>',
+      },
+    },
+  },
+
+  // Payment gateway (non-custodial invoicing) — merchant UI + watcher notifications.
+  payments: {
+    noWallet: '👻 No wallet to receive on. Create one first (➕ New).',
+    createTitle: '💳 <b>Create an invoice</b>\n\nHow do you want to get paid?',
+    lnMethodBtn: '⚡ Lightning (BTC · instant)',
+    menuBtn: '🎮 Menu',
+    lnUnavailable:
+      '⚡ <b>Lightning unavailable</b>\n\nNo node is connected. Set <code>LN_BACKEND_URL</code> + <code>LN_PASSWORD</code> (phoenixd) to enable it.\n\nMeanwhile, use 💳 <b>Invoice</b> (on-chain, 15 chains + stablecoins).',
+    lnPickWallet:
+      '⚡ <b>Lightning invoice</b>\n\nWhich BTC wallet do you want to be paid on?\n<i>(Lightning sweep destination)</i>',
+    lnAskAmount: '⚡ <b>Lightning invoice (BTC)</b>\n\nWhat amount do you want to receive, in <b>EUR</b>? (e.g. 25)',
+    askAmount: (symbol, chainName) =>
+      `💳 <b>Invoice in ${symbol}</b> · ${chainName}\n\nWhat amount do you want to receive, in <b>EUR</b>? (e.g. 25)`,
+    pickAsset: (chainName) => `💳 <b>Invoice · ${chainName}</b>\n\nWhich asset do you want to receive?`,
+    invalidAmount: '⚠️ Invalid amount.',
+    alreadyOpenCard:
+      '⚠️ <b>An invoice is already open</b> for this asset.\nView it, or cancel it to create a new one.',
+    viewBtn: '👁 View',
+    cancelBtn: '🗑 Cancel',
+    cancelInvoiceBtn: '🗑 Cancel the invoice',
+    notFound: '🤷 Invoice not found.',
+    canceled: '🗑 <b>Invoice canceled.</b>\nYou can create a new one.',
+    newLnBtn: '⚡ New Lightning invoice',
+    newBtn: '💳 New invoice',
+    expireIn: (mins) => `⌛ Expires in ${mins} min`,
+    expired: '⌛ Expired',
+    coldLabel: 'External address (cold)',
+    lnCard: (o) =>
+      '⚡ <b>Lightning invoice</b>\n━━━━━━━━━━━━━━━\n' +
+      `Amount: <b>${o.fiat}</b> ≈ <b>${o.sats} sats</b> (${o.btc} BTC)\n` +
+      `Invoice (BOLT11):\n<code>${o.bolt11}</code>\n` +
+      `${o.expLine} · <code>${o.id}</code>\n` +
+      o.destLine +
+      '\nScan / send the invoice to the customer. <b>Instant</b> settlement. ⚡',
+    collectedOn: (label, address) => `💰 Collected on:${label ? ` <b>${label}</b>` : ''}\n<code>${address}</code>\n`,
+    card: (o) =>
+      '💳 <b>Invoice</b>\n━━━━━━━━━━━━━━━\n' +
+      `Amount: <b>${o.fiat}</b> ≈ <b>${o.amount} ${o.symbol}</b>\n` +
+      `Network: <b>${o.chainName}</b>\n` +
+      `Address:\n<code>${o.address}</code>\n` +
+      `${o.expLine} · <code>${o.id}</code>\n\n` +
+      "Send this QR (or the address) to the customer. You'll be notified on receipt. 🔔",
+    lnBalanceHead: (sats) => `⚡ Lightning balance: <b>${sats} sats</b>\n\n`,
+    listEmpty: '🧾 No invoices. <code>/invoice</code> to create one.',
+    listTitle: '🧾 <b>My invoices</b>',
+    openBelow: '👇 Open invoices:',
+    treasuryUnreachable: (err) => `❌ Node unreachable: ${err}`,
+    treasuryOff: '⚡ Lightning not configured.',
+    treasury: (o) =>
+      '🏦 <b>Lightning treasury</b>\n' +
+      `Node balance: <b>${o.balanceSat} sats</b>\n` +
+      `Sweep threshold: ${o.thresholdSat} sats\n` +
+      `Destination: ${o.destBlock}\n\n` +
+      o.payoutsBlock,
+    noDest: '(not configured)',
+    payoutsTitle: '<b>Recent payouts</b>',
+    noPayouts: 'No payouts.',
+    sweepNowBtn: '🧹 Sweep now',
+    changeWalletBtn: '💰 Change receiving wallet',
+    treasuryBackBtn: '↩️ Treasury',
+    forcedDest: '🔒 Destination forced by <code>LN_SWEEP_BTC_ADDRESS</code>.',
+    noBtcWallet: 'No BTC wallet. Create one with /gen btc.',
+    pickSweepWallet:
+      '💰 <b>Lightning receiving wallet</b>\nWhere do you want the sats swept from the node to be sent?',
+    destSet: (label, address) => `✅ Sweep destination: 💰 <b>${label}</b>\n<code>${address}</code>`,
+    sweptOk: (sats, txid) => `✅ Swept ${sats} sats → treasury (txid <code>${txid}</code>)`,
+    nothingToSweep: (reason, bal) => `ℹ️ Nothing to sweep (${reason}${bal != null ? `: ${bal} sats` : ''})`,
+    notifExpired: (symbol) => `⌛ Invoice expired (${symbol}).`,
+    notifPaid: (o) =>
+      `✅ <b>Payment received</b>\n${o.amount} ${o.symbol}${o.fiat}${o.over}\nInvoice <code>${o.id}</code> settled.${o.lnLine}`,
+    overpaid: ' ⚠️ overpaid',
+    lnBalanceLine: (sats) => `\n💼 Lightning balance: <b>${sats} sats</b>`,
+    treasurySwept: (o) => `🏦 <b>Treasury swept</b>\n${o.amountSat} sats → <code>${o.address}</code>\ntxid <code>${o.txid}</code>`,
+    // Service errors translated by their e.code (the Error.message stays French).
+    errors: {
+      SWEEP_FORCED: 'Destination forced by config (LN_SWEEP_BTC_ADDRESS).',
+      WALLET_NOT_FOUND: 'BTC wallet not found.',
+      LN_NOT_CONFIGURED: 'Lightning is not configured on this bot.',
+      LN_ALREADY_OPEN: 'A Lightning invoice is already open.',
+      NO_WALLET_FOR_CHAIN: (chain) => `No ${chain} wallet to receive on.`,
+      ALREADY_OPEN: (symbol, chain) => `A ${symbol} invoice on ${chain} is already open.`,
+      INVOICE_NOT_FOUND: 'Invoice not found.',
+      INVOICE_NOT_OPEN: 'This invoice is no longer open.',
+    },
   },
 };

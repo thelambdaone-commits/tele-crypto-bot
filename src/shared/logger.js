@@ -46,6 +46,11 @@ const LEVEL_VALUES = {
 const DEFAULT_LOG_LEVEL = process.env.LOG_LEVEL || 'INFO';
 let currentLogLevel = DEFAULT_LOG_LEVEL;
 
+// Under the node:test runner (NODE_TEST_CONTEXT is set in its child processes),
+// skip file appends: test fixtures would otherwise pollute the production
+// logs/bot.log + logs/errors.log with fake errors and make triage noisy.
+const IN_TEST_RUNNER = Boolean(process.env.NODE_TEST_CONTEXT);
+
 /**
  * Structured logger for AI-assisted debugging
  */
@@ -132,11 +137,13 @@ class Logger {
    */
   write(level, message, context = {}) {
     const entry = this.formatEntry(level, message, context);
-    this._append(this.logPath, entry);
+    if (!IN_TEST_RUNNER) {
+      this._append(this.logPath, entry);
 
-    // Also write errors to separate file
-    if (level === LogLevel.ERROR) {
-      this._append(this.errorLogPath, entry);
+      // Also write errors to separate file
+      if (level === LogLevel.ERROR) {
+        this._append(this.errorLogPath, entry);
+      }
     }
 
     // Console output filtered by LOG_LEVEL

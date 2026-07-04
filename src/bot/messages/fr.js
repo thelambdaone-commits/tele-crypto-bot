@@ -130,6 +130,7 @@ export const fr = {
     analyze: '🔎 Analyser',
     keys: '🔐 Mes Clés',
     help: '❓ Aide',
+    faqBtn: '⁉️ FAQ',
     settingsBtn: '⚙️ Paramètres',
     languageBtn: '🌐 Langue',
   },
@@ -300,7 +301,8 @@ export const fr = {
           "• <b>Address poisoning</b> : des escrocs envoient des mini-transactions depuis une adresse ressemblant à la tienne pour polluer ton historique. Vérifie l'adresse <b>entière</b>, pas juste le début et la fin.\n" +
           '• Pour un gros montant : fais d’abord un <b>petit envoi test</b>.\n' +
           '• Vérifie toujours le <b>réseau</b> avant un envoi → <code>/learn network</code>.\n\n' +
-          '🛡️ Côté bot : stockage chiffré <b>AES-256-GCM</b> par utilisateur, messages sensibles auto-supprimés, journal d’audit.',
+          '🛡️ Côté bot : stockage chiffré <b>AES-256-GCM</b> par utilisateur, messages sensibles auto-supprimés, journal d’audit.\n\n' +
+          '⁉️ Pour approfondir dusting &amp; empoisonnement : <code>/faq</code>',
       },
       rugpull: {
         title: '🪤 Rug pull & co',
@@ -441,5 +443,252 @@ export const fr = {
     quoteMarket: (fromSym, amt, toSym) =>
       `💱 1 ${fromSym} ≈ <b>${amt} ${toSym}</b> <i>(taux marché, hors frais)</i>`,
     netFee: (amt, sym) => `⛽ Frais réseau d'envoi ≈ <b>${amt} ${sym}</b>`,
+  },
+
+  // ⁉️ FAQ sécurité (dusting / empoisonnement d'adresse / arnaques). Comme les
+  // leçons /learn : le menu et l'accès direct (/faq dust) sont dérivés de
+  // `items` — ajouter une entrée = ajouter la clé ici ET dans en.js (parité).
+  faq: {
+    menuTitle:
+      '⁉️ <b>FAQ Sécurité</b>\n' +
+      '━━━━━━━━━━━━━━━\n\n' +
+      "Dusting, empoisonnement d'adresse, arnaques : choisis une question 👇\n\n" +
+      '💡 Accès direct : <code>/faq dust</code>, <code>/faq memo</code>…\n' +
+      '🎓 Pour les bases : <code>/learn security</code>',
+    backToMenu: '⁉️ Toutes les questions',
+    items: {
+      poison: {
+        title: "☠️ Empoisonnement d'adresse",
+        body:
+          "☠️ <b>Qu'est-ce que l'empoisonnement d'adresse ?</b>\n\n" +
+          "Un escroc t'envoie une transaction de <b>poussière</b> (souvent &lt; 0,01 $) depuis une adresse qui <b>imite visuellement</b> celle d'un destinataire avec qui tu as déjà interagi (mêmes premiers et derniers caractères).\n\n" +
+          "Son but : que cette fausse adresse apparaisse dans ton <b>historique</b>, et qu'un jour tu la copies-colles par erreur au lieu de la vraie — tes fonds partent alors chez l'escroc.\n\n" +
+          'Les trois usages classiques :\n' +
+          '• <b>Empoisonnement</b> : imiter une adresse légitime de ton historique.\n' +
+          '• <b>Spam de jetons</b> : encombrer ton historique pour provoquer des erreurs ou des clics vers des contrats/liens malveillants.\n' +
+          '• <b>Désanonymisation</b> : tracer comment tu déplaces les fonds pour relier tes wallets entre eux.\n\n' +
+          '👉 Vérifie toujours une adresse <b>en entier</b> avant d\'envoyer (voir « ✅ Bien vérifier une adresse »).',
+      },
+      dust: {
+        title: '🌫 Le « dusting »',
+        body:
+          '🌫 <b>Pourquoi « dusting » ?</b>\n\n' +
+          "La « dust » (poussière), c'est une quantité minuscule de crypto (ex : du TRX) envoyée à ton wallet — souvent trop faible pour être échangée ou retirée.\n\n" +
+          'Le dusting sert à :\n' +
+          '• obscurcir les historiques de transactions,\n' +
+          "• promouvoir des jetons d'arnaque,\n" +
+          '• pousser à des interactions non sécurisées,\n' +
+          '• tracer les wallets (analyse de la blockchain).\n\n' +
+          '🎓 Les bases des arnaques : <code>/learn security</code>',
+      },
+      tron: {
+        title: '🔺 Le cas TRON',
+        body:
+          '🔺 <b>Comment ça marche sur TRON ?</b>\n\n' +
+          'Les attaquants envoient de très faibles montants de TRX depuis des adresses qui <b>ressemblent</b> à celles de tes contreparties habituelles.\n\n' +
+          "Pourquoi TRON ? Son infrastructure à <b>très bas coût</b> : les microtransactions y sont quasi gratuites, ce qui rend possibles des campagnes d'empoisonnement à très grande échelle. Les utilisateurs parlent de « poussière TRX ».\n\n" +
+          '⚠️ Le phénomène existe aussi sur les autres chaînes (EVM, Solana…), TRON est juste le terrain le moins cher.\n\n' +
+          '🎓 En savoir plus sur TRON : <code>/learn trx</code>',
+      },
+      airdrop: {
+        title: '🎁 Dust vs airdrop',
+        body:
+          '🎁 <b>Quelle différence entre dusting et airdrop ?</b>\n\n' +
+          'Les deux sont des transferts de jetons <b>non sollicités</b>, mais :\n\n' +
+          '• Un <b>airdrop</b> est généralement promotionnel et transparent (projet identifiable, annonce publique).\n' +
+          '• Le <b>dusting</b> vise à semer la confusion, tromper ou surveiller — phishing, désanonymisation, promotion d\'arnaques.\n\n' +
+          "En pratique : dans le doute, traite tout jeton non sollicité comme <b>suspect</b> et n'interagis pas avec lui.\n\n" +
+          '🎓 Jetons frauduleux : <code>/learn rugpull</code>',
+      },
+      goals: {
+        title: '🪤 Buts des escrocs',
+        body:
+          '🪤 <b>Que cherchent les escrocs avec le dusting ?</b>\n\n' +
+          "• <b>Hameçonnage</b> : t'inciter à envoyer des fonds à une adresse similaire à une adresse connue.\n" +
+          '• <b>Suivi comportemental</b> : observer comment tu gères ces petits soldes pour relier tes wallets entre eux et repérer les cibles à forte valeur.\n' +
+          "• <b>Promotion d'arnaque</b> : glisser des liens de phishing ou des métadonnées de faux jetons pour te faire interagir.\n\n" +
+          '👉 La parade est simple : <b>ignorer</b> la poussière, ne jamais cliquer, ne jamais échanger ces jetons.',
+      },
+      detect: {
+        title: '🔎 Détecter une attaque',
+        body:
+          '🔎 <b>Comment savoir si mon wallet a été « dusté » ?</b>\n\n' +
+          'Signes typiques :\n' +
+          "• un transfert d'une <b>fraction de centime</b> reçu d'une adresse inconnue ;\n" +
+          '• une adresse qui <b>ressemble fortement</b> à un de tes contacts connus (mêmes début/fin) ;\n' +
+          '• des jetons inconnus apparus sans raison dans ton historique.\n\n' +
+          "Dans ce bot : le bouton 🔍 <b>Analyser</b> te montre l'historique et les tokens d'une adresse publique — utile pour inspecter sans risque.\n\n" +
+          '👉 Recevoir de la poussière est <b>sans danger</b> en soi. Le danger, c\'est d\'y <b>réagir</b>.',
+      },
+      bots: {
+        title: '🤖 Attaques automatisées',
+        body:
+          '🤖 <b>Ces attaques peuvent-elles être automatisées ?</b>\n\n' +
+          'Oui — la plupart des campagnes de dusting sont menées par des bots qui :\n\n' +
+          '• surveillent la blockchain pour repérer les wallets <b>nouvellement actifs</b> ou à forte valeur ;\n' +
+          '• génèrent des adresses usurpées avec des outils de <b>vanity address</b> (mêmes premiers/derniers caractères que la cible imitée) ;\n' +
+          "• déclenchent l'envoi de poussière <b>quelques secondes</b> après ton activité.\n\n" +
+          "C'est pour ça qu'une poussière peut arriver juste après une vraie transaction — ce n'est pas une coïncidence.",
+      },
+      targets: {
+        title: '🎯 Qui est ciblé ?',
+        body:
+          '🎯 <b>Qui est le plus susceptible d\'être ciblé ?</b>\n\n' +
+          'Les attaquants se concentrent sur :\n\n' +
+          '• les wallets à <b>activité récente</b> ou à forte valeur ;\n' +
+          '• les <b>premières interactions</b> entre deux wallets (pour insérer leur fausse adresse au bon moment) ;\n' +
+          '• les wallets <b>non custodiaux</b>, qui filtrent moins les transactions entrantes.\n\n' +
+          'Ce bot est non custodial : tes clés restent chiffrées chez toi, mais la vigilance sur les adresses reste <b>ta</b> responsabilité.',
+      },
+      benign: {
+        title: '⚖️ Toujours malveillant ?',
+        body:
+          '⚖️ <b>Le dusting est-il toujours malveillant ?</b>\n\n' +
+          "Pas nécessairement — certains usages sont bénins (tests, messages réseau). Mais en pratique, le dusting est <b>très majoritairement</b> associé à une infrastructure d'escroquerie et à des tactiques de tromperie.\n\n" +
+          'Le bon réflexe par défaut : considérer tout micro-dépôt non sollicité comme <b>suspect</b> et ne pas interagir avec les jetons reçus.',
+      },
+      trace: {
+        title: '🕵️ Est-ce traçable ?',
+        body:
+          '🕵️ <b>Le dusting peut-il être retracé ?</b>\n\n' +
+          "Oui. Les outils d'analyse de blockchain (« blockchain intelligence ») peuvent :\n\n" +
+          "• identifier et regrouper l'infrastructure des attaquants ;\n" +
+          '• signaler les utilisateurs ayant interagi avec des adresses usurpées ;\n' +
+          "• relier les wallets de dusting entre campagnes d'escroquerie.\n\n" +
+          "Ces signaux aident l'attribution et la remédiation — mais ils n'annulent pas une transaction : la prévention reste la seule vraie protection.",
+      },
+      memo: {
+        title: '📝 Champs mémo piégés',
+        body:
+          '📝 <b>Quel rôle jouent les champs mémo dans les arnaques ?</b>\n\n' +
+          "Sur TRON, TON et d'autres chaînes, les transactions peuvent porter un <b>mémo</b> : les fraudeurs y intègrent des liens de phishing ou des messages frauduleux (« réclame ton airdrop ici »…).\n\n" +
+          'Ces champs sont visibles dans les explorateurs (Tronscan…) et peuvent te rediriger vers des sites dangereux.\n\n' +
+          '👉 <b>Ignore tout lien</b> dans un mémo, sauf si la source est confirmée par un canal de confiance.\n\n' +
+          '🎓 À quoi sert un mémo légitime : <code>/learn ton</code>',
+      },
+      react: {
+        title: '🚨 J\'ai reçu du dust',
+        body:
+          '🚨 <b>Que faire si je reçois de la poussière ?</b>\n\n' +
+          '1. <b>N\'y touche pas</b> : ne l\'envoie pas, ne l\'échange pas, ne « réclame » rien.\n' +
+          "2. N'interagis pas avec les jetons ou adresses inconnus (un swap/une approbation peut déclencher un contrat malveillant — honeypot).\n" +
+          '3. Ignore les liens des champs mémo.\n' +
+          '4. Vérifie <b>chaque adresse en entier</b> avant tout envoi futur — surtout si elle « ressemble » à un contact.\n' +
+          '5. Considère tout micro-dépôt non sollicité comme suspect, par défaut.\n\n' +
+          'La poussière reçue ne compromet <b>ni tes clés ni ta seed</b> : elle ne devient dangereuse que si tu réagis.\n\n' +
+          '🎓 <code>/learn rugpull</code> · <code>/learn security</code>',
+      },
+      verify: {
+        title: '✅ Bien vérifier une adresse',
+        body:
+          '✅ <b>Comment bien vérifier une adresse avant d\'envoyer ?</b>\n\n' +
+          "L'empoisonnement mise sur une habitude : ne comparer que les <b>premiers et derniers caractères</b>. Les vanity addresses imitent exactement ces zones-là.\n\n" +
+          'Les bons réflexes :\n' +
+          "• Compare l'adresse <b>en entier</b>, pas seulement les extrémités.\n" +
+          '• Récupère l\'adresse à la <b>source</b> (QR code, message direct du destinataire) — jamais depuis ton historique de transactions.\n' +
+          '• Pour un gros montant : fais d\'abord un <b>petit envoi test</b>, confirme la réception, puis envoie le reste.\n' +
+          '• Dans ce bot : 📥 <b>Recevoir</b> affiche ton adresse complète + QR ; 🔍 <b>Analyser</b> inspecte une adresse avant envoi ; l\'envoi affiche toujours un récapitulatif à confirmer.\n\n' +
+          '🎓 Adresses & clés : <code>/learn key</code>',
+      },
+      sent: {
+        title: '😱 Envoi au mauvais destinataire',
+        body:
+          '😱 <b>J\'ai envoyé à une adresse empoisonnée, que faire ?</b>\n\n' +
+          "Sois lucide : une transaction blockchain confirmée est <b>irréversible</b> — personne (ni ce bot, ni un support) ne peut l'annuler. Méfie-toi d'ailleurs des « services de récupération de fonds » : ce sont presque toujours des arnaques de seconde couche.\n\n" +
+          'Ce que tu peux faire :\n' +
+          '1. <b>Arrête</b> tout envoi en cours vers cette adresse.\n' +
+          "2. Supprime-la de tes habitudes (ne la recopie plus depuis l'historique).\n" +
+          '3. Documente : montant, txid, adresse — utile pour un signalement (plateforme, police).\n' +
+          "4. Si l'adresse imitait un exchange/service, préviens ce service.\n" +
+          '5. Ta seed et tes clés ne sont <b>pas compromises</b> par cet envoi — pas besoin de migrer de wallet.\n\n' +
+          '🎓 <code>/learn security</code> · <code>/learn seed</code>',
+      },
+    },
+  },
+
+  // Payment gateway (non-custodial invoicing) — merchant UI + watcher notifications.
+  payments: {
+    noWallet: "👻 Aucun wallet pour recevoir. Crée-en un d'abord (➕ Nouveau).",
+    createTitle: '💳 <b>Créer une facture</b>\n\nComment veux-tu être payé ?',
+    lnMethodBtn: '⚡ Lightning (BTC · instantané)',
+    menuBtn: '🎮 Menu',
+    lnUnavailable:
+      "⚡ <b>Lightning indisponible</b>\n\nAucun nœud n'est branché. Configure <code>LN_BACKEND_URL</code> + <code>LN_PASSWORD</code> (phoenixd) pour l'activer.\n\nEn attendant, utilise 💳 <b>Facture</b> (on-chain, 15 chaînes + stablecoins).",
+    lnPickWallet:
+      '⚡ <b>Facture Lightning</b>\n\nSur quel wallet BTC veux-tu être payé ?\n<i>(destination du balayage Lightning)</i>',
+    lnAskAmount: '⚡ <b>Facture Lightning (BTC)</b>\n\nQuel montant veux-tu recevoir, en <b>EUR</b> ? (ex : 25)',
+    askAmount: (symbol, chainName) =>
+      `💳 <b>Facture en ${symbol}</b> · ${chainName}\n\nQuel montant veux-tu recevoir, en <b>EUR</b> ? (ex : 25)`,
+    pickAsset: (chainName) => `💳 <b>Facture · ${chainName}</b>\n\nQuel actif veux-tu recevoir ?`,
+    invalidAmount: '⚠️ Montant invalide.',
+    alreadyOpenCard:
+      '⚠️ <b>Une facture est déjà ouverte</b> pour cet actif.\nAffiche-la, ou annule-la pour en créer une nouvelle.',
+    viewBtn: '👁 Voir',
+    cancelBtn: '🗑 Annuler',
+    cancelInvoiceBtn: '🗑 Annuler la facture',
+    notFound: '🤷 Facture introuvable.',
+    canceled: '🗑 <b>Facture annulée.</b>\nTu peux en créer une nouvelle.',
+    newLnBtn: '⚡ Nouvelle facture Lightning',
+    newBtn: '💳 Nouvelle facture',
+    expireIn: (mins) => `⌛ Expire dans ${mins} min`,
+    expired: '⌛ Expirée',
+    coldLabel: 'Adresse externe (cold)',
+    lnCard: (o) =>
+      '⚡ <b>Facture Lightning</b>\n━━━━━━━━━━━━━━━\n' +
+      `Montant : <b>${o.fiat}</b> ≈ <b>${o.sats} sats</b> (${o.btc} BTC)\n` +
+      `Invoice (BOLT11) :\n<code>${o.bolt11}</code>\n` +
+      `${o.expLine} · <code>${o.id}</code>\n` +
+      o.destLine +
+      "\nScanne / envoie l'invoice au client. Règlement <b>instantané</b>. ⚡",
+    collectedOn: (label, address) => `💰 Encaissé sur :${label ? ` <b>${label}</b>` : ''}\n<code>${address}</code>\n`,
+    card: (o) =>
+      '💳 <b>Facture</b>\n━━━━━━━━━━━━━━━\n' +
+      `Montant : <b>${o.fiat}</b> ≈ <b>${o.amount} ${o.symbol}</b>\n` +
+      `Réseau : <b>${o.chainName}</b>\n` +
+      `Adresse :\n<code>${o.address}</code>\n` +
+      `${o.expLine} · <code>${o.id}</code>\n\n` +
+      "Envoie ce QR (ou l'adresse) au client. Tu seras notifié dès réception. 🔔",
+    lnBalanceHead: (sats) => `⚡ Solde Lightning : <b>${sats} sats</b>\n\n`,
+    listEmpty: '🧾 Aucune facture. <code>/invoice</code> pour en créer une.',
+    listTitle: '🧾 <b>Mes factures</b>',
+    openBelow: '👇 Factures ouvertes :',
+    treasuryUnreachable: (err) => `❌ Nœud injoignable : ${err}`,
+    treasuryOff: '⚡ Lightning non configuré.',
+    treasury: (o) =>
+      '🏦 <b>Trésorerie Lightning</b>\n' +
+      `Solde nœud : <b>${o.balanceSat} sats</b>\n` +
+      `Seuil de sweep : ${o.thresholdSat} sats\n` +
+      `Destination : ${o.destBlock}\n\n` +
+      o.payoutsBlock,
+    noDest: '(non configurée)',
+    payoutsTitle: '<b>Derniers retraits</b>',
+    noPayouts: 'Aucun retrait.',
+    sweepNowBtn: '🧹 Balayer maintenant',
+    changeWalletBtn: '💰 Changer le wallet de réception',
+    treasuryBackBtn: '↩️ Trésorerie',
+    forcedDest: '🔒 Destination forcée par <code>LN_SWEEP_BTC_ADDRESS</code>.',
+    noBtcWallet: 'Aucun wallet BTC. Crée-en un avec /gen btc.',
+    pickSweepWallet:
+      '💰 <b>Wallet de réception Lightning</b>\nOù veux-tu que les sats balayés depuis le nœud soient envoyés ?',
+    destSet: (label, address) => `✅ Destination du sweep : 💰 <b>${label}</b>\n<code>${address}</code>`,
+    sweptOk: (sats, txid) => `✅ Balayé ${sats} sats → trésorerie (txid <code>${txid}</code>)`,
+    nothingToSweep: (reason, bal) => `ℹ️ Rien à balayer (${reason}${bal != null ? ` : ${bal} sats` : ''})`,
+    notifExpired: (symbol) => `⌛ Facture expirée (${symbol}).`,
+    notifPaid: (o) =>
+      `✅ <b>Paiement reçu</b>\n${o.amount} ${o.symbol}${o.fiat}${o.over}\nFacture <code>${o.id}</code> réglée.${o.lnLine}`,
+    overpaid: ' ⚠️ trop-perçu',
+    lnBalanceLine: (sats) => `\n💼 Solde Lightning : <b>${sats} sats</b>`,
+    treasurySwept: (o) => `🏦 <b>Trésorerie balayée</b>\n${o.amountSat} sats → <code>${o.address}</code>\ntxid <code>${o.txid}</code>`,
+    // Service errors translated by their e.code (the Error.message stays French).
+    errors: {
+      SWEEP_FORCED: 'Destination forcée par la config (LN_SWEEP_BTC_ADDRESS).',
+      WALLET_NOT_FOUND: 'Wallet BTC introuvable.',
+      LN_NOT_CONFIGURED: 'Lightning non configuré sur ce bot.',
+      LN_ALREADY_OPEN: 'Une facture Lightning est déjà ouverte.',
+      NO_WALLET_FOR_CHAIN: (chain) => `Aucun wallet ${chain} pour recevoir.`,
+      ALREADY_OPEN: (symbol, chain) => `Une facture ${symbol} sur ${chain} est déjà ouverte.`,
+      INVOICE_NOT_FOUND: 'Facture introuvable.',
+      INVOICE_NOT_OPEN: 'Cette facture n’est plus ouverte.',
+    },
   },
 };

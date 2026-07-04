@@ -288,14 +288,14 @@ test('sweepDestination returns the resolved wallet + label (shown on LN invoices
       { id: 'btc-2', chain: 'btc', address: 'bc1qsecond', label: 'BTC Wallet 2', isCorrupted: false },
     ],
   });
-  assert.deepEqual(await h.svc.sweepDestination(), { address: 'bc1qfirst', label: 'BTC Wallet 1' });
+  assert.deepEqual(await h.svc.sweepDestination(), { address: 'bc1qfirst', label: 'BTC Wallet 1', cold: false });
   await h.svc.setSweepWallet('btc-2');
-  assert.deepEqual(await h.svc.sweepDestination(), { address: 'bc1qsecond', label: 'BTC Wallet 2' });
+  assert.deepEqual(await h.svc.sweepDestination(), { address: 'bc1qsecond', label: 'BTC Wallet 2', cold: false });
 });
 
 test('sweepDestination labels a forced cold address and is null without any wallet', async () => {
   const cold = harness({ lnConfigured: true, sweep: { address: 'bc1qcold', thresholdSat: 1, intervalMs: 1 }, wallets: [] });
-  assert.deepEqual(await cold.svc.sweepDestination(), { address: 'bc1qcold', label: 'Adresse externe (cold)' });
+  assert.deepEqual(await cold.svc.sweepDestination(), { address: 'bc1qcold', label: 'Adresse externe (cold)', cold: true });
   const none = harness({ lnConfigured: true, sweep: { address: '', thresholdSat: 1, intervalMs: 1 }, wallets: [] });
   assert.equal(await none.svc.sweepDestination(), null);
 });
