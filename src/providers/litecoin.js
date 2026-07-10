@@ -52,17 +52,22 @@ export class LitecoinChain extends BaseProvider {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
-        let balanceSats;
+        let confirmed, pending;
         if (isBlockcypher) {
-          balanceSats = data.final_balance ?? data.balance ?? 0;
+          confirmed = data.final_balance ?? data.balance ?? 0;
+          pending = 0;
         } else {
           const chainStats = data.chain_stats || data;
-          balanceSats = chainStats.funded_txo_sum - chainStats.spent_txo_sum;
+          const mempoolStats = data.mempool_stats || {};
+          confirmed = chainStats.funded_txo_sum - chainStats.spent_txo_sum;
+          pending = (mempoolStats.funded_txo_sum ?? 0) - (mempoolStats.spent_txo_sum ?? 0);
         }
 
         return {
-          balance: (balanceSats / 100000000),
-          balanceSats: balanceSats.toString(),
+          balance: (confirmed / 100000000),
+          balanceSats: confirmed.toString(),
+          pendingBalance: (pending / 100000000).toString(),
+          pendingBalanceSats: pending.toString(),
           symbol: this.symbol,
         };
       } finally {
@@ -246,14 +251,20 @@ export class LitecoinChain extends BaseProvider {
   }
 
   async estimateFees(fromAddress, _toAddress, _amount) {
+    const FLOOR_SAT_VB = 1;
     let feeEstimates = null;
     try {
       feeEstimates = await this.feeRpc.execute({});
     } catch {}
 
     if (!feeEstimates) {
-      feeEstimates = { slow: 1, average: 0.5, fast: 0.1 };
+      feeEstimates = { slow: 1, average: 2, fast: 5 };
     }
+
+    // Ensure fee rates are never below the relay floor
+    feeEstimates.slow = Math.max(Number(feeEstimates.slow) || 1, FLOOR_SAT_VB);
+    feeEstimates.average = Math.max(Number(feeEstimates.average) || 2, FLOOR_SAT_VB);
+    feeEstimates.fast = Math.max(Number(feeEstimates.fast) || 5, FLOOR_SAT_VB);
 
     let utxos = [];
     try {
@@ -262,7 +273,7 @@ export class LitecoinChain extends BaseProvider {
       utxos = [{}];
     }
 
-    const avgFeeRate = feeEstimates.average || feeEstimates['6'] || 1;
+    const avgFeeRate = feeEstimates.average || 2;
     const txVbytes = 140 + utxos.length * 50;
     const feeLitoshis = avgFeeRate * txVbytes;
 
@@ -321,14 +332,14 @@ export class LitecoinChain extends BaseProvider {
 
     psbt.addOutput({
       address: toAddress,
-      value: amountSats,
+      value: BigInt(amountSats),
     });
 
     const totalInput = utxos.reduce((sum, utxo) => sum + utxo.value, 0);
     if (totalInput > amountSats + feeSats) {
       psbt.addOutput({
         address: fromAddress,
-        value: totalInput - amountSats - feeSats,
+        value: BigInt(totalInput - amountSats - feeSats),
       });
     }
 

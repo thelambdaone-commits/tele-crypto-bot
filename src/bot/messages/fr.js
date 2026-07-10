@@ -415,6 +415,72 @@ export const fr = {
           "⚠️ Ne pas confondre : la <b>ZK Compression</b> (Light Protocol/Helius) utilise des preuves ZK pour <b>réduire les coûts de stockage</b>, pas pour l'anonymat. Idem, le <b>Seed Vault</b> (Solana Saga/Seeker) protège tes clés dans une puce dédiée — sécurité matérielle, pas confidentialité des transactions.\n\n" +
           '🕵️ Confidentialité par défaut → <code>/learn xmr</code>.',
       },
+      mempool: {
+        title: '⏳ Mempool & tx bloquées',
+        body:
+          '⏳ <b>Mempool, fees &amp; transactions bloquées</b>\n\n' +
+          "Quand tu envoies une tx Bitcoin, elle n'est pas confirmée instantanément. Elle atterrit dans le <b>mempool</b> (pool de mémoire), un zone d'attente partagée par tous les nœuds du réseau, en attendant qu'un mineur l'inclut dans un bloc.\n\n" +
+          '<b>⏳ Pourquoi ma tx est bloquée ?</b>\n' +
+          "Les mineurs trient les tx par <b>fee rate</b> (frais par vByte). Plus tu paies, plus tu passes vite. Si ton fee rate est trop bas, ta tx reste en attente derrière des milliers d'autres.\n\n" +
+          '<b>📊 Les tiers de fees :</b>\n' +
+          '• <b>Rapide</b> (~10 min) : 3+ sat/vB\n' +
+          '• <b>Moyen</b> (~30 min) : 2 sat/vB\n' +
+          '• <b>Lent</b> (~1h) : 1 sat/vB\n' +
+          '• <b>Économique</b> (1h+) : 0.5-1 sat/vB\n' +
+          '• <b>Minimum</b> (risqué) : &lt;0.5 sat/vB — peut rester des jours\n\n' +
+          '<b>🔓 RBF (Replace-By-Fee)</b>\n' +
+          'Certaines tx ont le flag RBF activé. Ça permet de <b>renvoyer la même tx avec un fee plus élevé</b> pour la remplacer. Le destinataire recevra la version la plus chère. Vérifie sur <code>mempool.space</code> si ta tx a le flag RBF.\n\n' +
+          '<b>👶 CPFP (Child Pays For Parent)</b>\n' +
+          'Si ta tx a un <b>change</b> (monnaie rendue), tu peux créer une 2ème tx qui dépense ce change avec un fee élevé. Les mineurs incluront les deux tx ensemble car le fee total est suffisant. C\'est plus complexe mais efficace.\n\n' +
+          '<b>🗑️ Drop du mempool</b>\n' +
+          'Si ta tx n\'est jamais confirmée, elle est <b>retirée du mempool après ~14 jours</b>. Les fonds reviennent disponibles dans ton wallet et tu pourras renvoyer avec un fee correct.\n\n' +
+          '<b>🛡️ Comment éviter ça ?</b>\n' +
+          '• Le bot calcule automatiquement les fees optimaux.\n' +
+          '• Sur les chaînes EVM (ETH, Polygon…), les fees sont généralement rapides.\n' +
+          '• Sur Bitcoin, privilégie le fee "Rapide" pour les envois urgents.\n\n' +
+          '🎓 Voir aussi : <code>/learn gas</code> (fees sur EVM) — <code>/learn btc</code> (Bitcoin).',
+      },
+      explorer: {
+        title: '🔍 Explorateurs de blocs',
+        body:
+          '🔍 <b>Explorateurs de blocs</b>\n\n' +
+           'Un explorateur de blocs est un site web qui te permet de <b>voir tout ce qui se passe sur une blockchain</b> en temps réel : transactions, blocs, adresses, fees.\n\n' +
+          '<b>🌐 Sites utiles :</b>\n' +
+          '• <b>Bitcoin</b> : <code>mempool.space</code> (le meilleur pour les fees) ou <code>blockstream.info</code>\n' +
+          '• <b>Ethereum / EVM</b> : <code>etherscan.io</code>, <code>arbiscan.io</code>, <code>polygonscan.com</code>\n' +
+          '• <b>Solana</b> : <code>solscan.io</code>\n' +
+          '• <b>Tron</b> : <code>tronscan.org</code>\n\n' +
+          '<b>📊 Comment lire une transaction :</b>\n' +
+          '• <b>TxID</b> : identifiant unique de la transaction — 64 caractères hexadécimaux.\n' +
+          '• <b>Statut</b> : <code>pending</code> (mempool, pas encore dans un bloc), <code>confirmed</code> (inclus dans un bloc, N confirmations).\n' +
+          '• <b>Confirmations</b> : nombre de blocs construits par-dessus. 1 = inclusion, 6+ = considéré sûr.\n' +
+          '• <b>Fee rate</b> : frais par vByte (ex : 2 sat/vB). Plus c\'est haut, plus la confirmation est rapide.\n\n' +
+          '<b>🔎 Comment vérifier un paiement :</b>\n' +
+          '1. Copie le TxID (ou l\'adresse source/destinataire).\n' +
+          "2. Va sur l'explorateur correspondant à la chaîne.\n" +
+          '3. Colle le TxID dans la barre de recherche.\n' +
+          '4. Vérifie le statut : « confirmed » = arrivé, « unconfirmed » = en attente.\n\n' +
+          '🎓 Voir aussi : <code>/learn mempool</code> — <code>/learn gas</code>.',
+      },
+      utxo: {
+        title: '🧩 Le modèle UTXO',
+        body:
+          '🧩 <b>Le modèle UTXO</b>\n\n' +
+          'Bitcoin, Litecoin, Bitcoin Cash et Zcash utilisent le modèle <b>UTXO</b> (Unspent Transaction Output). C\'est très différent du modèle « compte » d\'Ethereum.\n\n' +
+          '<b>💡 Principe :</b>\n' +
+          "Ton « solde » n'est pas un nombre dans une base de données. C'est la <b>somme de toutes tes pièces non dépensées</b> (UTXOs).\n\n" +
+          '<b>🔑 Comment ça marche :</b>\n' +
+          '• Quand tu reçois 0.5 BTC, tu reçois une UTXO de 0.5 BTC.\n' +
+          "• Quand tu envoies 0.3 BTC, le wallet <b>consomme</b> l'UTXO de 0.5 et crée <b>deux sorties</b> : 0.3 BTC au destinataire + 0.2 BTC de <b>change</b> (retour à toi).\n" +
+          '• Les frais sont la différence : 0.5 - 0.3 - 0.2 = 0.0 BTC de frais (dans cet exemple idéal).\n\n' +
+          '<b>💸 Pourquoi je reçois du change ?</b>\n' +
+          "C'est le modèle UTXO : on ne peut pas « dépenser la moitié d'une pièce ». On consomme la pièce entière et on rend la différence en change. C'est normal !\n\n" +
+          '<b>⚡ Implications pratiques :</b>\n' +
+          '• <b>Plus tu as d\'UTXOs</b>, plus ta tx est volumineuse (coûteux en fees).\n' +
+          '• <b>Consolidation</b> : envoyer tes UTXOs à toi-même avec un fee bas pour n\'en faire qu\'une. Utile quand le réseau est calme.\n' +
+          '• <b>EVM</b> (ETH, BNB…) utilise un modèle « compte » : pas d\'UTXOs, pas de change, les fees sont déduits directement.\n\n' +
+          '🎓 Voir aussi : <code>/learn btc</code> — <code>/learn gas</code> — <code>/learn mempool</code>.',
+      },
     },
   },
 
@@ -602,6 +668,43 @@ export const fr = {
           "4. Si l'adresse imitait un exchange/service, préviens ce service.\n" +
           '5. Ta seed et tes clés ne sont <b>pas compromises</b> par cet envoi — pas besoin de migrer de wallet.\n\n' +
           '🎓 <code>/learn security</code> · <code>/learn seed</code>',
+      },
+      tx_stuck: {
+        title: '⏳ TX bloquée depuis longtemps',
+        body:
+          '⏳ <b>Ma transaction est bloquée depuis longtemps, que faire ?</b>\n\n' +
+           'Si ta tx Bitcoin est « pending » depuis plusieurs heures voire jours, c\'est que ton fee rate est trop bas par rapport à la congestion du réseau.\n\n' +
+          '<b>📋 Étapes à suivre :</b>\n' +
+           '1. <b>Vérifie le statut</b> : copie le TxID et colle-le sur <code>mempool.space</code>. Regarde le fee rate (sat/vB) et le nombre de tx en attente.\n' +
+           '2. <b>Cherche le flag RBF</b> : sur mempool.space, si ta tx a le symbole ⚡ « RBF activé », tu peux la <b>remplacer</b> avec un fee plus élevé.\n' +
+          '3. <b>Pas de RBF ?</b> Si tu as reçu du change (une adresse qui commence par <code>bc1</code> et qui t\'appartient), tu peux utiliser le <b>CPFP</b> : crée une tx qui dépense ce change avec un fee élevé — les mineurs incluront les deux tx ensemble.\n' +
+          '4. <b>Ni RBF ni CPFP ?</b> Il ne reste qu\'à <b>attendre</b> que le mempool se vide (souvent pendant les week-ends ou les périodes calmes) ou que la tx soit dropée (~14 jours).\n\n' +
+          '<b>🚀 Accélérateurs :</b>\n' +
+          '• <code>mempool.space/accelerate</code> — paie un mineur pour inclure ta tx prioritairement.\n' +
+           '• Certains services acceptent un paiement pour \'pousser\' ta tx.\n\n' +
+          '<b>🛡️ À l\'avenir :</b> utilise toujours le fee « Rapide » pour les envois urgents.\n\n' +
+          '🎓 <code>/learn mempool</code> · <code>/learn gas</code> · <code>/faq explorer</code>',
+      },
+      explorer: {
+        title: '🔍 Comment vérifier ma tx',
+        body:
+          '🔍 <b>Comment vérifier le statut d\'une transaction ?</b>\n\n' +
+          'Pour savoir si ta transaction est bien arrivée, utilise un <b>explorateur de blocs</b>.\n\n' +
+          '<b>🌐 Adresses utiles :</b>\n' +
+          '• <b>Bitcoin</b> : <code>mempool.space/fr/address/TON_ADRESSE</code> ou <code>blockstream.info</code>\n' +
+          '• <b>Ethereum / EVM</b> : <code>etherscan.io</code>, <code>arbiscan.io</code>, <code>polygonscan.com</code>\n' +
+          '• <b>Solana</b> : <code>solscan.io</code>\n' +
+          '• <b>Tron</b> : <code>tronscan.org</code>\n\n' +
+          '<b>📋 Comment faire :</b>\n' +
+          '1. <b>Copie le TxID</b> (reçu dans le bot après envoi) ou <b>l\'adresse</b> du destinataire.\n' +
+          "2. Va sur l'explorateur de la chaîne correspondante.\n" +
+          '3. Colle le TxID ou l\'adresse dans la barre de recherche.\n' +
+          '4. Regarde le statut :\n' +
+          '   • <b>Confirmed</b> ✅ = transaction finale, fonds arrivés.\n' +
+          '   • <b>Unconfirmed</b> ⏳ = en attente dans le mempool.\n' +
+          '   • <b>Confirmations</b> : 1 = inclus dans un bloc, 6+ = considéré sûr.\n\n' +
+          '💡 Dans ce bot, 🔍 <b>Analyser</b> affiche automatiquement le solde et l\'historique d\'une adresse.\n\n' +
+          '🎓 <code>/learn explorer</code> · <code>/learn mempool</code>',
       },
     },
   },

@@ -77,6 +77,27 @@ export class LightningService {
     return { balanceSat: Number(j.balanceSat || 0), feeCreditSat: Number(j.feeCreditSat || 0) };
   }
 
+  /**
+   * Pay a BOLT11 Lightning invoice from the node's balance.
+   * Returns { paymentId, amountSat, feesSat, preimage }.
+   */
+  async payInvoice({ invoice, amountSat = null }) {
+    if (!invoice) throw new Error('Invoice BOLT11 manquante');
+    const form = { invoice };
+    if (amountSat != null) {
+      const sat = Math.round(Number(amountSat));
+      if (!Number.isFinite(sat) || sat <= 0) throw new Error('Montant sats invalide');
+      form.amountSat = sat;
+    }
+    const j = await this._call('/payinvoice', { method: 'POST', form });
+    return {
+      paymentId: j.paymentId || null,
+      amountSat: Number(j.amountSat ?? amountSat ?? 0),
+      feesSat: Number(j.feesSat ?? 0),
+      preimage: j.preimage || null,
+    };
+  }
+
   /** On-chain payout from the node to `address` (treasury sweep). Returns the txid. */
   async sendToAddress({ address, amountSat, feerateSatByte = 1 }) {
     const sat = Math.round(Number(amountSat));

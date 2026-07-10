@@ -2,13 +2,15 @@ import {
   mainMenuKeyboard,
   amountTypeKeyboard,
   feeSelectionKeyboard,
+  lightningConfirmationKeyboard,
 } from '../../keyboards/index.js';
 import { detectChain } from '../../../shared/address-detector.js';
+import { isBolt11, decodeBolt11 } from '../../../shared/bolt11.js';
 import { convertToEUR, formatEUR } from '../../../shared/price.js';
 import { getTokenExplorerUrl } from '../../../shared/explorer.js';
 import { SUPPORTED_CHAINS, NETWORK_LABEL, CHAIN_EMOJIS, isEvmChain } from '../../../shared/chains.js';
 import { handleSendError } from './helpers.js';
-import { sendChunked } from '../../utils.js';
+import { sendChunked, escapeHtml } from '../../utils.js';
 
 // EVM addresses (0x…) are identical across all EVM networks, so an analyzed
 // 0x address is scanned on each of these and reported per-network. Derived from
@@ -40,6 +42,20 @@ async function buildChainSection(walletService, chain, address) {
   let text = `💰 <b>${balanceData.balance} ${nativeSymbol}</b>`;
   text += valueEUR > 0 ? ` — ${formatEUR(valueEUR)}\n` : '\n';
 
+  const pendingNum = Number.parseFloat(balanceData.pendingBalance) || 0;
+  if (pendingNum > 0) {
+    text += `⏳ <i>+${balanceData.pendingBalance} ${nativeSymbol} en attente (réception)</i>\n`;
+  } else if (pendingNum < 0) {
+    text += `⏳ <i>${balanceData.pendingBalance} ${nativeSymbol} en attente (envoi)</i>\n`;
+  }
+
+  if (pendingNum !== 0) {
+    const effective = balanceNum + pendingNum;
+    if (effective !== balanceNum) {
+      text += `💰 <i>Après confirmation: ${effective.toFixed(8)} ${nativeSymbol}</i>\n`;
+    }
+  }
+
   const tokens = await walletService.getPublicAddressTokens(chain, address);
   for (const token of tokens || []) {
     const sym = (token.symbol || '').toLowerCase();
@@ -62,15 +78,65 @@ async function buildChainSection(walletService, chain, address) {
   return { text, valueEUR };
 }
 
-export function setupSendTextInput(bot, storage, walletService, sessions) {
+export function setupSendTextInput(bot, storage, walletService, sessions, paymentService) {
   bot.on('text', async (ctx, next) => {
     const chatId = ctx.chat.id;
     const state = sessions.getState(chatId);
     const text = ctx.message.text.trim();
 
     if (state === 'ENTER_ADDRESS') {
-      const detected = detectChain(text);
       const data = sessions.getData(chatId);
+
+      // Lightning invoice detection for BTC chains
+      if (data.selectedChain === 'btc' && isBolt11(text)) {
+        if (!paymentService?.lightningEnabled()) {
+          return ctx.reply(
+            '⚠️ <b>Lightning non configuré</b>\n\nLe backend Lightning n\'est pas actif sur ce bot. Envoie une adresse BTC on-chain.',
+            { parse_mode: 'HTML' }
+          );
+        }
+
+        const decoded = decodeBolt11(text);
+        if (!decoded) {
+          return ctx.reply(
+            '⚠️ <b>Facture Lightning invalide</b>\n\nImpossible de décoder cette facture BOLT11. Vérifie le format.',
+            { parse_mode: 'HTML' }
+          );
+        }
+
+        const amountSat = decoded.amountSat;
+        const amountBTC = amountSat != null ? (amountSat / 100_000_000) : null;
+        const conversion = amountBTC != null ? await convertToEUR('btc', amountBTC) : null;
+
+        sessions.setData(chatId, {
+          ...data,
+          toAddress: text,
+          lightningInvoice: text,
+          lightningAmountSat: amountSat,
+        });
+        sessions.setState(chatId, 'CONFIRM_LIGHTNING');
+
+        let amountLine = '';
+        if (amountBTC != null) {
+          amountLine = `💰 Montant: <b>${amountBTC} BTC</b>`;
+          if (conversion?.valueEUR > 0) amountLine += ` (${formatEUR(conversion.valueEUR)})`;
+        } else {
+          amountLine = '💰 Montant: <b>Défini par la facture</b>';
+        }
+
+        const msg =
+          '⚡ <b>Paiement Lightning</b>\n\n' +
+          `${amountLine}\n` +
+          `📄 Facture: <code>${escapeHtml(text.slice(0, 20))}…</code>\n\n` +
+          'Confirme le paiement ?';
+
+        return ctx.reply(msg, {
+          parse_mode: 'HTML',
+          ...lightningConfirmationKeyboard(),
+        });
+      }
+
+      const detected = detectChain(text);
 
       // Pour les tokens SPL personnalisés sur Solana, utiliser "sol" pour la validation
       // Ne jamais utiliser le nom/symbole du token comme chaîne

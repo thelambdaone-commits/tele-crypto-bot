@@ -313,7 +313,7 @@ export class ZcashChain extends BaseProvider {
             index: utxo.vout,
             witnessUtxo: {
               script: this._p2pkhOutput(keyPair.publicKey),
-              value: utxo.value,
+              value: BigInt(utxo.value),
             },
           });
         }
@@ -322,13 +322,13 @@ export class ZcashChain extends BaseProvider {
           bs58check.decode(toAddress).slice(2)
         );
         const toScript = bitcoin.payments.p2pkh({ hash: toHash160 }).output;
-        psbt.addOutput({ script: toScript, value: amountSats });
+        psbt.addOutput({ script: toScript, value: BigInt(amountSats) });
 
         const change = totalInput - amountSats - feeSats;
         if (change > 1000) {
           const changeHash160 = bitcoin.crypto.hash160(keyPair.publicKey);
           const changeScript = bitcoin.payments.p2pkh({ hash: changeHash160 }).output;
-          psbt.addOutput({ script: changeScript, value: change });
+          psbt.addOutput({ script: changeScript, value: BigInt(change) });
         }
 
         for (let i = 0; i < selectedUtxos.length; i++) {

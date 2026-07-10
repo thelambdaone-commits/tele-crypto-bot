@@ -14,9 +14,9 @@ export function walletListKeyboard(wallets, prefix = 'wallet_') {
   return Markup.inlineKeyboard(buttons);
 }
 
-export function walletActionsKeyboard(walletId) {
+export function walletActionsKeyboard(walletId, explorerUrl) {
   // 2-column grid: more compact on mobile than a single tall column.
-  return Markup.inlineKeyboard([
+  const rows = [
     [
       Markup.button.callback('📋 Copier', dynamicCallback.copyAddr(walletId)),
       Markup.button.callback('📷 QR', dynamicCallback.qrAddr(walletId)),
@@ -30,8 +30,12 @@ export function walletActionsKeyboard(walletId) {
       Markup.button.callback('🗑 Supprimer', `delete_wallet_${walletId}`),
     ],
     [Markup.button.callback('🔄 Échanger', `exch_w_${walletId}`)],
-    [Markup.button.callback('↩️ Retour', CALLBACKS.VIEW_KEYS)],
-  ]);
+  ];
+  if (explorerUrl) {
+    rows.push([Markup.button.url('🔗 Voir sur la blockchain', explorerUrl)]);
+  }
+  rows.push([Markup.button.callback('↩️ Retour', CALLBACKS.VIEW_KEYS)]);
+  return Markup.inlineKeyboard(rows);
 }
 
 export function deleteConfirmKeyboard(walletId) {

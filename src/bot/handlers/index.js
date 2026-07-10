@@ -110,7 +110,7 @@ export async function setupHandlers(bot, storage) {
   setupWalletHandlers(bot, storage, walletService, sessions);
   setupKeysHandlers(bot, storage, walletService);
   setupDepositHandlers(bot, storage);
-  setupSendHandlers(bot, storage, walletService, sessions);
+  setupSendHandlers(bot, storage, walletService, sessions, paymentService);
   setupExchangeHandlers(bot, storage, walletService, sessions);
   setupPaymentHandlers(bot, storage, walletService, sessions, paymentService);
   setupAdminHandlers(bot, storage, sessions, walletService);

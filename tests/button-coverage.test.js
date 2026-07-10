@@ -103,7 +103,7 @@ function registerAll() {
   setupWalletHandlers(bot, s, s, s);
   setupKeysHandlers(bot, s, s);
   setupDepositHandlers(bot, s);
-  setupSendHandlers(bot, s, s, s);
+  setupSendHandlers(bot, s, s, s, s);
   setupExchangeHandlers(bot, s, s, s);
   setupPaymentHandlers(bot, s, s, s, s);
   setupAdminHandlers(bot, s, s, s);
@@ -151,7 +151,7 @@ function replyTexts(markup) {
 
 // Representative args so dynamic callbacks resolve to concrete data we can match
 // against the regex handlers (e.g. walletActionsKeyboard('eth-1') → copy_addr_eth-1).
-const WALLET = { chain: 'eth', id: 'eth-1', label: 'Test' };
+const WALLET = { chain: 'eth', id: 'eth-1779271650309-test0001', label: 'Test' };
 const ADDR = '0x0000000000000000000000000000000000000000';
 
 function allInlineKeyboards() {

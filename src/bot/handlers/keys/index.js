@@ -13,6 +13,7 @@ import { generateAddressQR } from '../../../shared/qr.js';
 import { CHAIN_EMOJIS, truncateAddress } from '../../ui/formatters.js';
 import { Markup } from 'telegraf';
 import { CALLBACKS, CALLBACK_REGEX, dynamicCallback } from '../../constants/callbacks.js';
+import { convertToEUR, formatEUR } from '../../../shared/price.js';
 
 export function setupKeysHandlers(bot, storage, walletService) {
   // View keys menu
@@ -285,26 +286,40 @@ export function setupKeysHandlers(bot, storage, walletService) {
         // Direction emoji and label
         const directionEmoji = tx.type === 'in' ? '⬇️' : tx.type === 'out' ? '⬆️' : '🔄';
         const directionLabel = tx.type === 'in' ? 'Entrant' : tx.type === 'out' ? 'Sortant' : 'TX';
+        const statusEmoji = tx.confirmed === false ? ' ⏳' : '';
 
         // Format amount
-        const amountDisplay =
+        let amountDisplay =
           tx.amount && tx.amount !== '—' && tx.amount !== '0' ? `${tx.amount} ${chainSymbol}` : '';
+        if (amountDisplay && tx.amount && tx.amount !== '—' && tx.amount !== '0') {
+          try {
+            const conversion = await convertToEUR(wallet.chain, Number.parseFloat(tx.amount));
+            if (conversion.valueEUR > 0) {
+              amountDisplay += ` (${formatEUR(conversion.valueEUR)})`;
+            }
+          } catch (e) {
+            // Ignore error
+          }
+        }
 
         // Format date
         const date = new Date(tx.timestamp);
         const dateStr = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-        const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        const timeStr = tx.confirmed === false
+          ? 'En attente'
+          : date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
         // Short hash
         const shortHash = truncateAddress(tx.hash, 10, 8);
 
         // One line per info - clean format
-        text += `${directionEmoji} <b>${directionLabel}</b> · ${escapeHtml(amountDisplay)}\n`;
+        text += `${directionEmoji} <b>${directionLabel}</b>${statusEmoji} · ${escapeHtml(amountDisplay)}\n`;
         text += `🕑 ${dateStr} ${timeStr}\n`;
         text += `🔗 <code>${shortHash}</code>\n\n`;
       }
 
-      text += `<i>${txHistory.length} transaction(s)</i>`;
+      const txCount = txHistory.length;
+      text += `<i>${txCount} transaction${txCount > 1 ? 's' : ''}</i>`;
 
       await ctx.editMessageText(text, {
         parse_mode: 'HTML',

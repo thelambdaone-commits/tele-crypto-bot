@@ -47,16 +47,20 @@ export class BitcoinChain extends BaseProvider {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
-        let balanceSats;
+        let confirmed, pending;
         if (isBlockchain) {
-          balanceSats = data.final_balance;
+          confirmed = data.final_balance;
+          pending = 0;
         } else {
-          balanceSats = data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum;
+          confirmed = data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum;
+          pending = (data.mempool_stats?.funded_txo_sum ?? 0) - (data.mempool_stats?.spent_txo_sum ?? 0);
         }
 
         return {
-          balance: (balanceSats / 100000000).toString(),
-          balanceSats: balanceSats.toString(),
+          balance: (confirmed / 100000000).toString(),
+          balanceSats: confirmed.toString(),
+          pendingBalance: (pending / 100000000).toString(),
+          pendingBalanceSats: pending.toString(),
           symbol: this.symbol,
         };
       } finally {
@@ -93,9 +97,13 @@ export class BitcoinChain extends BaseProvider {
 
     this.feeRpc = new RpcManager(this.apis, async (endpoint) => {
       const isBlockchain = endpoint.includes('blockchain.info');
+      const isMempool = endpoint.includes('mempool.space');
+
       const url = isBlockchain
         ? `${endpoint}/blocks?format=json`
-        : `${endpoint}/fee-estimates`;
+        : isMempool
+          ? `${endpoint}/api/v1/fees/precise`
+          : `${endpoint}/fee-estimates`;
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
@@ -103,7 +111,15 @@ export class BitcoinChain extends BaseProvider {
       try {
         const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return await response.json();
+        const data = await response.json();
+
+        if (data.fastestFee != null) {
+          return { slow: data.economyFee ?? 1, average: data.hourFee ?? 1, fast: data.halfHourFee ?? 2 };
+        }
+        if (data['144'] != null) {
+          return { slow: data['144'] ?? 1, average: data['6'] ?? data['3'] ?? 5, fast: data['1'] ?? data['2'] ?? 10 };
+        }
+        return data;
       } finally {
         clearTimeout(timeout);
       }
@@ -199,15 +215,16 @@ export class BitcoinChain extends BaseProvider {
   }
 
   async estimateFees(fromAddress, _toAddress, _amount) {
+    const FLOOR_SAT_VB = 1;
     const feeEstimates = await this.getFeeEstimates();
 
     let fees;
     if (feeEstimates) {
       const isBlockchain = (feeEstimates.blocks != null);
       fees = {
-        slow: feeEstimates['144'] || (isBlockchain ? 2 : 1),
-        average: feeEstimates['6'] || feeEstimates['3'] || (isBlockchain ? 5 : 5),
-        fast: feeEstimates['1'] || feeEstimates['2'] || (isBlockchain ? 10 : 10),
+        slow: Math.max(Number(feeEstimates.slow) || (isBlockchain ? 2 : 1), FLOOR_SAT_VB),
+        average: Math.max(Number(feeEstimates.average) || (isBlockchain ? 5 : 5), FLOOR_SAT_VB),
+        fast: Math.max(Number(feeEstimates.fast) || (isBlockchain ? 10 : 10), FLOOR_SAT_VB),
       };
     } else {
       fees = { slow: 2, average: 10, fast: 20 };
@@ -313,21 +330,21 @@ export class BitcoinChain extends BaseProvider {
         witnessUtxo: {
           script: bitcoin.payments.p2wpkh({ pubkey: keyPair.publicKey, network: this.network })
             .output,
-          value: utxo.value,
+          value: BigInt(utxo.value),
         },
       });
     }
 
     psbt.addOutput({
       address: toAddress,
-      value: amountSats,
+      value: BigInt(amountSats),
     });
 
     const change = totalInput - amountSats - feeSats;
     if (change > 546) {
       psbt.addOutput({
         address: fromAddress,
-        value: change,
+        value: BigInt(change),
       });
     }
 
@@ -382,6 +399,7 @@ export class BitcoinChain extends BaseProvider {
           hash: tx.txid,
           type: isOut ? 'out' : 'in',
           amount: (amount / 1e8).toFixed(8),
+          confirmed: tx.status?.confirmed ?? false,
           timestamp: (tx.status?.block_time || Date.now() / 1000) * 1000,
         };
       });

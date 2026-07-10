@@ -9,6 +9,7 @@ import {
   addressAnalyzedKeyboard,
   cancelKeyboard,
   amountTypeKeyboard,
+  paymentMethodKeyboard,
 } from '../../keyboards/index.js';
 import { safeAnswerCbQuery, safeEditMessage, escapeHtml, sendChunked } from '../../utils.js';
 import { auditLogger, AUDIT_ACTIONS } from '../../../shared/security/audit-logger.js';
@@ -19,7 +20,7 @@ import { formatTxDetails, handleSendError } from './helpers.js';
 import { CALLBACKS, CALLBACK_REGEX } from '../../constants/callbacks.js';
 import { getTransactionExplorerUrl } from '../../../shared/explorer.js';
 
-export function setupSendActions(bot, storage, walletService, sessions) {
+export function setupSendActions(bot, storage, walletService, sessions, paymentService) {
   // Send funds menu - Step 1: Select source wallet
   bot.action(CALLBACKS.SEND_FUNDS, async (ctx) => {
     const chatId = ctx.chat.id;
@@ -58,9 +59,14 @@ export function setupSendActions(bot, storage, walletService, sessions) {
 
     sessions.setData(chatId, { selectedWalletId: walletId, selectedChain: wallet.chain });
 
-    // Any chain that has tokens (USDC/USDT/…) offers a token choice; native-only
-    // chains (BTC, LTC, XMR, …) go straight to the address step.
-    if (chainHasTokens(wallet.chain)) {
+    // BTC chains with Lightning configured offer a payment method choice;
+    // other native-only chains go straight to address.
+    if (wallet.chain === 'btc' && paymentService?.lightningEnabled()) {
+      ctx.editMessageText(
+        `🚀 <b>Envoi depuis ${escapeHtml(wallet.label)}</b>\n\nComment souhaites-tu envoyer ?`,
+        { parse_mode: 'HTML', ...paymentMethodKeyboard() }
+      );
+    } else if (chainHasTokens(wallet.chain)) {
       ctx.editMessageText(`🚀 <b>Envoi depuis ${escapeHtml(wallet.label)}</b>\n\nSélectionne le token à envoyer :`, {
         parse_mode: 'HTML',
         ...tokenSelectionKeyboard(wallet.chain),
@@ -76,6 +82,28 @@ export function setupSendActions(bot, storage, walletService, sessions) {
         }
       );
     }
+  });
+
+  // On-chain send: go to address entry
+  bot.action(CALLBACKS.SEND_ONCHAIN, async (ctx) => {
+    const chatId = ctx.chat.id;
+    await safeAnswerCbQuery(ctx);
+    sessions.setState(chatId, 'ENTER_ADDRESS');
+    ctx.editMessageText(
+      '🚀 <b>Envoi on-chain</b>\n\nColle l\'adresse du destinataire :',
+      { parse_mode: 'HTML', ...cancelKeyboard() }
+    );
+  });
+
+  // Lightning send: go to invoice entry
+  bot.action(CALLBACKS.SEND_LIGHTNING, async (ctx) => {
+    const chatId = ctx.chat.id;
+    await safeAnswerCbQuery(ctx);
+    sessions.setState(chatId, 'ENTER_ADDRESS');
+    ctx.editMessageText(
+      '⚡ <b>Envoi Lightning</b>\n\nColle la facture BOLT11 du destinataire :',
+      { parse_mode: 'HTML', ...cancelKeyboard() }
+    );
   });
 
   // Select wallet from analyzed address flow — same as SEND_FROM but the
@@ -476,6 +504,66 @@ export function setupSendActions(bot, storage, walletService, sessions) {
       if (pendingTxId) {
         await storage.removePendingTransaction(chatId, pendingTxId);
       }
+      await handleSendError(ctx, error, mainMenuKeyboard);
+    }
+  });
+
+  // Confirm Lightning payment
+  bot.action(CALLBACKS.CONFIRM_LIGHTNING, async (ctx) => {
+    const chatId = ctx.chat.id;
+    await safeAnswerCbQuery(ctx);
+
+    const data = sessions.getData(chatId);
+    if (!data?.lightningInvoice) {
+      return ctx.editMessageText('⚠️ Facture Lightning expirée. Réessaie.', mainMenuKeyboard());
+    }
+
+    if (!paymentService?.lightningEnabled()) {
+      return ctx.editMessageText(
+        '⚠️ <b>Lightning non configuré</b>\n\nLe backend Lightning n\'est pas actif.',
+        { parse_mode: 'HTML', ...mainMenuKeyboard() }
+      );
+    }
+
+    await ctx.editMessageText(`${EMOJIS.loading} <b>Paiement Lightning en cours...</b>`, {
+      parse_mode: 'HTML',
+    });
+
+    try {
+      const result = await paymentService.lightning.payInvoice({
+        invoice: data.lightningInvoice,
+        amountSat: data.lightningAmountSat || null,
+      });
+
+      const amountBTC = result.amountSat / 100_000_000;
+      const feesBTC = (result.feesSat || 0) / 100_000_000;
+      const conversion = await convertToEUR('btc', amountBTC);
+
+      auditLogger.log(AUDIT_ACTIONS.SEND_TX, chatId, {
+        chain: 'btc',
+        token: null,
+        amount: amountBTC,
+        toAddress: 'lightning',
+        txHash: result.paymentId,
+      });
+
+      let text =
+        `${EMOJIS.success} <b>⚡ Paiement Lightning envoyé</b>\n\n` +
+        `💰 Montant: <b>${amountBTC} BTC</b>`;
+      if (conversion?.valueEUR > 0) text += ` (${formatEUR(conversion.valueEUR)})`;
+      text += '\n';
+      if (feesBTC > 0) text += `💸 Frais: ${feesBTC} BTC\n`;
+      if (result.preimage) text += `🔑 Preimage: <code>${escapeHtml(result.preimage)}</code>\n`;
+
+      await ctx.editMessageText(text, {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        ...mainMenuKeyboard(),
+      });
+
+      sessions.clearData(chatId);
+      sessions.setState(chatId, 'IDLE');
+    } catch (error) {
       await handleSendError(ctx, error, mainMenuKeyboard);
     }
   });

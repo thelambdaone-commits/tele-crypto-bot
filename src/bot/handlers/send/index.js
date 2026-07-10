@@ -7,7 +7,7 @@ import { CALLBACKS, CALLBACK_REGEX } from '../../constants/callbacks.js';
 /**
  * Setup all send-related handlers
  */
-export function setupSendHandlers(bot, storage, walletService, sessions) {
+export function setupSendHandlers(bot, storage, walletService, sessions, paymentService) {
   // Analyze address menu
   bot.action(CALLBACKS.ANALYZE_ADDRESS, async (ctx) => {
     const chatId = ctx.chat.id;
@@ -54,6 +54,6 @@ export function setupSendHandlers(bot, storage, walletService, sessions) {
   });
 
   // Initialize sub-modules
-  setupSendActions(bot, storage, walletService, sessions);
-  setupSendTextInput(bot, storage, walletService, sessions);
+  setupSendActions(bot, storage, walletService, sessions, paymentService);
+  setupSendTextInput(bot, storage, walletService, sessions, paymentService);
 }

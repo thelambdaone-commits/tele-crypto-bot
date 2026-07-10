@@ -31,6 +31,21 @@ export function confirmationKeyboard() {
   ]);
 }
 
+export function lightningConfirmationKeyboard() {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('⚡ Payer via Lightning', CALLBACKS.CONFIRM_LIGHTNING)],
+    [Markup.button.callback('❌ Annuler', CALLBACKS.CANCEL)],
+  ]);
+}
+
+export function paymentMethodKeyboard() {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback('🔗 On-chain (Bitcoin)', CALLBACKS.SEND_ONCHAIN)],
+    [Markup.button.callback('⚡ Lightning Network', CALLBACKS.SEND_LIGHTNING)],
+    [Markup.button.callback('❌ Annuler', CALLBACKS.CANCEL)],
+  ]);
+}
+
 // Generic token picker driven by the single token registry: the native coin
 // plus every token defined for the chain. Works for all chains automatically.
 export function tokenSelectionKeyboard(chain) {

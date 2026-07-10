@@ -1,13 +1,13 @@
-import {
-  walletListKeyboard,
-  mainMenuKeyboard,
-  walletActionsKeyboard,
-} from '../../keyboards/index.js';
+import { mainMenuKeyboard, walletActionsKeyboard } from '../../keyboards/index.js';
 import { CALLBACKS } from '../../constants/callbacks.js';
-import { safeAnswerCbQuery, escapeHtml, sendChunked } from '../../utils.js';
+import { safeAnswerCbQuery, escapeHtml } from '../../utils.js';
 import { MESSAGES, EMOJIS, t } from '../../messages/index.js';
 import { convertToEUR, formatEUR } from '../../../shared/price.js';
 import { CHAIN_EMOJIS } from '../../ui/formatters.js';
+import { getAddressExplorerUrl } from '../../../shared/explorer.js';
+import { Markup } from 'telegraf';
+
+const WALLET_LIST_PAGE_SIZE = 10;
 
 export function setupWalletList(bot, storage, walletService) {
   // List wallets
@@ -27,31 +27,23 @@ export function setupWalletList(bot, storage, walletService) {
       );
     }
 
-    let text = `${EMOJIS.wallet} <b>Tes Portefeuilles</b>\n\n`;
-    wallets.forEach((w) => {
-      const emoji = CHAIN_EMOJIS[w.chain] || '🔸';
-      text += `${emoji} <b>${escapeHtml(w.label)}</b>\n`;
-      text += `<code>${w.address}</code>\n\n`;
-    });
+    renderWalletListPage(ctx, chatId, wallets, 0);
+  });
 
-    // Awaited + chunked: with many wallets the list exceeds Telegram's 4096-char
-    // limit, and a fire-and-forget send would surface as an unhandledRejection.
-    await sendChunked(
-      ctx,
-      text,
-      {
-        parse_mode: 'HTML',
-        ...walletListKeyboard(wallets),
-      },
-      { edit: true }
-    );
+  // Paginate wallet list
+  bot.action(/^wlp:([a-z]+):(\d+)$/, async (ctx) => {
+    const chatId = ctx.chat.id;
+    const page = Number(ctx.match[2]);
+    await safeAnswerCbQuery(ctx);
+
+    const wallets = await storage.getWallets(chatId);
+    renderWalletListPage(ctx, chatId, wallets, page);
   });
 
   // Click on specific wallet -> show details with balance
-  // WalletIds have format: chain-timestamp (e.g., sol-1737339000000)
   // Wallet ids are `<chain>-<timestamp>-<uuid8>` (storage), so match the chain
-  // prefix + anything — but NOT `wallet_history_…` (no '-' right after the word).
-  bot.action(/^wallet_([a-z]+-.+)$/, async (ctx) => {
+  // prefix + hyphen + digit (timestamp) to avoid matching wallet_history_… callbacks.
+  bot.action(/^wallet_([a-z]+-\d.+)$/, async (ctx) => {
     const walletId = ctx.match[1];
     const chatId = ctx.chat.id;
     await safeAnswerCbQuery(ctx);
@@ -74,25 +66,83 @@ export function setupWalletList(bot, storage, walletService) {
     // Fetch balance
     let balanceText = '<i>Erreur de récupération</i>';
     let balanceEUR = '';
+    let pendingText = '';
     try {
       const balance = await walletService.getBalance(chatId, walletId);
-      balanceText = `<b>${escapeHtml(balance.balance)} ${escapeHtml(balance.symbol || wallet.chain.toUpperCase())}</b>`;
+      const confirmed = Number.parseFloat(balance.balance) || 0;
+      const pending = Number.parseFloat(balance.pendingBalance) || 0;
+      const symbol = escapeHtml(balance.symbol || wallet.chain.toUpperCase());
 
-      // Get EUR value
-      const conversion = await convertToEUR(wallet.chain, Number.parseFloat(balance.balance));
+      balanceText = `<b>${escapeHtml(balance.balance)} ${symbol}</b>`;
+      const conversion = await convertToEUR(wallet.chain, confirmed);
       balanceEUR = ` (${formatEUR(conversion.valueEUR)})`;
+
+      if (pending > 0) {
+        const pendingConversion = await convertToEUR(wallet.chain, pending);
+        let eurText = '';
+        if (pendingConversion.valueEUR > 0) {
+          eurText = ` (${formatEUR(pendingConversion.valueEUR)})`;
+        }
+        pendingText = `\n⏳ Reçu: <b>+${escapeHtml(balance.pendingBalance)} ${symbol}</b>${eurText}`;
+      } else if (pending < 0) {
+        const pendingConversion = await convertToEUR(wallet.chain, Math.abs(pending));
+        let eurText = '';
+        if (pendingConversion.valueEUR > 0) {
+          eurText = ` (${formatEUR(pendingConversion.valueEUR)})`;
+        }
+        pendingText = `\n⏳ Envoyé: <b>${escapeHtml(Number(pending).toFixed(8))} ${symbol}</b>${eurText}`;
+      }
+
+      if (pending !== 0) {
+        const effective = confirmed + pending;
+        const effConversion = await convertToEUR(wallet.chain, effective);
+        pendingText += `\n💰 Après confirmation: <b>${escapeHtml(effective.toFixed(8))} ${symbol}</b>`;
+        if (effConversion.valueEUR > 0) {
+          pendingText += ` (${formatEUR(effConversion.valueEUR)})`;
+        }
+      }
     } catch (e) {}
 
     ctx.editMessageText(
       `${chainEmoji} <b>${escapeHtml(wallet.label)}</b>\n\n` +
         `⛓ Réseau: ${wallet.chain.toUpperCase()}\n` +
         `📬 Adresse:\n<code>${wallet.address}</code>\n` +
-        `💰 Solde: ${balanceText}${balanceEUR}\n\n` +
+        `💰 Solde: ${balanceText}${balanceEUR}${pendingText}\n\n` +
         'Que veux-tu faire ?',
       {
         parse_mode: 'HTML',
-        ...walletActionsKeyboard(walletId),
+        ...walletActionsKeyboard(walletId, getAddressExplorerUrl(wallet.chain, wallet.address)),
       }
     ).catch(() => {});
   });
+}
+
+function renderWalletListPage(ctx, chatId, wallets, page) {
+  const totalPages = Math.ceil(wallets.length / WALLET_LIST_PAGE_SIZE);
+  const start = page * WALLET_LIST_PAGE_SIZE;
+  const pageWallets = wallets.slice(start, start + WALLET_LIST_PAGE_SIZE);
+
+  let text = `${EMOJIS.wallet} <b>Tes Portefeuilles</b>\n\n`;
+  for (const w of pageWallets) {
+    const emoji = CHAIN_EMOJIS[w.chain] || '🔸';
+    text += `${emoji} <b>${escapeHtml(w.label)}</b>\n`;
+    text += `<code>${w.address}</code>\n\n`;
+  }
+  if (totalPages > 1) text += `\n📄 Page ${page + 1}/${totalPages}`;
+
+  const buttons = pageWallets.map((w) => {
+    const emoji = CHAIN_EMOJIS[w.chain] || '●';
+    return [Markup.button.callback(`${emoji} ${w.label}`, `wallet_${w.id}`)];
+  });
+
+  const navRow = [];
+  if (page > 0) navRow.push(Markup.button.callback('⬅️', `wlp:fr:${page - 1}`));
+  if (page < totalPages - 1) navRow.push(Markup.button.callback('➡️', `wlp:fr:${page + 1}`));
+  if (navRow.length > 0) buttons.push(navRow);
+  buttons.push([Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)]);
+
+  ctx.editMessageText(text, {
+    parse_mode: 'HTML',
+    ...Markup.inlineKeyboard(buttons),
+  }).catch(() => {});
 }

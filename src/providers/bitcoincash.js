@@ -51,11 +51,14 @@ export class BitcoinCashChain extends BaseProvider {
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
           const data = await response.json();
-          const balanceSats = data.confirmed ?? data.balance ?? 0;
+          const confirmed = data.confirmed ?? 0;
+          const pending = data.unconfirmed ?? 0;
 
           return {
-            balance: (balanceSats / 100000000).toString(),
-            balanceSats: balanceSats.toString(),
+            balance: (confirmed / 100000000).toString(),
+            balanceSats: confirmed.toString(),
+            pendingBalance: (pending / 100000000).toString(),
+            pendingBalanceSats: pending.toString(),
             symbol: this.symbol,
           };
         } finally {
