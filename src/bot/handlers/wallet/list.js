@@ -118,27 +118,28 @@ export function setupWalletList(bot, storage, walletService) {
 }
 
 function renderWalletListPage(ctx, chatId, wallets, page) {
-  const totalPages = Math.ceil(wallets.length / WALLET_LIST_PAGE_SIZE);
-  const start = page * WALLET_LIST_PAGE_SIZE;
-  const pageWallets = wallets.slice(start, start + WALLET_LIST_PAGE_SIZE);
+  const needsPagination = wallets.length >= 100;
+  const totalPages = needsPagination ? Math.ceil(wallets.length / WALLET_LIST_PAGE_SIZE) : 1;
+  const safePage = Math.min(page, totalPages - 1);
+  const start = safePage * WALLET_LIST_PAGE_SIZE;
+  const pageWallets = needsPagination
+    ? wallets.slice(start, start + WALLET_LIST_PAGE_SIZE)
+    : wallets;
 
-  let text = `${EMOJIS.wallet} <b>Tes Portefeuilles</b>\n\n`;
-  for (const w of pageWallets) {
-    const emoji = CHAIN_EMOJIS[w.chain] || '🔸';
-    text += `${emoji} <b>${escapeHtml(w.label)}</b>\n`;
-    text += `<code>${w.address}</code>\n\n`;
-  }
-  if (totalPages > 1) text += `\n📄 Page ${page + 1}/${totalPages}`;
+  let text = `${EMOJIS.wallet} <b>Tes Portefeuilles</b>`;
 
   const buttons = pageWallets.map((w) => {
     const emoji = CHAIN_EMOJIS[w.chain] || '●';
     return [Markup.button.callback(`${emoji} ${w.label}`, `wallet_${w.id}`)];
   });
 
-  const navRow = [];
-  if (page > 0) navRow.push(Markup.button.callback('⬅️', `wlp:fr:${page - 1}`));
-  if (page < totalPages - 1) navRow.push(Markup.button.callback('➡️', `wlp:fr:${page + 1}`));
-  if (navRow.length > 0) buttons.push(navRow);
+  if (needsPagination && totalPages > 1) {
+    const navRow = [];
+    if (safePage > 0) navRow.push(Markup.button.callback('◀️', `wlp:fr:${safePage - 1}`));
+    navRow.push(Markup.button.callback(`${safePage + 1}/${totalPages}`, 'noop'));
+    if (safePage < totalPages - 1) navRow.push(Markup.button.callback('▶️', `wlp:fr:${safePage + 1}`));
+    buttons.push(navRow);
+  }
   buttons.push([Markup.button.callback('🎮 Menu', CALLBACKS.BACK_TO_MENU)]);
 
   ctx.editMessageText(text, {
