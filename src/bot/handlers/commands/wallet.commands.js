@@ -70,16 +70,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
 
     for (const wallet of wallets) {
       const chainEmoji = CHAIN_EMOJIS[wallet.chain] || '💎';
-      try {
-        const balance = await walletService.getBalance(chatId, wallet.id);
-        text += `${chainEmoji} <b>${escapeHtml(wallet.label)}</b> (${wallet.chain.toUpperCase()})\n`;
-        text += `📬 <code>${wallet.address}</code>\n`;
-        text += `💰 Solde: <b>${escapeHtml(formatCryptoAmount(balance.balance, balance.symbol || wallet.chain))}</b>\n\n`;
-      } catch (e) {
-        text += `${chainEmoji} <b>${escapeHtml(wallet.label)}</b> (${wallet.chain.toUpperCase()})\n`;
-        text += `📬 <code>${wallet.address}</code>\n`;
-        text += '💰 Solde: <i>Erreur de récupération</i>\n\n';
-      }
+      text += `${chainEmoji} <b>${escapeHtml(wallet.label)}</b>\n`;
     }
 
     await sendChunked(ctx, text, {

@@ -23,6 +23,23 @@ import { Markup } from 'telegraf';
 export function setupNavigationHandlers(bot, storage, walletService, sessions) {
   const langOf = (ctx) => ctx.state?.lang || 'fr';
 
+  // No-op callback (page indicator button — just dismiss the spinner)
+  bot.action(CALLBACKS.NOOP, (ctx) => ctx.answerCbQuery().catch(() => {}));
+
+  // Wallet list pagination: wpage_<prefix><page>  (e.g. wpage_wallet_2)
+  bot.action(CALLBACK_REGEX.WALLET_PAGE, async (ctx) => {
+    const prefix = ctx.match[1];
+    const page = Number.parseInt(ctx.match[2], 10);
+    const chatId = ctx.chat.id;
+    await ctx.answerCbQuery().catch(() => {});
+
+    const wallets = await storage.getWallets(chatId);
+    await safeEditMessage(ctx, ctx.message?.text || '💰 <b>Tes Wallets</b>', {
+      parse_mode: 'HTML',
+      ...walletListKeyboard(wallets, prefix, page),
+    });
+  });
+
   // Action: back_to_menu
   bot.action(CALLBACKS.BACK_TO_MENU, async (ctx) => {
     const lang = langOf(ctx);

@@ -2,14 +2,33 @@ import { Markup } from 'telegraf';
 import { CALLBACKS, dynamicCallback } from '../constants/callbacks.js';
 import { CHAIN_EMOJIS } from '../ui/formatters.js';
 
-export function walletListKeyboard(wallets, prefix = 'wallet_') {
+const WALLET_PAGE_SIZE = 8;
+
+export function walletListKeyboard(wallets, prefix = 'wallet_', page = 0) {
   const chainEmojis = CHAIN_EMOJIS;
-  const buttons = wallets.map((w) => [
+  const totalPages = Math.ceil(wallets.length / WALLET_PAGE_SIZE);
+  const safePage = Math.min(Math.max(0, page), totalPages - 1);
+  const slice = wallets.slice(safePage * WALLET_PAGE_SIZE, (safePage + 1) * WALLET_PAGE_SIZE);
+
+  const buttons = slice.map((w) => [
     Markup.button.callback(
-      `${chainEmojis[w.chain] || '●'} ${w.chain.toUpperCase()} - ${w.label}`,
+      `${chainEmojis[w.chain] || '●'} ${w.label}`,
       `${prefix}${w.id}`
     ),
   ]);
+
+  if (totalPages > 1) {
+    const navRow = [];
+    if (safePage > 0) {
+      navRow.push(Markup.button.callback('◀️', `wpage_${prefix}${safePage - 1}`));
+    }
+    navRow.push(Markup.button.callback(`${safePage + 1}/${totalPages}`, 'noop'));
+    if (safePage < totalPages - 1) {
+      navRow.push(Markup.button.callback('▶️', `wpage_${prefix}${safePage + 1}`));
+    }
+    buttons.push(navRow);
+  }
+
   buttons.push([Markup.button.callback('↩️ Retour', CALLBACKS.BACK_TO_MENU)]);
   return Markup.inlineKeyboard(buttons);
 }

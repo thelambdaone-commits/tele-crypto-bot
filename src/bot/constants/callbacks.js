@@ -13,6 +13,7 @@ export const CALLBACKS = {
   LANGUAGE_MENU: 'language_menu',
   INVOICE_START: 'invoice_start',
   INVOICE_LN: 'pinv_ln',
+  NOOP: 'noop',
 
   // Learn (les leçons individuelles utilisent le préfixe dynamique learn_l_<key>)
   LEARN_MENU: 'learn_menu',
@@ -160,4 +161,7 @@ export const CALLBACK_REGEX = {
   INVOICE_VIEW: /^inv_view_(.+)$/,
   INVOICE_CANCEL: /^inv_cancel_(.+)$/,
   TREASURY_WALLET: /^treasury_w_(.+)$/,
+
+  // Wallet list pagination
+  WALLET_PAGE: /^wpage_(.+)_(\d+)$/,
 };
