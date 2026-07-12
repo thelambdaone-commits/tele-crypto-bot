@@ -195,7 +195,7 @@ export function setupNavigationHandlers(bot, storage, walletService, sessions) {
         chains: walletsWithKeys.map((w) => w.chain),
       });
 
-      await safeEditMessage(ctx, t(lang, 'exportKeys.success'), mainMenuKeyboard(lang));
+      await safeEditMessage(ctx, t(lang, 'exportKeys.success'), { parse_mode: 'HTML', ...mainMenuKeyboard(lang) });
     } catch (error) {
       logger.logError(error, { context: 'export_all_keys', chatId });
       await safeEditMessage(ctx, `❌ Erreur lors de l'export : ${error.message}`, mainMenuKeyboard(lang));
