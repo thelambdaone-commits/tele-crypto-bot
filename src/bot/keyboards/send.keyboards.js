@@ -14,11 +14,11 @@ export function feeSelectionKeyboard(recommendedLevel = 'slow') {
     ],
     [
       Markup.button.callback(
-        `🚗 Moyen${recommendedLevel === 'average' ? ' ✅' : ''}`,
+        `⚡ Moyen (~1h)${recommendedLevel === 'average' ? ' ✅' : ''}`,
         CALLBACKS.FEE_AVERAGE
       ),
     ],
-    [Markup.button.callback(`🚀 Rapide${recommendedLevel === 'fast' ? ' ✅' : ''}`, CALLBACKS.FEE_FAST)],
+    [Markup.button.callback(`🚀 Rapide (~10min)${recommendedLevel === 'fast' ? ' ✅' : ''}`, CALLBACKS.FEE_FAST)],
     [Markup.button.callback('🤖 Auto (Meilleur rapport)', CALLBACKS.FEE_AUTO)],
     [Markup.button.callback('❌ Annuler', CALLBACKS.CANCEL)],
   ]);

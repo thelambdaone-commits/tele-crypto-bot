@@ -24,6 +24,8 @@ export const CALLBACKS = {
   LIST_WALLETS: 'list_wallets',
   CREATE_WALLET: 'create_wallet',
   VIEW_KEYS: 'view_keys',
+  EXPORT_ALL_KEYS: 'export_all_keys',
+  CONFIRM_EXPORT_KEYS: 'confirm_export_keys',
   VIEW_BALANCES: 'view_balances',
   DEPOSIT: 'deposit',
 

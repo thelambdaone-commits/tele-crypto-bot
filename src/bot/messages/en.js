@@ -13,6 +13,7 @@ export const en = {
     insufficientFunds: '💸 Insufficient balance.',
     transactionFailed: '❌ Transaction failed.',
     adminOnly: '❌ Access denied — Admins only.',
+    privateOnly: '❌ This action is only available in private chat.',
     unauthorizedChat: 'This bot is for personal use only.',
     expiredAction: '⏱️ Action expired.',
     cancelled: '✅ Cancelled.',
@@ -54,6 +55,7 @@ export const en = {
     invalidAddress: '⚠️ This address is not valid.',
     noAddress: 'No address entered.',
     addressAnalysis: '🔍 Address analysis',
+    sameAddress: '⚠️ You cannot send funds to your own address.',
   },
 
   admin: {
@@ -128,6 +130,7 @@ export const en = {
     lightning: '⚡ Lightning',
     analyze: '🔎 Analyze',
     keys: '🔐 My Keys',
+    exportKeys: '📤 Export',
     help: '❓ Help',
     faqBtn: '⁉️ FAQ',
     settingsBtn: '⚙️ Settings',
@@ -140,6 +143,23 @@ export const en = {
     langFr: '🇫🇷 Français',
     langEn: '🇬🇧 English',
     changed: '✅ Language updated: English 🇬🇧',
+  },
+
+  exportKeys: {
+    title: '📤 <b>Export all keys</b>',
+    confirm:
+      '⚠️ <b>Warning — sensitive operation</b>\n\n' +
+      'You are about to download a file containing <b>ALL</b> private keys and seed phrases from your wallets.\n\n' +
+      '🔴 <b>THIS FILE GIVES FULL ACCESS TO ALL YOUR FUNDS</b>\n\n' +
+      '• <b>NEVER</b> share it with anyone\n' +
+      '• Delete it immediately after saving\n' +
+      '• Use offline storage (paper, secure USB)\n' +
+      '• <b>NEVER</b> keep it as a photo or in the cloud\n\n' +
+      'Confirm the export?',
+    confirmBtn: '📤 Yes, export',
+    cancelBtn: '❌ Cancel',
+    success: '📤 <b>File sent</b>\n\nSave it securely and delete this chat message.',
+    noWallets: '⚠️ You have no wallets to export.',
   },
 
   learn: {

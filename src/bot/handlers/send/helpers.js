@@ -3,15 +3,23 @@ import { EMOJIS } from '../../messages/index.js';
 import { truncateAddress } from '../../ui/formatters.js';
 import { logger } from '../../../shared/logger.js';
 import { ERROR_CODES } from '../../../shared/errors.js';
+import { isEvmChain } from '../../../shared/chains.js';
 
 /**
  * Format transaction details for confirmation
  */
 export async function formatTxDetails(data, feeLevel) {
+  const FEE_EMOJI = { slow: '🐢', average: '⚡', fast: '🚀' };
+  const FEE_NAME = { slow: 'Lent', average: 'Moyen', fast: 'Rapide' };
+
   const fee = data.fees[feeLevel];
   const feeAmount = fee.estimatedFee || fee.feeSOL || '0';
   const tokenSymbol = data.selectedToken;
   const displaySymbol = tokenSymbol || data.selectedChain.toUpperCase();
+  const emoji = FEE_EMOJI[feeLevel] || '⛽';
+  const name = FEE_NAME[feeLevel] || feeLevel;
+  const blocks = fee?.[feeLevel]?.confirmationBlocks;
+  const feeLabel = blocks ? `${emoji} ${name} (${blocks})` : `${emoji} ${name}`;
 
   // Determine native symbol for fees
   const CHAIN_NATIVE_SYMBOLS = {
@@ -58,13 +66,14 @@ export async function formatTxDetails(data, feeLevel) {
     "🏁 <b>Détails de l'envoi</b>\n\n" +
     `📮 Vers : <code>${truncateAddress(data.toAddress)}</code>\n\n` +
     `${EMOJIS.money} Montant: <b>${data.amount.toFixed(6)} ${displaySymbol}</b> (${formatEUR(amountEUR.valueEUR)})\n` +
+    `${feeLabel}\n` +
     `⛽ Frais: <b>${Number(feeAmount).toFixed(8)} ${nativeSymbol}</b> (${formatEUR(feeEUR.valueEUR)})\n` +
     `💎 Total: ${totalDisplay}`;
 
-  if (tokenSymbol && data.selectedChain === 'arb') {
+  if (tokenSymbol && isEvmChain(data.selectedChain)) {
     return (
       details +
-      "\n\n⚠️ <b>Attention:</b> Les frais sont payes en ETH native sur Arbitrum.\n\n💡 <i>Verifie bien l'adresse avant de confirmer.</i>"
+      `\n\n⚠️ <b>Attention:</b> Les frais sont payés en ${nativeSymbol} natif.\n\n💡 <i>Verifie bien l'adresse avant de confirmer.</i>`
     );
   }
 
@@ -82,6 +91,9 @@ export async function handleSendError(ctx, error, mainMenuKeyboard) {
     case ERROR_CODES.INSUFFICIENT_FUNDS:
       message = '❌ Solde insuffisant pour couvrir le montant et les frais.';
       break;
+    case ERROR_CODES.INSUFFICIENT_GAS:
+      message = '⛽ ' + (error.message || 'Tu n\'as pas assez de crypto pour les frais de gaz. Envoie du natif (ETH, SOL, etc.) sur ce wallet.');
+      break;
     case ERROR_CODES.RPC_ERROR:
       message = '❌ Erreur de connexion au réseau. Réessaie.';
       break;
@@ -93,6 +105,9 @@ export async function handleSendError(ctx, error, mainMenuKeyboard) {
       break;
     case ERROR_CODES.INVALID_ADDRESS:
       message = '❌ Adresse de destination invalide.';
+      break;
+    case ERROR_CODES.SAME_ADDRESS:
+      message = '❌ Tu ne peux pas envoyer de fonds à ta propre adresse.';
       break;
     default:
       message = `❌ Erreur: ${error.message}`;

@@ -16,6 +16,9 @@ import { t, resolveLang } from '../messages/index.js';
 import { safeEditMessage } from '../utils.js';
 import { logger } from '../../shared/logger.js';
 import { getFullHelpText, chainSelectionPrompt } from '../ui/index.js';
+import { buildWalletKeysText } from './wallet/key-file.js';
+import { auditLogger, AUDIT_ACTIONS } from '../../shared/security/audit-logger.js';
+import { Markup } from 'telegraf';
 
 export function setupNavigationHandlers(bot, storage, walletService, sessions) {
   const langOf = (ctx) => ctx.state?.lang || 'fr';
@@ -121,6 +124,82 @@ export function setupNavigationHandlers(bot, storage, walletService, sessions) {
       parse_mode: 'HTML',
       ...mainMenuKeyboard(lang),
     });
+  });
+
+  // Action: export_all_keys — show confirmation screen
+  bot.action(CALLBACKS.EXPORT_ALL_KEYS, async (ctx) => {
+    const lang = langOf(ctx);
+    const chatId = ctx.chat.id;
+    await ctx.answerCbQuery().catch(() => {});
+
+    if (ctx.chat.type !== 'private') {
+      return ctx.reply(t(lang, 'errors.privateOnly')).catch(() => {});
+    }
+
+    const wallets = await storage.getWallets(chatId);
+    if (wallets.length === 0) {
+      return safeEditMessage(ctx, t(lang, 'exportKeys.noWallets'), mainMenuKeyboard(lang));
+    }
+
+    await safeEditMessage(ctx, t(lang, 'exportKeys.title') + '\n\n' + t(lang, 'exportKeys.confirm'), {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback(t(lang, 'exportKeys.confirmBtn'), CALLBACKS.CONFIRM_EXPORT_KEYS)],
+        [Markup.button.callback(t(lang, 'exportKeys.cancelBtn'), CALLBACKS.SETTINGS_MENU)],
+      ]),
+    });
+  });
+
+  // Action: confirm_export_keys — build file and send
+  bot.action(CALLBACKS.CONFIRM_EXPORT_KEYS, async (ctx) => {
+    const lang = langOf(ctx);
+    const chatId = ctx.chat.id;
+    await ctx.answerCbQuery().catch(() => {});
+
+    if (ctx.chat.type !== 'private') {
+      return ctx.reply(t(lang, 'errors.privateOnly')).catch(() => {});
+    }
+
+    try {
+      const wallets = await storage.getWallets(chatId);
+      if (wallets.length === 0) {
+        return safeEditMessage(ctx, t(lang, 'exportKeys.noWallets'), mainMenuKeyboard(lang));
+      }
+
+      const walletsWithKeys = [];
+      for (const w of wallets) {
+        const full = await storage.getWalletWithKey(chatId, w.id);
+        if (full && !full.isCorrupted) {
+          walletsWithKeys.push(full);
+        }
+      }
+
+      if (walletsWithKeys.length === 0) {
+        return safeEditMessage(
+          ctx,
+          '⚠️ Aucune clé récupérable (wallets corrompus ou vides).',
+          mainMenuKeyboard(lang)
+        );
+      }
+
+      const content = buildWalletKeysText(walletsWithKeys);
+      const filename = 'all-keys-seeds.txt';
+
+      await ctx.replyWithDocument(
+        { source: Buffer.from(content, 'utf8'), filename },
+        { protect_content: true }
+      );
+
+      auditLogger.log(AUDIT_ACTIONS.EXPORT_CREDENTIALS, chatId, {
+        walletCount: walletsWithKeys.length,
+        chains: walletsWithKeys.map((w) => w.chain),
+      });
+
+      await safeEditMessage(ctx, t(lang, 'exportKeys.success'), mainMenuKeyboard(lang));
+    } catch (error) {
+      logger.logError(error, { context: 'export_all_keys', chatId });
+      await safeEditMessage(ctx, `❌ Erreur lors de l'export : ${error.message}`, mainMenuKeyboard(lang));
+    }
   });
 
   // Hears: Envoyer / Send

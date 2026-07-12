@@ -8,7 +8,7 @@ import { formatEUR, convertToEUR } from '../../../shared/price.js';
 import { formatNumber, formatCryptoAmount, CHAIN_EMOJIS, truncateAddress } from '../../ui/formatters.js';
 import { sendWalletKeysFile } from '../wallet/key-file.js';
 import { SUPPORTED_CHAINS as PUBLIC_CHAINS, CHAIN_REGISTRY } from '../../../shared/chains.js';
-import { escapeHtml } from '../../../shared/utils/telegram.js';
+import { escapeHtml, sendChunked } from '../../../shared/utils/telegram.js';
 
 // chain → "Name Emoji" display label, derived from the registry so /gen
 // auto-syncs with every supported chain (no hand-maintained list to drift).
@@ -82,7 +82,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       }
     }
 
-    await ctx.reply(text, {
+    await sendChunked(ctx, text, {
       parse_mode: 'HTML',
       ...walletListKeyboard(wallets, 'wallet_'),
     });

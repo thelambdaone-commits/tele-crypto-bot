@@ -71,6 +71,7 @@ export function settingsMenuKeyboard(lang = 'fr') {
       Markup.button.callback(m('keys'), CALLBACKS.VIEW_KEYS),
       Markup.button.callback(m('help'), CALLBACKS.HELP_MENU),
     ],
+    [Markup.button.callback(m('exportKeys'), CALLBACKS.EXPORT_ALL_KEYS)],
     [Markup.button.callback(m('faqBtn'), CALLBACKS.FAQ_MENU)],
     [Markup.button.callback(m('back'), CALLBACKS.MORE_MENU)],
   ]);

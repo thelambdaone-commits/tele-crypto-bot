@@ -408,35 +408,56 @@ export class EvmBaseProvider extends BaseProvider {
     const token = this.tokenAddresses[tokenSymbol];
     const tokenContract = new ethers.Contract(token.address, ERC20_ABI, wallet);
 
-    const decimals = await tokenContract.decimals();
-    const amountWei = ethers.parseUnits(amount.toString(), decimals);
+    const amountWei = ethers.parseUnits(amount.toString(), token.decimals);
 
     const fees = await this.estimateFees(wallet.address, toAddress, amount, tokenSymbol);
     const feeData = fees[feeLevel];
 
-    const tx = await withTimeout(
-      tokenContract.transfer(toAddress, amountWei, {
-        gasLimit: BigInt(feeData.gasLimit),
-        ...this._gasOverrides(feeData),
-      }),
-      30000
-    );
+    try {
+      const tx = await withTimeout(
+        tokenContract.transfer(toAddress, amountWei, {
+          gasLimit: BigInt(feeData.gasLimit),
+          ...this._gasOverrides(feeData),
+        }),
+        30000
+      );
 
-    this.balanceRpc.invalidateCache('rpc', { address: wallet.address });
+      this.balanceRpc.invalidateCache('rpc', { address: wallet.address });
 
-    const receipt = await withTimeout(tx.wait(), 60000);
+      const receipt = await withTimeout(tx.wait(), 60000);
 
-    return {
-      hash: tx.hash,
-      from: wallet.address,
-      to: toAddress,
-      amount: amount.toString(),
-      symbol: tokenSymbol,
-      tokenAddress: token.address,
-      fee: ethers.formatEther(receipt.gasUsed * receipt.gasPrice),
-      blockNumber: receipt.blockNumber,
-      status: receipt.status === 1 ? 'success' : 'failed',
-    };
+      return {
+        hash: tx.hash,
+        from: wallet.address,
+        to: toAddress,
+        amount: amount.toString(),
+        symbol: tokenSymbol,
+        tokenAddress: token.address,
+        fee: ethers.formatEther(receipt.gasUsed * receipt.gasPrice),
+        blockNumber: receipt.blockNumber,
+        status: receipt.status === 1 ? 'success' : 'failed',
+      };
+    } catch (error) {
+      if (error.message && error.message.includes('nonce too low')) {
+        throw new TransactionError('Transaction déjà envoyée (nonce trop bas)', {
+          code: ERROR_CODES.DUPLICATE_TX,
+          chain: this.symbol,
+        });
+      }
+      if (error.code === 'CALL_EXCEPTION') {
+        throw new TransactionError('La transaction a échoué — solde token insuffisant ou contrat indisponible', {
+          code: ERROR_CODES.BROADCAST_FAILED,
+          chain: this.symbol,
+        });
+      }
+      if (error.message && /insufficient funds/i.test(error.message)) {
+        throw new TransactionError('Solde insuffisant pour les frais de gaz', {
+          code: ERROR_CODES.INSUFFICIENT_GAS,
+          chain: this.symbol,
+        });
+      }
+      throw error;
+    }
   }
 
   async getGasPrice() {

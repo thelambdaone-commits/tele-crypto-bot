@@ -11,6 +11,7 @@ import { getTokenExplorerUrl } from '../../../shared/explorer.js';
 import { SUPPORTED_CHAINS, NETWORK_LABEL, CHAIN_EMOJIS, isEvmChain } from '../../../shared/chains.js';
 import { handleSendError } from './helpers.js';
 import { sendChunked, escapeHtml } from '../../utils.js';
+import { t } from '../../messages/index.js';
 
 // EVM addresses (0x…) are identical across all EVM networks, so an analyzed
 // 0x address is scanned on each of these and reported per-network. Derived from
@@ -147,11 +148,25 @@ export function setupSendTextInput(bot, storage, walletService, sessions, paymen
         validationChain = 'sol';
       }
 
-      if (detected !== validationChain) {
+      // Addresses 0x (Ethereum) are valid on ALL EVM chains — detectChain()
+      // always returns 'eth' for 0x… but the user may be sending on Arbitrum,
+      // Polygon, Base, etc.  Accept the address if the target chain is EVM.
+      const isEvmTarget = isEvmChain(validationChain);
+      const isEvmDetected = detected === 'eth';
+      if (detected !== validationChain && !(isEvmTarget && isEvmDetected)) {
         return ctx.reply(
           `⚠️ <b>Adresse invalide</b>\n\nL'adresse saisie n'est pas une adresse ${validationChain.toUpperCase()} valide.`,
           { parse_mode: 'HTML' }
         );
+      }
+
+      if (data.selectedWalletId) {
+        try {
+          const wallet = await storage.getWalletWithKey(chatId, data.selectedWalletId);
+          if (wallet && wallet.address && text.toLowerCase() === wallet.address.toLowerCase()) {
+            return ctx.reply(t(ctx.state.lang, 'send.sameAddress'), { parse_mode: 'HTML' });
+          }
+        } catch {}
       }
 
       sessions.setData(chatId, { ...data, toAddress: text });

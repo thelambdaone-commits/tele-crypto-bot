@@ -13,6 +13,7 @@ export const fr = {
     insufficientFunds: '💸 Solde insuffisant.',
     transactionFailed: '❌ Échec de la transaction.',
     adminOnly: '❌ Accès refusé — Admin uniquement.',
+    privateOnly: "❌ Cette action n'est disponible qu'en message privé.",
     unauthorizedChat: 'Ce bot est destiné à un usage personnel uniquement.',
     expiredAction: '⏱️ Action expirée.',
     cancelled: '✅ Annulé.',
@@ -54,7 +55,7 @@ export const fr = {
     invalidAddress: "⚠️ Cette adresse n'est pas valide.",
     noAddress: 'Aucune adresse saisie.',
     addressAnalysis: "🔍 Analyse d'adresse",
-
+    sameAddress: '⚠️ Tu ne peux pas envoyer de fonds à ta propre adresse.',
   },
 
   admin: {
@@ -129,6 +130,7 @@ export const fr = {
     lightning: '⚡ Lightning',
     analyze: '🔎 Analyser',
     keys: '🔐 Mes Clés',
+    exportKeys: '📤 Exporter',
     help: '❓ Aide',
     faqBtn: '⁉️ FAQ',
     settingsBtn: '⚙️ Paramètres',
@@ -141,6 +143,23 @@ export const fr = {
     langFr: '🇫🇷 Français',
     langEn: '🇬🇧 English',
     changed: '✅ Langue mise à jour : Français 🇫🇷',
+  },
+
+  exportKeys: {
+    title: '📤 <b>Exporter toutes les clés</b>',
+    confirm:
+      '⚠️ <b>Attention — opération sensible</b>\n\n' +
+      'Tu sur le point de télécharger un fichier contenant <b>TOUTES</b> les clés privées et phrases mnémoniques de tes wallets.\n\n' +
+      '🔴 <b>CE FICHIER DONNE UN ACCÈS TOTAL À TOUS TES FONDS</b>\n\n' +
+      '• Ne le partage <b>JAMAIS</b> avec personne\n' +
+      '• Supprime-le immédiatement après l\'avoir sauvegardé\n' +
+      '• Utilise un stockage hors ligne (papier, clé USB sécurisée)\n' +
+      '• Ne le conserve <b>JAMAIS</b> en photo ou dans le cloud\n\n' +
+      'Confirme l\'export ?',
+    confirmBtn: '📤 Oui, exporter',
+    cancelBtn: '❌ Annuler',
+    success: '📤 <b>Fichier envoyé</b>\n\nSauvegarde-le en lieu sûr et supprime le message du chat.',
+    noWallets: '⚠️ Tu n\'as aucun wallet à exporter.',
   },
 
   learn: {

@@ -30,8 +30,11 @@ export function setupSendHandlers(bot, storage, walletService, sessions, payment
     const data = sessions.getData(chatId);
       sessions.updateData(chatId, { amountType: type });
 
+    const tokenSymbol = data.selectedToken;
+    const displaySymbol = tokenSymbol || data.selectedChain.toUpperCase();
+
     try {
-      const balanceData = await walletService.getBalance(chatId, data.selectedWalletId);
+      const balanceData = await walletService.getBalance(chatId, data.selectedWalletId, tokenSymbol);
 
       // Store current balance for quick calculations
       const balanceNum = Number.parseFloat(balanceData.balance);
@@ -40,10 +43,10 @@ export function setupSendHandlers(bot, storage, walletService, sessions, payment
         currentBalanceLamports: balanceData.balanceLamports,
       });
 
-      const label = type === 'native' ? data.selectedChain.toUpperCase() : 'Euros';
+      const label = type === 'native' ? displaySymbol : 'Euros';
       const prompt =
         '💰 <b>Saisie du montant</b>\n\n' +
-        `Ton solde : <b>${balanceData.balance} ${data.selectedChain.toUpperCase()}</b>\n\n` +
+        `Ton solde : <b>${balanceData.balance} ${displaySymbol}</b>\n\n` +
         `Entre le montant en <b>${label}</b> ou utilise les raccourcis :`;
 
       ctx.editMessageText(prompt, { parse_mode: 'HTML', ...quickAmountKeyboard() });

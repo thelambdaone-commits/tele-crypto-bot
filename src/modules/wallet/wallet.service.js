@@ -318,6 +318,14 @@ export class WalletService {
       });
     }
 
+    // Prevent sending to the same address (self-send)
+    if (wallet.address && toAddress && wallet.address.toLowerCase() === toAddress.toLowerCase()) {
+      throw new TransactionError('Envoi à la propre adresse interdit', {
+        code: ERROR_CODES.SAME_ADDRESS,
+        chain: wallet.chain,
+      });
+    }
+
     // Estimate fees for pre-flight
     const fees = await chainHandler.estimateFees(wallet.address, toAddress, amount, tokenSymbol);
 
@@ -329,6 +337,27 @@ export class WalletService {
         code: ERROR_CODES.INSUFFICIENT_FUNDS,
         chain: wallet.chain,
       });
+    }
+
+    // For TOKEN sends, gas is paid in the native coin (a separate balance).
+    // Check that the wallet holds enough native currency to cover the worst-case
+    // gas cost (fast tier) so the user gets a clear error instead of a opaque
+    // on-chain revert.
+    if (tokenSymbol) {
+      const nativeBalance = await chainHandler.getBalance(wallet.address);
+      const nativeBalanceNum = Number.parseFloat(nativeBalance.balance);
+      const fastTier = fees?.fast || fees?.average || fees?.slow;
+      const maxGasCost = Number.parseFloat(fastTier?.estimatedFee ?? fastTier?.feeSOL ?? '0');
+      if (Number.isFinite(maxGasCost) && maxGasCost > 0 && nativeBalanceNum < maxGasCost) {
+        const nativeSym = nativeBalance.symbol || wallet.chain.toUpperCase();
+        throw new TransactionError(
+          `Solde insuffisant en ${nativeSym} pour les frais de gaz (≈ ${maxGasCost.toFixed(8)} ${nativeSym} requis)`,
+          {
+            code: ERROR_CODES.INSUFFICIENT_GAS,
+            chain: wallet.chain,
+          }
+        );
+      }
     }
 
     // For NATIVE sends, the network fee comes out of the same balance, so
