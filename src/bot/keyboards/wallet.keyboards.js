@@ -2,13 +2,16 @@ import { Markup } from 'telegraf';
 import { CALLBACKS, dynamicCallback } from '../constants/callbacks.js';
 import { CHAIN_EMOJIS } from '../ui/formatters.js';
 
-const WALLET_PAGE_SIZE = 8;
+const WALLET_PAGE_SIZE = 50;
 
 export function walletListKeyboard(wallets, prefix = 'wallet_', page = 0) {
   const chainEmojis = CHAIN_EMOJIS;
-  const totalPages = Math.ceil(wallets.length / WALLET_PAGE_SIZE);
+  const needsPagination = wallets.length >= 100;
+  const totalPages = needsPagination ? Math.ceil(wallets.length / WALLET_PAGE_SIZE) : 1;
   const safePage = Math.min(Math.max(0, page), totalPages - 1);
-  const slice = wallets.slice(safePage * WALLET_PAGE_SIZE, (safePage + 1) * WALLET_PAGE_SIZE);
+  const slice = needsPagination
+    ? wallets.slice(safePage * WALLET_PAGE_SIZE, (safePage + 1) * WALLET_PAGE_SIZE)
+    : wallets;
 
   const buttons = slice.map((w) => [
     Markup.button.callback(
@@ -17,7 +20,7 @@ export function walletListKeyboard(wallets, prefix = 'wallet_', page = 0) {
     ),
   ]);
 
-  if (totalPages > 1) {
+  if (needsPagination && totalPages > 1) {
     const navRow = [];
     if (safePage > 0) {
       navRow.push(Markup.button.callback('◀️', `wpage_${prefix}${safePage - 1}`));

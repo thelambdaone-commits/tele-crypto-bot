@@ -162,6 +162,6 @@ export const CALLBACK_REGEX = {
   INVOICE_CANCEL: /^inv_cancel_(.+)$/,
   TREASURY_WALLET: /^treasury_w_(.+)$/,
 
-  // Wallet list pagination
+  // Wallet list pagination (>= 100 wallets)
   WALLET_PAGE: /^wpage_(.+)_(\d+)$/,
 };

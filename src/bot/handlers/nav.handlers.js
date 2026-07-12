@@ -26,7 +26,7 @@ export function setupNavigationHandlers(bot, storage, walletService, sessions) {
   // No-op callback (page indicator button — just dismiss the spinner)
   bot.action(CALLBACKS.NOOP, (ctx) => ctx.answerCbQuery().catch(() => {}));
 
-  // Wallet list pagination: wpage_<prefix><page>  (e.g. wpage_wallet_2)
+  // Wallet list pagination (>= 100 wallets): wpage_<prefix><page>
   bot.action(CALLBACK_REGEX.WALLET_PAGE, async (ctx) => {
     const prefix = ctx.match[1];
     const page = Number.parseInt(ctx.match[2], 10);
@@ -34,7 +34,7 @@ export function setupNavigationHandlers(bot, storage, walletService, sessions) {
     await ctx.answerCbQuery().catch(() => {});
 
     const wallets = await storage.getWallets(chatId);
-    await safeEditMessage(ctx, ctx.message?.text || '💰 <b>Tes Wallets</b>', {
+    await safeEditMessage(ctx, '💰 <b>Tes Wallets</b>', {
       parse_mode: 'HTML',
       ...walletListKeyboard(wallets, prefix, page),
     });
