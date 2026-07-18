@@ -193,7 +193,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
       scheduleSecureDelete(ctx, `seed_${chatId}`, sentMsg.message_id, 30000);
     } catch (error) {
       logger.logError(error, { context: 'view_seed', chatId });
-      return ctx.reply(`❌ Erreur lors de la récupération de la phrase : ${error.message}`, mainMenuKeyboard());
+      return ctx.reply(`❌ Erreur lors de la récupération de la phrase : ${escapeHtml(error.message)}`, mainMenuKeyboard());
     }
   });
 
@@ -238,7 +238,7 @@ export function setupKeysHandlers(bot, storage, walletService) {
       scheduleSecureDelete(ctx, `privkey_${chatId}`, sentMsg.message_id, 30000);
     } catch (error) {
       logger.logError(error, { context: 'view_privkey', chatId });
-      return ctx.reply(`❌ Erreur lors de la récupération de la clé : ${error.message}`, mainMenuKeyboard());
+      return ctx.reply(`❌ Erreur lors de la récupération de la clé : ${escapeHtml(error.message)}`, mainMenuKeyboard());
     }
   });
 

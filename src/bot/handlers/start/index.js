@@ -213,7 +213,7 @@ async function provisionNewUser(ctx, storage, walletService) {
     scheduleSecureDelete(ctx, `start_${chatId}`, sentMsg.message_id, 60000);
   } catch (error) {
     logger.logError(error, { context: 'provisionNewUser.createWallets', chatId });
-    await ctx.reply(`❌ Erreur lors de la création des wallets: ${error.message}`, mainMenuKeyboard(ctx.state?.lang || 'fr'));
+    await ctx.reply(`❌ Erreur lors de la création des wallets: ${escapeHtml(error.message)}`, mainMenuKeyboard(ctx.state?.lang || 'fr'));
   }
 }
 

@@ -12,6 +12,7 @@ export class BaseChain extends EvmBaseProvider {
       fallbackRpcUrls: [
         'https://mainnet.base.org',
         'https://base-rpc.publicnode.com',
+        'https://rpc.ankr.com/base',
         'https://base.drpc.org',
         'https://base.gateway.tenderly.co',
       ],

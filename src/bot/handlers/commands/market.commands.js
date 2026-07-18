@@ -30,7 +30,7 @@ export function graphGridKeyboard() {
 // Render a price chart for `symbol` (chain key or token) over `days`. Shared by
 // /graph, the picker grid, and the address-analysis graph button.
 async function sendChart(ctx, symbol, days = 365) {
-  const loading = await ctx.reply('📊 Génération du graphique...');
+  const loading = await ctx.reply('📊 Génération du graphique...', { disable_notification: true });
   const drop = () => ctx.telegram.deleteMessage(ctx.chat.id, loading.message_id).catch(() => {});
   try {
     const { buffer, stats } = await generatePriceChart(symbol, days);

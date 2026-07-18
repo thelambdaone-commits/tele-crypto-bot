@@ -103,7 +103,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
     }
 
     const chainNames = CHAIN_DISPLAY;
-    const loadingMsg = await ctx.reply(`⏳ Génération de ton wallet ${chainNames[chain]}...`);
+    const loadingMsg = await ctx.reply(`⏳ Génération de ton wallet ${chainNames[chain]}...`, { disable_notification: true });
 
     try {
       const wallet = await walletService.createWallet(chatId, chain);
@@ -142,7 +142,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       try {
         await ctx.telegram.deleteMessage(chatId, loadingMsg.message_id);
       } catch (e) {}
-      ctx.reply(`❌ Oups ! Erreur : ${error.message}`).catch(() => {});
+      ctx.reply(`❌ Oups ! Erreur : ${escapeHtml(error.message)}`).catch(() => {});
     }
   });
 
@@ -171,7 +171,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       });
     }
 
-    const loadingMsg = await ctx.reply('🔍 Recherche du solde...');
+    const loadingMsg = await ctx.reply('🔍 Recherche du solde...', { disable_notification: true });
 
     try {
       const balanceData = await walletService.getPublicAddressBalance(network, address);
@@ -192,7 +192,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       try {
         await ctx.telegram.deleteMessage(ctx.chat.id, loadingMsg.message_id);
       } catch (e) {}
-      ctx.reply(`❌ Impossible de récupérer le solde : ${error.message}`).catch(() => {});
+      ctx.reply(`❌ Impossible de récupérer le solde : ${escapeHtml(error.message)}`).catch(() => {});
     }
   });
 
@@ -270,7 +270,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       );
     } catch (error) {
       sessions.clearState(chatId);
-      ctx.reply(`❌ Erreur : ${error.message}`).catch(() => {});
+      ctx.reply(`❌ Erreur : ${escapeHtml(error.message)}`).catch(() => {});
     }
   });
 
@@ -295,7 +295,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       });
     }
 
-    const loadingMsg = await ctx.reply('🔍 Recherche des transactions...');
+    const loadingMsg = await ctx.reply('🔍 Recherche des transactions...', { disable_notification: true });
 
     try {
       const txHistory = await walletService.getTransactionHistory(network, address, limit);
@@ -319,7 +319,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
       try {
         await ctx.telegram.deleteMessage(ctx.chat.id, loadingMsg.message_id);
       } catch (e) {}
-      ctx.reply(`❌ Impossible de récupérer l'historique : ${error.message}`).catch(() => {});
+      ctx.reply(`❌ Impossible de récupérer l'historique : ${escapeHtml(error.message)}`).catch(() => {});
     }
   });
 

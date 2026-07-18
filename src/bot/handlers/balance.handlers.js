@@ -105,6 +105,7 @@ export function setupBalanceHandlers(bot, storage, walletService) {
 
   bot.action(CALLBACKS.REFRESH_PRICES, async (ctx) => {
     try {
+      await safeAnswerCbQuery(ctx);
       clearPriceCache();
       const prices = await getPricesEUR(true);
       const text = formatCryptoPricesEUR(prices);

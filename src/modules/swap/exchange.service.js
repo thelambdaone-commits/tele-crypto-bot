@@ -267,13 +267,16 @@ export class ExchangeService {
 
   /**
    * Keyless SimpleSwap link (independent no-KYC provider) as a fallback/compare
-   * option. Prefills from/to by base ticker; no address prefill.
+   * option. Prefills from/to by base ticker + network when available to avoid
+   * wrong-network resolution for multi-chain tokens.
    */
   simpleSwapUrl({ fromKey, toKey }) {
     const from = TROCADOR_COINS[fromKey];
     const to = TROCADOR_COINS[toKey];
     if (!from || !to) throw new Error('Crypto inconnue');
     const params = new URLSearchParams({ from: from.ticker, to: to.ticker });
+    if (from.network) params.set('from_network', from.network);
+    if (to.network) params.set('to_network', to.network);
     return `${SIMPLESWAP_BASE}?${params.toString()}`;
   }
 

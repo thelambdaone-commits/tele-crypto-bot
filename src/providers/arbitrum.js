@@ -13,6 +13,8 @@ export class ArbitrumChain extends EvmBaseProvider {
       fallbackRpcUrls: [
         'https://arb1.arbitrum.io/rpc',
         'https://arbitrum-one-rpc.publicnode.com',
+        'https://rpc.ankr.com/arbitrum',
+        'https://arbitrum-one.public.blastapi.io',
         'https://arbitrum.gateway.tenderly.co',
       ],
       tokenConfigKey: 'arb',

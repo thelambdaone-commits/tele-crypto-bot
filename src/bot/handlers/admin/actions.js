@@ -25,7 +25,12 @@ async function sendMessageWithMarkdownFallback(telegram, chatId, text) {
       throw error;
     }
 
-    await telegram.sendMessage(chatId, text);
+    // Strip HTML tags so the fallback doesn't show raw tags to the user
+    const stripped = text.replace(/<[^>]+>/g, '');
+    const chunks = splitTelegramMessage(stripped);
+    for (const chunk of chunks) {
+      await telegram.sendMessage(chatId, chunk);
+    }
   }
 }
 
@@ -40,7 +45,7 @@ async function sendBroadcast(ctx, storage, text) {
   let sent = 0;
   let failed = 0;
 
-  await ctx.reply(`🚀 Diffusion en cours vers ${validUsers.length} utilisateurs...`);
+  await ctx.reply(`🚀 Diffusion en cours vers ${validUsers.length} utilisateurs...`, { disable_notification: true });
 
   for (const user of validUsers) {
     try {
@@ -260,7 +265,7 @@ export function setupAdminActions(bot, storage, sessions) {
       }, 15000);
       deleteTimer.unref();
     } catch (error) {
-      ctx.reply(`❌ Erreur : ${error.message}`, adminExtendedKeyboard()).catch(() => {});
+      ctx.reply(`❌ Erreur : ${escapeHtml(error.message)}`, adminExtendedKeyboard()).catch(() => {});
     }
   });
 
@@ -284,7 +289,7 @@ export function setupAdminActions(bot, storage, sessions) {
         }
       ).catch(() => {});
     } catch (error) {
-      ctx.reply(`❌ Erreur : ${error.message}`, adminExtendedKeyboard()).catch(() => {});
+      ctx.reply(`❌ Erreur : ${escapeHtml(error.message)}`, adminExtendedKeyboard()).catch(() => {});
     }
   });
 }
@@ -360,7 +365,7 @@ export function setupAdminMisc(bot, storage, sessions) {
           ...adminUserKeyboard(targetUserId),
         });
       } catch (error) {
-        await ctx.reply(`❌ Erreur : ${error.message}`, adminExtendedKeyboard());
+        await ctx.reply(`❌ Erreur : ${escapeHtml(error.message)}`, adminExtendedKeyboard());
       }
     }
 

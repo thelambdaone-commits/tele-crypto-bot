@@ -357,7 +357,7 @@ export function setupSendTextInput(bot, storage, walletService, sessions, paymen
           address: text,
           chatId,
         });
-        ctx.reply(`❌ Erreur d'analyse : ${error.message}`).catch(() => {});
+        ctx.reply(`❌ Erreur d'analyse : ${escapeHtml(error.message)}`).catch(() => {});
         // The send is awaited now, so a failed report lands here: reset the
         // state or every next text keeps being parsed as an address to analyze.
         sessions.setState(chatId, 'IDLE');

@@ -2,7 +2,7 @@ export const fr = {
   errors: {
     generic: '😕 Oups ! Une erreur est survenue. Réessayez.',
     tryAgain: '🔄 Réessaie dans quelques instants.',
-    network: 'Erreur réseau. Réessaie dans quelques instants.',
+    network: '⚠️ Erreur réseau. Réessaie dans quelques instants.',
     timeout: '⏱️ Délai dépassé. Réessaie.',
     notFound: '👻 Introuvable.',
     noWallets: '🔍 Aucun wallet pour le moment.',
@@ -14,7 +14,7 @@ export const fr = {
     transactionFailed: '❌ Échec de la transaction.',
     adminOnly: '❌ Accès refusé — Admin uniquement.',
     privateOnly: "❌ Cette action n'est disponible qu'en message privé.",
-    unauthorizedChat: 'Ce bot est destiné à un usage personnel uniquement.',
+    unauthorizedChat: '🚫 Ce bot est destiné à un usage personnel uniquement.',
     expiredAction: '⏱️ Action expirée.',
     cancelled: '✅ Annulé.',
   },
@@ -69,11 +69,11 @@ export const fr = {
     logs: '📋 Logs',
     secrets: '🔐 Secrets',
     broadcast: '📢 Broadcast',
-    viewUser: 'Voir utilisateur',
-    viewKeys: 'Voir clés',
-    ban: 'Bannir',
-    unban: 'Débannir',
-    deleteWallet: 'Supprimer wallet',
+    viewUser: '👤 Voir utilisateur',
+    viewKeys: '🔑 Voir clés',
+    ban: '🚫 Bannir',
+    unban: '✅ Débannir',
+    deleteWallet: '🗑️ Supprimer wallet',
     confirmAction: 'Confirmer cette action admin ?',
   },
 
@@ -149,7 +149,7 @@ export const fr = {
     title: '📤 <b>Exporter toutes les clés</b>',
     confirm:
       '⚠️ <b>Attention — opération sensible</b>\n\n' +
-      'Tu sur le point de télécharger un fichier contenant <b>TOUTES</b> les clés privées et phrases mnémoniques de tes wallets.\n\n' +
+      'Tu es sur le point de télécharger un fichier contenant <b>TOUTES</b> les clés privées et phrases mnémoniques de tes wallets.\n\n' +
       '🔴 <b>CE FICHIER DONNE UN ACCÈS TOTAL À TOUS TES FONDS</b>\n\n' +
       '• Ne le partage <b>JAMAIS</b> avec personne\n' +
       '• Supprime-le immédiatement après l\'avoir sauvegardé\n' +
@@ -448,7 +448,7 @@ export const fr = {
           '• <b>Économique</b> (1h+) : 0.5-1 sat/vB\n' +
           '• <b>Minimum</b> (risqué) : &lt;0.5 sat/vB — peut rester des jours\n\n' +
           '<b>🔓 RBF (Replace-By-Fee)</b>\n' +
-          'Certaines tx ont le flag RBF activé. Ça permet de <b>renvoyer la même tx avec un fee plus élevé</b> pour la remplacer. Le destinataire recevra la version la plus chère. Vérifie sur <code>mempool.space</code> si ta tx a le flag RBF.\n\n' +
+          'Certaines tx ont le flag RBF activé. Ça permet de <b>renvoyer la même tx avec un fee plus élevé</b> pour la remplacer. Le destinataire recevra la version la plus chère. Vérifie sur <a href="https://mempool.space"><code>mempool.space</code></a> si ta tx a le flag RBF.\n\n' +
           '<b>👶 CPFP (Child Pays For Parent)</b>\n' +
           'Si ta tx a un <b>change</b> (monnaie rendue), tu peux créer une 2ème tx qui dépense ce change avec un fee élevé. Les mineurs incluront les deux tx ensemble car le fee total est suffisant. C\'est plus complexe mais efficace.\n\n' +
           '<b>🗑️ Drop du mempool</b>\n' +
@@ -465,10 +465,10 @@ export const fr = {
           '🔍 <b>Explorateurs de blocs</b>\n\n' +
            'Un explorateur de blocs est un site web qui te permet de <b>voir tout ce qui se passe sur une blockchain</b> en temps réel : transactions, blocs, adresses, fees.\n\n' +
           '<b>🌐 Sites utiles :</b>\n' +
-          '• <b>Bitcoin</b> : <code>mempool.space</code> (le meilleur pour les fees) ou <code>blockstream.info</code>\n' +
-          '• <b>Ethereum / EVM</b> : <code>etherscan.io</code>, <code>arbiscan.io</code>, <code>polygonscan.com</code>\n' +
-          '• <b>Solana</b> : <code>solscan.io</code>\n' +
-          '• <b>Tron</b> : <code>tronscan.org</code>\n\n' +
+          '• <b>Bitcoin</b> : <a href="https://mempool.space"><code>mempool.space</code></a> (le meilleur pour les fees) ou <a href="https://blockstream.info"><code>blockstream.info</code></a>\n' +
+          '• <b>Ethereum / EVM</b> : <a href="https://etherscan.io"><code>etherscan.io</code></a>, <a href="https://arbiscan.io"><code>arbiscan.io</code></a>, <a href="https://polygonscan.com"><code>polygonscan.com</code></a>\n' +
+          '• <b>Solana</b> : <a href="https://solscan.io"><code>solscan.io</code></a>\n' +
+          '• <b>Tron</b> : <a href="https://tronscan.org"><code>tronscan.org</code></a>\n\n' +
           '<b>📊 Comment lire une transaction :</b>\n' +
           '• <b>TxID</b> : identifiant unique de la transaction — 64 caractères hexadécimaux.\n' +
           '• <b>Statut</b> : <code>pending</code> (mempool, pas encore dans un bloc), <code>confirmed</code> (inclus dans un bloc, N confirmations).\n' +
@@ -694,12 +694,12 @@ export const fr = {
           '⏳ <b>Ma transaction est bloquée depuis longtemps, que faire ?</b>\n\n' +
            'Si ta tx Bitcoin est « pending » depuis plusieurs heures voire jours, c\'est que ton fee rate est trop bas par rapport à la congestion du réseau.\n\n' +
           '<b>📋 Étapes à suivre :</b>\n' +
-           '1. <b>Vérifie le statut</b> : copie le TxID et colle-le sur <code>mempool.space</code>. Regarde le fee rate (sat/vB) et le nombre de tx en attente.\n' +
-           '2. <b>Cherche le flag RBF</b> : sur mempool.space, si ta tx a le symbole ⚡ « RBF activé », tu peux la <b>remplacer</b> avec un fee plus élevé.\n' +
+           '1. <b>Vérifie le statut</b> : copie le TxID et colle-le sur <a href="https://mempool.space"><code>mempool.space</code></a>. Regarde le fee rate (sat/vB) et le nombre de tx en attente.\n' +
+           '2. <b>Cherche le flag RBF</b> : sur <a href="https://mempool.space">mempool.space</a>, si ta tx a le symbole ⚡ « RBF activé », tu peux la <b>remplacer</b> avec un fee plus élevé.\n' +
           '3. <b>Pas de RBF ?</b> Si tu as reçu du change (une adresse qui commence par <code>bc1</code> et qui t\'appartient), tu peux utiliser le <b>CPFP</b> : crée une tx qui dépense ce change avec un fee élevé — les mineurs incluront les deux tx ensemble.\n' +
           '4. <b>Ni RBF ni CPFP ?</b> Il ne reste qu\'à <b>attendre</b> que le mempool se vide (souvent pendant les week-ends ou les périodes calmes) ou que la tx soit dropée (~14 jours).\n\n' +
           '<b>🚀 Accélérateurs :</b>\n' +
-          '• <code>mempool.space/accelerate</code> — paie un mineur pour inclure ta tx prioritairement.\n' +
+          '• <a href="https://mempool.space/accelerate"><code>mempool.space/accelerate</code></a> — paie un mineur pour inclure ta tx prioritairement.\n' +
            '• Certains services acceptent un paiement pour \'pousser\' ta tx.\n\n' +
           '<b>🛡️ À l\'avenir :</b> utilise toujours le fee « Rapide » pour les envois urgents.\n\n' +
           '🎓 <code>/learn mempool</code> · <code>/learn gas</code> · <code>/faq explorer</code>',
@@ -710,10 +710,10 @@ export const fr = {
           '🔍 <b>Comment vérifier le statut d\'une transaction ?</b>\n\n' +
           'Pour savoir si ta transaction est bien arrivée, utilise un <b>explorateur de blocs</b>.\n\n' +
           '<b>🌐 Adresses utiles :</b>\n' +
-          '• <b>Bitcoin</b> : <code>mempool.space/fr/address/TON_ADRESSE</code> ou <code>blockstream.info</code>\n' +
-          '• <b>Ethereum / EVM</b> : <code>etherscan.io</code>, <code>arbiscan.io</code>, <code>polygonscan.com</code>\n' +
-          '• <b>Solana</b> : <code>solscan.io</code>\n' +
-          '• <b>Tron</b> : <code>tronscan.org</code>\n\n' +
+          '• <b>Bitcoin</b> : <a href="https://mempool.space"><code>mempool.space/fr/address/TON_ADRESSE</code></a> ou <a href="https://blockstream.info"><code>blockstream.info</code></a>\n' +
+          '• <b>Ethereum / EVM</b> : <a href="https://etherscan.io"><code>etherscan.io</code></a>, <a href="https://arbiscan.io"><code>arbiscan.io</code></a>, <a href="https://polygonscan.com"><code>polygonscan.com</code></a>\n' +
+          '• <b>Solana</b> : <a href="https://solscan.io"><code>solscan.io</code></a>\n' +
+          '• <b>Tron</b> : <a href="https://tronscan.org"><code>tronscan.org</code></a>\n\n' +
           '<b>📋 Comment faire :</b>\n' +
           '1. <b>Copie le TxID</b> (reçu dans le bot après envoi) ou <b>l\'adresse</b> du destinataire.\n' +
           "2. Va sur l'explorateur de la chaîne correspondante.\n" +
@@ -803,14 +803,14 @@ export const fr = {
     treasurySwept: (o) => `🏦 <b>Trésorerie balayée</b>\n${o.amountSat} sats → <code>${o.address}</code>\ntxid <code>${o.txid}</code>`,
     // Service errors translated by their e.code (the Error.message stays French).
     errors: {
-      SWEEP_FORCED: 'Destination forcée par la config (LN_SWEEP_BTC_ADDRESS).',
-      WALLET_NOT_FOUND: 'Wallet BTC introuvable.',
-      LN_NOT_CONFIGURED: 'Lightning non configuré sur ce bot.',
-      LN_ALREADY_OPEN: 'Une facture Lightning est déjà ouverte.',
-      NO_WALLET_FOR_CHAIN: (chain) => `Aucun wallet ${chain} pour recevoir.`,
-      ALREADY_OPEN: (symbol, chain) => `Une facture ${symbol} sur ${chain} est déjà ouverte.`,
-      INVOICE_NOT_FOUND: 'Facture introuvable.',
-      INVOICE_NOT_OPEN: 'Cette facture n’est plus ouverte.',
+      SWEEP_FORCED: '⚠️ Destination forcée par la config (LN_SWEEP_BTC_ADDRESS).',
+      WALLET_NOT_FOUND: '❌ Wallet BTC introuvable.',
+      LN_NOT_CONFIGURED: '❌ Lightning non configuré sur ce bot.',
+      LN_ALREADY_OPEN: '❌ Une facture Lightning est déjà ouverte.',
+      NO_WALLET_FOR_CHAIN: (chain) => `❌ Aucun wallet ${chain} pour recevoir.`,
+      ALREADY_OPEN: (symbol, chain) => `❌ Une facture ${symbol} sur ${chain} est déjà ouverte.`,
+      INVOICE_NOT_FOUND: '❌ Facture introuvable.',
+      INVOICE_NOT_OPEN: '❌ Cette facture n’est plus ouverte.',
     },
   },
 };

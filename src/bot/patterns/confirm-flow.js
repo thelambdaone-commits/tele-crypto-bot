@@ -76,7 +76,7 @@ export async function confirmFlow(ctx, options) {
     pending.delete(id);
     try {
       if (ctx.callbackQuery?.message) {
-        await ctx.editMessageText('⏱️ Action annulée (délai dépassé).');
+        await ctx.telegram.deleteMessage(ctx.chat.id, ctx.callbackQuery.message.message_id);
       }
     } catch {
       /* message may already be gone */

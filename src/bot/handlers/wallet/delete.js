@@ -42,7 +42,7 @@ export function setupWalletDelete(bot, storage) {
 
       return ctx.editMessageText('✅ Wallet supprimé avec succès.', mainMenuKeyboard());
     } catch (error) {
-      return ctx.editMessageText(`❌ Erreur: ${error.message}`, mainMenuKeyboard());
+      return ctx.editMessageText(`❌ Erreur: ${escapeHtml(error.message)}`, mainMenuKeyboard());
     }
   });
 }

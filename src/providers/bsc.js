@@ -13,6 +13,7 @@ export class BscChain extends EvmBaseProvider {
       fallbackRpcUrls: [
         'https://bsc-dataseed.binance.org',
         'https://bsc-rpc.publicnode.com',
+        'https://rpc.ankr.com/bsc',
         'https://bsc-dataseed1.defibit.io',
         'https://bsc-dataseed2.defibit.io',
       ],

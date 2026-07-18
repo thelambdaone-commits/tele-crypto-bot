@@ -6,6 +6,7 @@ import { CALLBACKS } from '../../constants/callbacks.js';
 import { CHAIN_REGISTRY } from '../../../shared/chains.js';
 import { TOKEN_CONFIGS } from '../../../core/tokens.config.js';
 import { ExchangeService } from '../../../modules/swap/exchange.service.js';
+import { sendChunked } from '../../../shared/utils/telegram.js';
 
 const exchange = new ExchangeService();
 
@@ -400,38 +401,40 @@ export function setupInfoCommands(bot) {
 
   // 📋 /list (/coins, /tokens, /assets) - Supported coins & tokens (English)
   bot.command(['list', 'coins', 'tokens', 'assets'], async (ctx) => {
-    await ctx.reply(
+    const listMsg =
       '📋 <b>Cryptos &amp; tokens supportés</b>\n' +
-        '━━━━━━━━━━━━━━━\n\n' +
-        `🔗 <b>Réseaux</b> · ${Object.keys(CHAIN_REGISTRY).length} chaînes\n` +
-        `${networksLine()}\n\n` +
-        '🎫 <b>Tokens par réseau</b>\n' +
-        `${tokensSection()}\n\n` +
-        '━━━━━━━━━━━━━━━\n' +
-        '💱 Tout est échangeable <b>sans KYC</b> → <code>/swaps</code>\n' +
-        '💹 Prix en euros → <code>/price</code>',
-      { parse_mode: 'HTML' }
-    );
+      '━━━━━━━━━━━━━━━\n\n' +
+      `🔗 <b>Réseaux</b> · ${Object.keys(CHAIN_REGISTRY).length} chaînes\n` +
+      `${networksLine()}\n\n` +
+      '🎫 <b>Tokens par réseau</b>\n' +
+      `${tokensSection()}\n\n` +
+      '━━━━━━━━━━━━━━━\n' +
+      '💱 Tout est échangeable <b>sans KYC</b> → <code>/swaps</code>\n' +
+      '💹 Prix en euros → <code>/price</code>';
+    await sendChunked(ctx, listMsg, { parse_mode: 'HTML' });
   });
 
   // 💱 /swaps (/swap, /exchange) - Swappable assets, no-KYC (English)
   bot.command(['swaps', 'swap', 'exchange'], async (ctx) => {
     const symbols = exchange.listSymbols(); // sorted: natives → stablecoins → tokens
     const list = symbols.map((s) => `${s.emoji} ${s.symbol}`).join(' · ');
-    await ctx.reply(
+    const swapMsg =
       '💱 <b>Échange sans KYC</b>\n' +
-        '━━━━━━━━━━━━━━━\n\n' +
-        '🔒 Sans inscription, sans KYC — le meilleur taux est choisi automatiquement ' +
-        'et le bot ne touche jamais tes fonds.\n\n' +
-        `🪙 <b>${symbols.length} cryptos</b> sur tous leurs réseaux\n` +
-        `${list}\n\n` +
-        '💵 <b>USDT</b> &amp; <b>USDC</b> dispo sur Ethereum, Arbitrum, Optimism, Polygon, ' +
-        'Base, Avalanche, Solana, Tron et TON.\n\n' +
-        '━━━━━━━━━━━━━━━\n' +
-        '👇 Choisis une crypto à donner puis une à recevoir',
+      '━━━━━━━━━━━━━━━\n\n' +
+      '🔒 Sans inscription, sans KYC — le meilleur taux est choisi automatiquement ' +
+      'et le bot ne touche jamais tes fonds.\n\n' +
+      `🪙 <b>${symbols.length} cryptos</b> sur tous leurs réseaux\n` +
+      `${list}\n\n` +
+      '💵 <b>USDT</b> &amp; <b>USDC</b> dispo sur Ethereum, Arbitrum, Optimism, Polygon, ' +
+      'Base, Avalanche, Solana, Tron et TON.\n\n' +
+      '━━━━━━━━━━━━━━━\n' +
+      '👇 Choisis une crypto à donner puis une à recevoir';
+    await sendChunked(
+      ctx,
+      swapMsg,
       {
         parse_mode: 'HTML',
-        ...Markup.inlineKeyboard([[Markup.button.callback('🔄 Ouvrir l’échange', CALLBACKS.EXCHANGE)]]),
+        ...Markup.inlineKeyboard([[Markup.button.callback('🔄 Ouvrir l\'échange', CALLBACKS.EXCHANGE)]]),
       }
     );
   });

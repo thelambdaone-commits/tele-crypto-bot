@@ -278,7 +278,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
         }
       }
       logger.warn('[Payments] createInvoice failed', { error: e.message });
-      await ctx.reply(`❌ ${payErr(lang, e)}`);
+      await ctx.reply(`❌ ${payErr(lang, e)}`, { parse_mode: 'HTML' });
     }
   });
 
@@ -398,7 +398,7 @@ export function setupPaymentHandlers(bot, storage, walletService, sessions, paym
         ...treasuryBackKb(lang),
       });
     } catch (e) {
-      await ctx.reply(`❌ ${payErr(lang, e)}`, treasuryBackKb(lang));
+      await ctx.reply(`❌ ${payErr(lang, e)}`, { parse_mode: 'HTML', ...treasuryBackKb(lang) });
     }
   });
 

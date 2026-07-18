@@ -102,7 +102,7 @@ export function setupWalletCreate(bot, storage, walletService, sessions) {
         matic:
           '⬡ <b>Polygon (Layer 2)</b>\n' +
           'Frais: très bon marché (~0.001-0.01 EUR)\n' +
-          'Token natif: MATIC (pour payer les frais)\n' +
+          'Token natif: POL/MATIC (pour payer les frais)\n' +
           'Tokens: USDC, USDT\n\n',
         op:
           '🔴 <b>Optimism (Layer 2)</b>\n' +
@@ -148,7 +148,7 @@ export function setupWalletCreate(bot, storage, walletService, sessions) {
       }
     } catch (error) {
       const { mainMenuKeyboard } = await import('../../keyboards/index.js');
-      return ctx.reply(`❌ Erreur: ${error.message}`, mainMenuKeyboard());
+      return ctx.reply(`❌ Erreur: ${escapeHtml(error.message)}`, mainMenuKeyboard());
     } finally {
       inFlightGenerations.delete(chatId);
     }
@@ -292,7 +292,7 @@ export function setupWalletCreate(bot, storage, walletService, sessions) {
         { parse_mode: 'HTML', ...mainMenuKeyboard() }
       );
     } catch (error) {
-      return ctx.reply(`❌ Erreur de dérivation : ${error.message}`, mainMenuKeyboard());
+      return ctx.reply(`❌ Erreur de dérivation : ${escapeHtml(error.message)}`, mainMenuKeyboard());
     }
   });
 }

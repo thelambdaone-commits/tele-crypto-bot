@@ -100,10 +100,15 @@ export async function inputPrompt(ctx, options) {
     resolvePrompt = resolve;
   });
 
-  const timeoutId = setTimeout(() => {
+  const timeoutId = setTimeout(async () => {
     pendingPrompts.delete(chatId);
     sessionsRef.clearState(chatId);
     resolvePrompt(null);
+    try {
+      if (ctx.callbackQuery?.message) {
+        await ctx.editMessageText('⏱️ Délai dépassé. Action annulée.');
+      }
+    } catch { /* message may already be deleted */ }
   }, timeout);
   timeoutId.unref();
 

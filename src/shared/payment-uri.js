@@ -24,6 +24,7 @@ const SIMPLE_SCHEMES = {
   xmr: 'monero',
   zec: 'zcash',
   trx: 'tron',
+  ton: 'ton',
 };
 
 /**

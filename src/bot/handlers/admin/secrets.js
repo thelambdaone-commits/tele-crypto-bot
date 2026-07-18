@@ -150,7 +150,7 @@ export function setupAdminSecrets(bot, storage, sessions) {
         }
       } catch (error) {
         logger.error('Failed to save secret via bot:', error.message);
-        await ctx.reply(`❌ Erreur: ${error.message}`);
+        await ctx.reply(`❌ Erreur: ${escapeHtml(error.message)}`);
       }
       return;
     }

@@ -12,6 +12,8 @@ export class AvalancheChain extends EvmBaseProvider {
       fallbackRpcUrls: [
         'https://api.avax.network/ext/bc/C/rpc',
         'https://avalanche-c-chain-rpc.publicnode.com',
+        'https://rpc.ankr.com/avalanche',
+        'https://avalanche.api.onfinality.io/public',
         'https://avalanche.drpc.org',
       ],
       tokenConfigKey: 'avax',

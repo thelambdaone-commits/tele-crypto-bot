@@ -11,6 +11,7 @@ export class OptimismChain extends EvmBaseProvider {
       fallbackRpcUrls: [
         'https://mainnet.optimism.io',
         'https://optimism-rpc.publicnode.com',
+        'https://rpc.ankr.com/optimism',
         'https://optimism.drpc.org',
         'https://optimism.gateway.tenderly.co',
       ],

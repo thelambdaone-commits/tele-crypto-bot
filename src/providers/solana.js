@@ -36,13 +36,19 @@ export class SolanaChain extends BaseProvider {
     // first burst (1rpc/leorpc), so the keyless survivor set is small:
     //  • Lava — open-source decentralized RPC gateway; 99% over a 200-req burst,
     //    0×429, and (unlike publicnode) it serves getTokenAccountsByOwner, so it
-    //    also backs the token-scan path.
-    //  • publicnode — rock-solid for getBalance, but BLOCKS the token-scan
-    //    method (programId filter is rejected), hence balance-only.
-    //  • mainnet-beta — official, but 429s ~half of a burst; last resort.
+    //    also backs the token-scan path. Rate limit: ~1000 req/min free tier.
+    //  • mainnet-beta — official Solana Labs endpoint; 100 req/10s per IP,
+    //    40 req/10s per method. 429s under burst; last resort only.
+    //
+    // Removed (verified dead / broken as of Jul 2026):
+    //  • Ankr — now requires API key for Solana (403: "API key is not allowed")
+    //  • PublicNode — blocks getTokenAccountsByOwner (403: "blocked parameter
+    //    programId"), only useful for getBalance but gets marked unhealthy from
+    //    token-scan failures which also removes it from balance queries
+    //  • Extrnode — public endpoint unreachable (fetch failed), now requires
+    //    free account registration for access
     const staticFallbacks = [
       'https://solana.lava.build',
-      'https://solana-rpc.publicnode.com',
       'https://api.mainnet-beta.solana.com',
     ];
     const allUrls = [rpcUrl, ...configuredFallbacks, ...staticFallbacks].filter(Boolean);
@@ -76,14 +82,14 @@ export class SolanaChain extends BaseProvider {
         balanceLamports: balance.toString(),
         symbol: this.symbol,
       };
-    }, { requestTimeoutMs: 10000, failureThreshold: 3, cacheTtlMs: 5000, rps: 10, rpsBurst: 10 });
+    }, { requestTimeoutMs: 15000, failureThreshold: 3, cacheTtlMs: 5000, rps: 10, rpsBurst: 10 });
 
     this.tokenRpc = new RpcManager(this.endpoints, async (endpoint, { publicKey }) => {
       const conn = this._getConnection(endpoint);
       return await conn.getParsedTokenAccountsByOwner(publicKey, {
         programId: TOKEN_PROGRAM_ID,
       });
-    }, { requestTimeoutMs: 15000, failureThreshold: 3, cacheTtlMs: 10000, rps: 5, rpsBurst: 5 });
+    }, { requestTimeoutMs: 20000, failureThreshold: 3, cacheTtlMs: 10000, rps: 5, rpsBurst: 5 });
   }
 
   async createWallet() {
@@ -417,13 +423,14 @@ export class SolanaChain extends BaseProvider {
     const fromAta = await getAssociatedTokenAddress(mint, fromKeypair.publicKey);
     const toAta = await getAssociatedTokenAddress(mint, toPublicKey);
 
-    const transaction = new Transaction();
+    // Build base instructions once — ATA creation check is a read, not retried.
+    const baseInstructions = [];
 
     if (feeLevel !== 'slow') {
       const fees = await this.estimateFees('', '', 0);
       const priorityFee = fees[feeLevel]?.priorityFee || 0;
       if (priorityFee > 0) {
-        transaction.add(
+        baseInstructions.push(
           ComputeBudgetProgram.setComputeUnitPrice({
             microLamports: Math.floor((priorityFee * 1000) / 200000),
           })
@@ -434,13 +441,13 @@ export class SolanaChain extends BaseProvider {
     try {
       await getAccount(this.connection, toAta);
     } catch {
-      transaction.add(
+      baseInstructions.push(
         createAssociatedTokenAccountInstruction(fromKeypair.publicKey, toAta, toPublicKey, mint)
       );
     }
 
     const rawAmount = BigInt(Math.round(Number(amount) * 10 ** cfg.decimals));
-    transaction.add(
+    baseInstructions.push(
       createTransferCheckedInstruction(
         fromAta,
         mint,
@@ -451,22 +458,67 @@ export class SolanaChain extends BaseProvider {
       )
     );
 
-    try {
-      const signature = await sendAndConfirmTransaction(this.connection, transaction, [fromKeypair]);
-      return {
-        hash: signature,
-        from: fromKeypair.publicKey.toString(),
-        to: toPublicKey.toString(),
-        amount: amount.toString(),
-        symbol: sym,
-        status: 'success',
-      };
-    } catch (error) {
-      let code = ERROR_CODES.BROADCAST_FAILED;
-      if (error.message.includes('insufficient funds')) code = ERROR_CODES.INSUFFICIENT_FUNDS;
-      else if (error.message.includes('Simulation failed')) code = ERROR_CODES.SIMULATION_ERROR;
-      throw new TransactionError(error.message, { code, chain: 'SOL', details: error });
+    // Retry across all endpoints — same resilience pattern as SOL sends.
+    const maxAttempts = this.endpoints.length;
+    let lastError;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const url = this.endpoints[attempt % this.endpoints.length];
+      const conn = this._getConnection(url);
+
+      try {
+        const transaction = new Transaction();
+        baseInstructions.forEach((ix) => transaction.add(ix));
+
+        const { blockhash } = await conn.getLatestBlockhash('confirmed');
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = fromKeypair.publicKey;
+        transaction.signatures = [];
+        transaction.partialSign(fromKeypair);
+
+        const signature = await sendAndConfirmTransaction(conn, transaction, [fromKeypair], {
+          skipPreflight: false,
+          preflightCommitment: 'confirmed',
+          commitment: 'confirmed',
+        });
+
+        this.balanceRpc.invalidateCache('rpc', {
+          address: fromKeypair.publicKey.toString(),
+        });
+
+        return {
+          hash: signature,
+          from: fromKeypair.publicKey.toString(),
+          to: toPublicKey.toString(),
+          amount: amount.toString(),
+          symbol: sym,
+          status: 'success',
+        };
+      } catch (error) {
+        lastError = error;
+        const sigMatch = error.message?.match(/signature: (\w+)/);
+        if (sigMatch) {
+          const sig = sigMatch[1];
+          const landed = await this._checkSignature(sig);
+          if (landed) {
+            return {
+              hash: sig,
+              from: fromKeypair.publicKey.toString(),
+              to: toPublicKey.toString(),
+              amount: amount.toString(),
+              symbol: sym,
+              status: 'success',
+            };
+          }
+        }
+      }
     }
+
+    let code = ERROR_CODES.BROADCAST_FAILED;
+    const msg = (lastError && lastError.message) || 'Unknown error';
+    if (msg.includes('insufficient funds')) code = ERROR_CODES.INSUFFICIENT_FUNDS;
+    else if (msg.includes('Simulation failed')) code = ERROR_CODES.SIMULATION_ERROR;
+    throw new TransactionError(msg, { code, chain: 'SOL', details: lastError });
   }
 
   async getTransactionHistory(address, limit = 5) {
