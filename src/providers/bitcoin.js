@@ -328,7 +328,7 @@ export class BitcoinChain extends BaseProvider {
         hash: utxo.txid,
         index: utxo.vout,
         witnessUtxo: {
-          script: Buffer.from(
+          script: new Uint8Array(
             bitcoin.payments.p2wpkh({ pubkey: keyPair.publicKey, network: this.network }).output,
           ),
           value: BigInt(utxo.value),

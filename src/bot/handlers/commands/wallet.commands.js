@@ -86,7 +86,8 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
 
     if (args.length === 0) {
       const lines = PUBLIC_CHAINS.map((c) => `• <code>/gen ${c}</code> — ${CHAIN_DISPLAY[c]}`).join('\n');
-      return ctx.reply(
+      return sendChunked(
+        ctx,
         '🎲 <b>Génération de Wallet</b>\n\n' + 'Utilise cette commande avec le réseau souhaité :\n\n' + lines,
         { parse_mode: 'HTML' }
       );
@@ -126,7 +127,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
         await ctx.telegram.deleteMessage(chatId, loadingMsg.message_id);
       } catch (e) {}
 
-      const sentMsg = await ctx.reply(message, {
+      const sentMsg = await sendChunked(ctx, message, {
         parse_mode: 'HTML',
         ...mainReplyKeyboard(),
       });
@@ -314,7 +315,7 @@ export function setupWalletCommands(bot, storage, walletService, sessions) {
         text += `🔗 <code>${truncateAddress(tx.hash, 10, 8)}</code>\n\n`;
       }
 
-      await ctx.reply(text, { parse_mode: 'HTML' });
+      await sendChunked(ctx, text, { parse_mode: 'HTML' });
     } catch (error) {
       try {
         await ctx.telegram.deleteMessage(ctx.chat.id, loadingMsg.message_id);

@@ -437,7 +437,7 @@ export function setupSendActions(bot, storage, walletService, sessions, paymentS
     const text = await formatTxDetails(data, actualFeeLevel);
 
     sessions.setState(chatId, 'CONFIRM_SEND');
-    ctx.editMessageText(text, {
+    await safeEditMessage(ctx, text, {
       parse_mode: 'HTML',
       ...confirmationKeyboard(),
     });

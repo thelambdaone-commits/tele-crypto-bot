@@ -49,6 +49,8 @@ export class SolanaChain extends BaseProvider {
     //    free account registration for access
     const staticFallbacks = [
       'https://solana.lava.build',
+      'https://rpc.solanatracker.io/public',
+      'https://solana.api.onfinality.io/public',
       'https://api.mainnet-beta.solana.com',
     ];
     const allUrls = [rpcUrl, ...configuredFallbacks, ...staticFallbacks].filter(Boolean);

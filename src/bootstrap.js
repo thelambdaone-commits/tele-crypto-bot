@@ -14,7 +14,7 @@ import { registerBotCommands } from './bot/bot-commands.js';
 // content, a stale callback, a blocked/deleted chat). They must NOT be logged as
 // real errors nor surfaced to the user as "an error occurred".
 const BENIGN_TELEGRAM_ERROR =
-  /message is not modified|query is too old|message can't be edited|message to (edit|delete) not found|bot was blocked|user is deactivated|chat not found|MESSAGE_ID_INVALID|forbidden/i;
+  /message is not modified|query is too old|message can't be edited|message to (edit|delete) not found|bot was blocked|user is deactivated|chat not found|MESSAGE_ID_INVALID|forbidden|Too Many Requests/i;
 
 // Transient network failures that warrant a retry rather than aborting startup.
 // A blip reaching api.telegram.org at boot must never permanently disable polling.

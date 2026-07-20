@@ -1,6 +1,7 @@
 import { Markup } from 'telegraf';
 import { getPricesEUR, formatEUR, formatCryptoPricesEUR, PRICE_GROUPS } from '../../../shared/price.js';
 import { generatePriceChart, parseGraphCommand } from '../../../shared/chart.js';
+import { formatPriceEUR } from '../../../shared/formatters.js';
 import { COIN_IDS } from '../../../shared/coingecko.js';
 import { getEthFees, getBtcFees, getSolFees, SOL_TYPICAL_CU, SOL_BASE_LAMPORTS } from '../../../shared/fees.js';
 import { escapeHtml } from '../../../shared/utils/telegram.js';
@@ -38,7 +39,7 @@ async function sendChart(ctx, symbol, days = 365) {
     const changeEmoji = stats.isPositive ? '📈' : '📉';
     const caption =
       `${changeEmoji} <b>${escapeHtml(symbol.toUpperCase())}</b> — ${stats.periodLabel}\n\n` +
-      `💰 Prix : <b>€${stats.currentPrice.toLocaleString('fr-FR')}</b>\n` +
+      `💰 Prix : <b>€${formatPriceEUR(stats.currentPrice)}</b>\n` +
       `📊 Var. : <b>${stats.isPositive ? '+' : ''}${stats.priceChange.toFixed(2)}%</b>\n` +
       `🕒 Mis à jour le <b>${stats.generatedAtLabel}</b>`;
     const kb = Markup.inlineKeyboard([

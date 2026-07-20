@@ -2,6 +2,7 @@
  * Chart Generation Service - Creates price charts for cryptocurrencies
  */
 import { formatPriceUpdateDate } from './price.js';
+import { formatPriceEUR } from './formatters.js';
 import { COINGECKO_API, COIN_IDS, fetchWithFallback, COINGECKO_API_KEY } from './coingecko.js';
 
 const width = 800;
@@ -121,6 +122,59 @@ function hexToRgb(hex) {
   if (!m) return [247, 147, 26];
   const int = parseInt(m[1], 16);
   return [(int >> 16) & 255, (int >> 8) & 255, int & 255];
+}
+
+function generateCustomTicks(minPrice, maxPrice) {
+  const exp = Math.floor(Math.log10(Math.abs(maxPrice)));
+  const base = Math.pow(10, exp);
+  const range = maxPrice - minPrice;
+  const steps = [1, 2, 2.5, 5, 10];
+  let step = base;
+  for (let i = 0; i < steps.length - 1; i++) {
+    const candidate = base * steps[i];
+    if (range / candidate <= 6.5) {
+      step = candidate;
+      break;
+    }
+  }
+
+  // Base du step adaptée
+  let st = step;
+  if (exp < -2) {
+    st = base * 2.5;
+    if (range / st < 2) st = base * 2;
+    if (range / st < 1) st = base * 1;
+    if (range / st < 0.5) st = base / 2;
+  }
+  if (exp <= -5) {
+    st = base * 2.5;
+    if (range / st <= 3) st = base * 2;
+    if (range / st <= 2) st = base * 1;
+    if (range / st <= 1.2) st = base / 2;
+    if (range / st <= 0.7) st = base / 4;
+  }
+
+  // Premier tick >= minPrice
+  let firstTick = Math.ceil(minPrice / st) * st;
+  // Dernier tick <= maxPrice
+  let lastTick = Math.floor(maxPrice / st) * st;
+
+  // Assurer au moins 2 ticks
+  if (lastTick < firstTick) {
+    lastTick = firstTick + st;
+  }
+  if (lastTick === firstTick) {
+    firstTick = firstTick - st;
+  }
+  if (lastTick - firstTick > 6 * st) {
+    lastTick = firstTick + 5 * st;
+  }
+
+  const ticks = [];
+  for (let v = firstTick; v <= lastTick + st / 2; v += st) {
+    ticks.push({ value: Math.round(v * 1e12) / 1e12 });
+  }
+  return ticks;
 }
 
 const SUPPORTED_TOKENS_LABEL = Object.keys(COINGECKO_IDS).join(', ');
@@ -379,11 +433,19 @@ export async function generatePriceChart(chain, days) {
           ticks: {
             color: '#cbd5e1',
             padding: 8,
-            callback: (value) => `€${value.toLocaleString('fr-FR')}`,
+            callback: (value) => `€${formatPriceEUR(value)}`,
           },
           grid: { color: 'rgba(255,255,255,0.08)' },
-          min: minPrice * 0.98,
-          max: maxPrice * 1.02,
+          afterDataLimits: (axis) => {
+            if (maxPrice > 0.01) return;
+            const pad = (axis.max - axis.min) * 0.03;
+            axis.min = axis.min - pad;
+            axis.max = axis.max + pad;
+          },
+          afterBuildTicks: (axis) => {
+            if (maxPrice > 0.01) return;
+            axis.ticks = generateCustomTicks(axis.min, axis.max);
+          },
         },
       },
     },
