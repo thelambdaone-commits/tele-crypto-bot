@@ -74,6 +74,21 @@ export class App {
       `Admin ID: ${config.adminChatId.length > 0 ? `${config.adminChatId.length} configure(s)` : 'Non configure'}`
     );
 
+    // Lightweight Lightning node health check at startup — warn but don't block.
+    if (config.lightning?.url && config.lightning?.password) {
+      try {
+        const { LightningService } = await import('./modules/payments/lightning.service.js');
+        const ln = new LightningService();
+        const bal = await ln.getBalance();
+        logger.info('Lightning node reachable', { balanceSat: bal.balanceSat });
+      } catch (e) {
+        logger.warn('Lightning node unreachable at startup — ⚡ invoices will fail until phoenixd is started', {
+          url: config.lightning.url,
+          error: e.message,
+        });
+      }
+    }
+
     return this;
   }
 

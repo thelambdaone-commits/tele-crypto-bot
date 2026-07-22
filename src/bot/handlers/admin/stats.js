@@ -24,8 +24,9 @@ export function setupAdminStats(bot, storage, walletService) {
       const globalBalances = {};
       const users = await storage.getAllUsers();
 
-      // Helper: fetch with timeout (5s per user max)
-      const fetchWithTimeout = async (fn, timeoutMs = 5000) => {
+      // Helper: fetch with timeout (15s per user — some chains like XMR/ZEC
+      // route through Tor or have slow RPCs, and users may hold 15 wallets)
+      const fetchWithTimeout = async (fn, timeoutMs = 15000) => {
         return Promise.race([
           fn(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutMs)),
@@ -34,22 +35,34 @@ export function setupAdminStats(bot, storage, walletService) {
 
       let failedFetches = 0;
 
-      for (const user of users) {
-        try {
-          const balances = await fetchWithTimeout(
-            () => walletService.getAllBalances(user.chatId),
-            5000
-          );
-          for (const wallet of balances) {
-            if (wallet.balance && wallet.balance !== 'Erreur') {
-              const balance = Number.parseFloat(wallet.balance);
-              if (!isNaN(balance)) {
-                globalBalances[wallet.chain] = (globalBalances[wallet.chain] || 0) + balance;
+      // Process users in batches of 5 for parallel balance fetches
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < users.length; i += BATCH_SIZE) {
+        const batch = users.slice(i, i + BATCH_SIZE);
+        const results = await Promise.allSettled(
+          batch.map(async (user) => {
+            const balances = await fetchWithTimeout(
+              () => walletService.getAllBalances(user.chatId)
+            );
+            return { chatId: user.chatId, balances };
+          })
+        );
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            for (const wallet of result.value.balances) {
+              if (wallet.balance && wallet.balance !== 'Erreur') {
+                const balance = Number.parseFloat(wallet.balance);
+                if (!isNaN(balance)) {
+                  globalBalances[wallet.chain] = (globalBalances[wallet.chain] || 0) + balance;
+                }
               }
             }
+          } else {
+            failedFetches++;
+            logger.warn('Stats: failed to fetch balances', {
+              reason: result.reason?.message,
+            });
           }
-        } catch (e) {
-          failedFetches++;
         }
       }
 
@@ -90,7 +103,7 @@ export function setupAdminStats(bot, storage, walletService) {
       text += `\n💎 <b>Total Global : ${formatEUR(totalEUR)}</b>\n`;
 
       if (failedFetches > 0) {
-        text += `\n⚠️ <i>${failedFetches} user(s) non récupéré(s) (API timeout)</i>`;
+        text += `\n⚠️ <i>${failedFetches} user(s) non récupéré(s) (RPC timeout 15s)</i>`;
       }
 
       try {

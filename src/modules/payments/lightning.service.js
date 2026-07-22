@@ -39,7 +39,18 @@ export class LightningService {
       opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
       opts.body = new URLSearchParams(form).toString();
     }
-    const res = await this._fetch(`${this.url}${path}`, opts);
+    let res;
+    try {
+      res = await this._fetch(`${this.url}${path}`, opts);
+    } catch (e) {
+      const code = e?.cause?.code || e?.code || '';
+      if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ECONNRESET' || code === 'ETIMEDOUT') {
+        throw new Error(
+          `Lightning node injoignable (${code}) sur ${this.url}. Vérifiez que phoenixd est lancé.`
+        );
+      }
+      throw new Error(`Erreur réseau Lightning : ${e.message || code}`);
+    }
     // phoenixd returns JSON for most calls but a bare txid string for
     // /sendtoaddress — read text first, then try to parse.
     const text = typeof res.text === 'function' ? await res.text() : '';

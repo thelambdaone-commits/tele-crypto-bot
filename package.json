@@ -11,7 +11,7 @@
     "dev": "node --watch src/index.js",
     "lint": "eslint src/ --ignore-pattern node_modules/",
     "lint:fix": "eslint src/ --ignore-pattern node_modules/ --fix",
-    "format": "prettier --write src/ --ignore-pattern node_modules/",
+    "format": "prettier --write src/",
     "test": "node --test tests",
     "ci": "npm run lint && npm test && npm run precheck",
     "config:check": "node scripts/config-check.js",

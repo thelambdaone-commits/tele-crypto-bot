@@ -60,6 +60,24 @@ export class WalletService {
     };
   }
 
+  _requireChain(chain) {
+    const handler = this.chains[chain.toLowerCase()];
+    if (!handler) {
+      throw new Error(`Blockchain non supportée: ${chain}`);
+    }
+    return handler;
+  }
+
+  async _requireWallet(chatId, walletId) {
+    const wallets = await this.storage.getWallets(chatId);
+    const wallet = wallets.find((w) => w.id === walletId);
+    if (!wallet) {
+      throw new Error('Wallet non trouvé');
+    }
+    const chainHandler = this._requireChain(wallet.chain);
+    return { wallet, chainHandler };
+  }
+
   async getNextWalletLabel(chatId, chain) {
     const normalizedChain = chain.toLowerCase();
     const prefix = `Wallet ${normalizedChain.toUpperCase()}`;
@@ -91,10 +109,7 @@ export class WalletService {
    * Create wallet - no passphrase
    */
   async createWallet(chatId, chain, label = null) {
-    const chainHandler = this.chains[chain.toLowerCase()];
-    if (!chainHandler) {
-      throw new Error(`Blockchain non supportee: ${chain}`);
-    }
+    const chainHandler = this._requireChain(chain);
 
     const wallet = await chainHandler.createWallet();
     wallet.chain = chain;
@@ -173,10 +188,7 @@ export class WalletService {
    * Get balance for any public address (no wallet needed)
    */
   async getPublicAddressBalance(chain, address) {
-    const chainHandler = this.chains[chain.toLowerCase()];
-    if (!chainHandler) {
-      throw new Error(`Blockchain non supportee: ${chain}`);
-    }
+    const chainHandler = this._requireChain(chain);
     return await chainHandler.getBalance(address);
   }
 
@@ -184,10 +196,7 @@ export class WalletService {
    * Get all tokens for any public address (no wallet needed)
    */
   async getPublicAddressTokens(chain, address) {
-    const chainHandler = this.chains[chain.toLowerCase()];
-    if (!chainHandler) {
-      throw new Error(`Blockchain non supportee: ${chain}`);
-    }
+    const chainHandler = this._requireChain(chain);
 
     if (chain === 'sol') {
       return await chainHandler.getAllTokensWithSymbols(address);
@@ -230,14 +239,7 @@ export class WalletService {
    * Estimate transaction fees
    */
   async estimateFees(chatId, walletId, toAddress, amount, tokenSymbol = null) {
-    const wallets = await this.storage.getWallets(chatId);
-    const wallet = wallets.find((w) => w.id === walletId);
-
-    if (!wallet) {
-      throw new Error('Wallet non trouve');
-    }
-
-    const chainHandler = this.chains[wallet.chain];
+    const { wallet, chainHandler } = await this._requireWallet(chatId, walletId);
     return await chainHandler.estimateFees(wallet.address, toAddress, amount, tokenSymbol);
   }
 
@@ -245,14 +247,7 @@ export class WalletService {
    * Get balance for wallet or token
    */
   async getBalance(chatId, walletId, tokenSymbol = null) {
-    const wallets = await this.storage.getWallets(chatId);
-    const wallet = wallets.find((w) => w.id === walletId);
-
-    if (!wallet) {
-      throw new Error('Wallet non trouve');
-    }
-
-    const chainHandler = this.chains[wallet.chain];
+    const { wallet, chainHandler } = await this._requireWallet(chatId, walletId);
     return await chainHandler.getBalance(wallet.address, tokenSymbol);
   }
 
@@ -265,12 +260,7 @@ export class WalletService {
    * return null so the caller keeps its own reserve-based estimate.
    */
   async getMaxSendable(chatId, walletId, feeLevel = 'slow') {
-    const wallets = await this.storage.getWallets(chatId);
-    const wallet = wallets.find((w) => w.id === walletId);
-    if (!wallet) {
-      throw new Error('Wallet non trouve');
-    }
-    const chainHandler = this.chains[wallet.chain];
+    const { wallet, chainHandler } = await this._requireWallet(chatId, walletId);
     if (typeof chainHandler.getMaxSendableLamports !== 'function') return null;
     const { lamports, feeLamports, balanceLamports } = await chainHandler.getMaxSendableLamports(
       wallet.address,
@@ -424,10 +414,7 @@ export class WalletService {
    * Import wallet from seed or private key
    */
   async importWallet(chatId, chain, type, input, label = null) {
-    const chainHandler = this.chains[chain.toLowerCase()];
-    if (!chainHandler) {
-      throw new Error(`Blockchain non supportee: ${chain}`);
-    }
+    const chainHandler = this._requireChain(chain);
 
     let walletData;
     if (type === 'seed') {
@@ -455,10 +442,7 @@ export class WalletService {
    * Validate address for a chain
    */
   validateAddress(chain, address) {
-    const chainHandler = this.chains[chain.toLowerCase()];
-    if (!chainHandler) {
-      throw new Error(`Blockchain non supportee: ${chain}`);
-    }
+    const chainHandler = this._requireChain(chain);
     return chainHandler.validateAddress(address);
   }
 
@@ -466,10 +450,7 @@ export class WalletService {
    * Get transaction history for an address
    */
   async getTransactionHistory(chain, address, limit = 5) {
-    const chainHandler = this.chains[chain.toLowerCase()];
-    if (!chainHandler) {
-      throw new Error(`Blockchain non supportee: ${chain}`);
-    }
+    const chainHandler = this._requireChain(chain);
 
     try {
       return await chainHandler.getTransactionHistory(address, limit);

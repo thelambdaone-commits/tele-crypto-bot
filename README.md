@@ -28,24 +28,40 @@ npm start
 | 💵 Prix EUR | CoinGecko integre (`/price`, `/gas`, `/graph`) — tous les coins/tokens pricés |
 | 🔐 Privacy | Monero & Zcash via Tor (optionnel) |
 | 👮 Admin | Panel, logs audit, rate limiting, stockage chiffre, secrets RPC |
+| 🌍 i18n | Interface bilingue français/anglais — le user toggle dans ⚙️ Paramètres |
+| 🧩 Captcha | Vérification mathématique à `/start` (admin skip) — anti-bot |
 
 ## 🏗️ Architecture
 
 ```
 src/
 ├── bot/                 # Interface Telegram: handlers, keyboards, textes, middlewares
-├── core/                # Config, stockage chiffre, sessions, monitor
-├── modules/             # Services metier: wallet/ + swap/ (echange no-KYC)
+│   ├── handlers/        # Un dossier par feature (start, wallet, send, deposit, admin, exchange, payments...)
+│   ├── keyboards/       # Clavieres centralisées
+│   ├── messages/        # i18n bundles fr.js + en.js
+│   ├── constants/       # CALLBACKS
+│   ├── patterns/        # confirmFlow, inputPrompt, createPaginator (réutilisables)
+│   ├── middlewares/     # auth, rate-limit, dedup, message-length
+│   └── ui/              # formatters, renderers
+├── core/                # Config, stockage chiffre, sessions, secret-vault, tokens
+│   └── session/         # SessionManager (in-memory + encrypted file)
+├── modules/             # Services metier
+│   ├── wallet/          # WalletService (orchestration multi-chain)
+│   ├── swap/            # ExchangeService (echange no-KYC Trocador)
+│   └── payments/        # PaymentService + Ledger + LightningService (facturation)
 ├── providers/           # Adaptateurs blockchain (un par chaine, 15 chaines)
-├── shared/              # Logger, chiffrement, prix, QR, securite, RPC resilient
-├── bootstrap.js         # Initialisation et verification au demarrage
+├── shared/              # Utilities
+│   ├── rpc/             # RpcManager (circuit breaker, cache TTL, rate limit par endpoint)
+│   ├── security/        # rate-limit + auto-blacklist, audit-logger
+│   └── utils/           # Telegram helpers (splitTelegramMessage, escapeHtml)
+├── bootstrap.js         # App class: init, middleware wiring, health checks
 └── index.js             # Point d'entree
 ```
 
 Le bot garde la couche Telegram (`bot/`) sans logique blockchain : elle delegue aux services de `modules/` et aux `providers/`.
 
 ```
-Telegram → Telegraf → middlewares (auth · rate-limit · circuit-breaker)
+Telegram → Telegraf → middlewares (auth · rate-limit · dedup · message-length)
         → handlers → modules/services → providers → RPC / APIs externes
 ```
 
@@ -135,6 +151,8 @@ Editez ensuite `.env` avec vos valeurs reelles.
 | `AVAX_RPC_URL` | `https://api.avax.network/ext/bc/C/rpc` |
 | `TON_RPC_URL` | `https://toncenter.com/api/v2/jsonRPC` |
 
+Les RPCs se résolvent d'abord depuis le **SecretVault** (`src/core/secret-vault.js`), puis `.env`, puis defaults hardcodés. Les admins peuvent overrider les endpoints RPC à runtime via le panel admin sans redéployer.
+
 </details>
 
 <details>
@@ -169,8 +187,9 @@ Editez ensuite `.env` avec vos valeurs reelles.
 L'invoicing on-chain marche sans config. Pour activer **Lightning** (BOLT11, règlement instantané), fais tourner un nœud **phoenixd** (ACINQ, liquidité auto) et branche son API HTTP :
 
 ```bash
-# Installer + lancer phoenixd : https://phoenix.acinq.co/server
-phoenixd
+# Installer phoenixd : https://phoenix.acinq.co/server
+# ARM64 Linux : https://github.com/ACINQ/phoenixd/releases
+phoenixd --silent
 # Le mot de passe HTTP est dans ~/.phoenix/phoenix.conf (http-password)
 ```
 
@@ -178,17 +197,15 @@ phoenixd
 | --- | --- |
 | `LN_BACKEND_URL` | `http://127.0.0.1:9740` |
 | `LN_PASSWORD` | *(http-password de phoenixd)* |
+| `LN_SWEEP_BTC_ADDRESS` | *(adresse cold BTC pour le sweep automatique)* |
+| `LN_SWEEP_THRESHOLD_SAT` | `500000` *(seuil en sats avant sweep)* |
+| `LN_SWEEP_INTERVAL_HOURS` | `6` *(intervalle de sweep)* |
 
-Sans ces variables, l'option ⚡ Lightning n'apparaît pas dans `/invoice`.
+Sans `LN_BACKEND_URL` + `LN_PASSWORD`, l'option ⚡ Lightning n'apparaît pas dans `/invoice`.
 
 </details>
 
 ## 🚀 Lancement
-
-```bash
-npm run precheck
-npm start
-```
 
 ### Mode developpement
 
@@ -196,43 +213,115 @@ npm start
 npm run dev
 ```
 
+### Production (pm2)
+
+Le projet inclut un `ecosystem.config.cjs` pour pm2 avec deux processus :
+
+- **telegram-crypto-bot** — le bot (Node.js, max 500 MB RAM)
+- **phoenixd** — le nœud Lightning (binaire natif, max 300 MB RAM)
+
+```bash
+# Installer pm2 globalement
+npm install -g pm2
+
+# Lancer les deux processus
+pm2 start ecosystem.config.cjs
+
+# Ou un seul
+pm2 start ecosystem.config.cjs --only telegram-crypto-bot
+pm2 start ecosystem.config.cjs --only phoenixd
+
+# Voir les logs
+pm2 logs
+pm2 monit
+
+# Sauvegarder la config (auto-restart au reboot)
+pm2 save
+
+# Auto-start au boot du serveur
+pm2 startup
+```
+
+**Notes** :
+- phoenixd doit être démarré avant le bot (le bot vérifie la connexion LN au boot)
+- `pm2 save` est requis pour persister la config après redémarrage
+- Les logs atterrissent dans `logs/` (rotation configurée)
+
 ## 🧪 Commandes Utiles
 
 ### Tests et verification
 
 ```bash
-npm test
-npm run precheck
-npm run lint
-npm run lint:fix
-npm run format
-npm run config:check
-npm run ci
+npm test                  # Tous les tests (node --test)
+npm run test:watch        # Watch mode
+npm run precheck          # Validate .env + encrypted storage
+npm run lint              # ESLint (0 warnings attendus)
+npm run lint:fix          # Auto-fix
+npm run format            # Prettier
+npm run config:check      # Validate config
+npm run ci                # lint + test + precheck
+npm run check:exports     # Decrypt & list credential export files
 ```
 
 ### Commandes Telegram
 
 | Commande | Role |
 | --- | --- |
+| `/start` | Onboarding + captcha anti-bot (admin skip) |
 | `/wallet`, `/gen <reseau>` | Lister / generer un wallet |
 | `/bal <reseau> <adresse>`, `/tx <reseau> <adresse>` | Solde / historique d'une adresse |
 | `/send <reseau> <adresse> <montant>` | Envoyer des fonds |
 | `/price`, `/gas`, `/graph <token> <periode>`, `/unit` | Infos marche |
 | `/swaps`, `/list` | Échange sans KYC / liste des coins & tokens supportés |
+| `/invoice` | Créer une facture crypto (on-chain ou ⚡ Lightning) |
+| `/invoices` | Voir mes factures récentes + statut |
 | `/menu`, `/help`, `/chains`, `/learn` | Navigation et aide |
+
+### Admin uniquement
+
+| Commande | Role |
+| --- | --- |
+| `/admin` | Panel admin (stats, users, actions, secrets, audit) |
+| `/treasury` | Trésorerie Lightning : solde nœud, payouts, sweep manuel |
+| `/audit` | Rapport sécurité passif (config, rate-limit, RPC, injection scan) |
+
+## 🌍 i18n (Bilingue)
+
+Le bot est entièrement bilingue **français** (défaut) et **anglais**. L'utilisateur peut basculer dans ⚙️ Paramètres.
+
+- Bundles : `src/bot/messages/fr.js` + `en.js` (clé-par-clé, vérifié par `tests/i18n-parity.test.js`)
+- Fonction : `t(lang, 'dot.path', ...args)` depuis `src/bot/messages/index.js`
+- Les labels de clavier sont localisés → les `bot.hears(...)` matchers aussi
 
 ## 🔒 Securite
 
-- Les private keys et mnemonic sont stockes chiffres avec `MASTER_ENCRYPTION_KEY`.
-- Les handlers ne renvoient pas les secrets en clair dans Telegram.
-- Les logs d'audit evitent les valeurs sensibles.
+- Les private keys et mnemonic sont stockes **chiffres** avec `MASTER_ENCRYPTION_KEY` (AES-256-GCM, dérivée par user via chatId).
+- Chaque user a son propre fichier `<chatId>.enc` — les données ne se mélangent jamais.
+- Les handlers ne renvoient pas les secrets en clair dans Telegram (auto-delete 30-60s + `escapeHtml`).
+- Les logs d'audit evitent les valeurs sensibles (`redactKeys` set + `redactUrl` pour les API keys dans les URLs).
+- Rate limiting multi-niveaux : 30/min global, burst 10/10s, sensitive 5/min, transactions 3/min.
+- Auto-blacklist persistante via SecretVault.
+- Le bot auto-leave les groupes non autorisés.
+- Refus de boot si `sessions.json` existe en clair.
 - `.env` ne doit jamais etre committe.
 - `npm audit` peut signaler des vulnerabilites transitives dans la stack Solana actuelle. Ne lancez pas `npm audit fix --force` sans review, car npm peut proposer des versions incompatibles ou regressives.
+
+## 🏗️ RPC Resilience
+
+Le projet utilise `RpcManager` (`src/shared/rpc/RpcManager.js`) pour les lectures blockchain :
+
+- **Circuit breaker** — ouvre après X échecs, se auto-répare
+- **Health ranking** — les endpoints sains passent en priorité
+- **Cache TTL** — les appels répétés sont dédupliqués (balances 15s, fees 60s)
+- **Rate limiting** — token-bucket par endpoint
+
+Les **écritures** (send) ne passent PAS par RpcManager : EVM utilise ethers FallbackProvider, Solana a sa propre boucle re-sign/retry, les UTXO broadcastent sur plusieurs explorers.
 
 ## 📝 Notes Production
 
 - Utilisez Node `>=20.18.0`.
 - Gardez une sauvegarde securisee de `MASTER_ENCRYPTION_KEY`; sans elle, les secrets stockes ne seront plus lisibles.
+- **Backup seed** : si vous utilisez Lightning, sauvegardez `~/.phoenix/seed.dat` (12 mots) — sans elle, les fonds sur les canaux Lightning sont irrécupérables.
 - Protegez le dossier `data/`.
 - Surveillez regulierement `npm audit`, mais appliquez les corrections de dependances avec prudence.
 
